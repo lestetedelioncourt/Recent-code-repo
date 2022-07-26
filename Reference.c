@@ -7252,3 +7252,2295 @@ int main(int argc, char **argv){
 	pause();
 	return 0;
 }
+	
+==> client.c <==
+#include "client.h"
+
+short socketCreate(){
+    short hSocket;
+    printf("Create the socket\n");
+    hSocket = socket(AF_INET, SOCK_STREAM, 0);
+    return hSocket;
+}
+
+int socketConnect(int hSocket){
+    int iRetval = -1;
+    int ServerPort = 12345;
+    
+    struct sockaddr_in remote = {0};
+    remote.sin_addr.s_addr = inet_addr("127.0.0.1"); // localhost
+    remote.sin_family = AF_INET;                     // Internet Addrees Family IPv4
+    remote.sin_port = htons(ServerPort);             // local port
+
+    iRetval = connect(hSocket, (struct sockaddr*) &remote, sizeof(struct sockaddr_in));
+    return iRetval;
+}
+
+int socketSend(int hSocket, char* serialized_data, short len_serialized_data){
+    int shortRetval = -1;
+    struct timeval tv;
+    tv.tv_sec = 20; //20 sec timeout
+    tv.tv_usec = 0;
+
+    if (setsockopt(hSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, sizeof(tv)) < 0){
+        printf("Time out\n");
+        return -1;
+    }
+    
+    shortRetval = send(hSocket, serialized_data, len_serialized_data, 0);
+    return shortRetval;
+}
+
+int socketReceive(int hSocket, char* serialized_data, short len_serialized_data){
+    int shortRetval = -1;
+    struct timeval tv;
+    tv.tv_sec = 20;
+    tv.tv_usec = 0;
+
+    if (setsockopt(hSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, sizeof(tv)) < 0){
+        printf("Time out\n");
+        return -1;
+    }
+
+    shortRetval = recv(hSocket, serialized_data, len_serialized_data, 0);
+    return shortRetval;
+}
+
+==> client.h <==
+#ifndef CLIENT_H
+#define CLIENT_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
+//Create a socket for client communication
+short socketCreate();
+
+//try to connect with Server
+int socketConnect(int hSocket);
+
+//Send the data to the server and set the timeout of 20 seconds
+int socketSend(int hSocket, char* Rqst, short lenRqst);
+
+//Receive the data from the server
+int socketReceive(int hSocket, char* Rsp,short Rvcsize);
+
+#endif
+
+==> de_serialize_person1.c <==
+#include "serialized_buffer.h"
+
+struct occupation {
+    char dept_name[30];
+    int employee_code;
+};
+
+typedef struct person {
+    char name[30];
+    int age;
+    struct occupation occ;
+    int weight;
+} person_t;
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    struct occupation *obj = calloc(1, sizeof(struct occupation));
+    de_serialize_data((char*)obj->dept_name, buff, 30);
+    de_serialize_data((char*)&obj->employee_code, buff, sizeof(int));
+    
+    return obj;
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    struct occupation* occ = de_serialize_occupation(buff);
+    obj->occ = *occ;
+    free(occ);
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> de_serialize_person2.c <==
+#include "serialized_buffer.h"
+
+struct occupation {
+    char dept_name[30];
+    int employee_code;
+};
+
+typedef struct person {
+    char name[30];
+    int age;
+    struct occupation occ;
+    int weight;
+} person_t;
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    struct occupation *obj = calloc(1, sizeof(struct occupation));
+    de_serialize_data((char*)obj->dept_name, buff, 30);
+    de_serialize_data((char*)&obj->employee_code, buff, sizeof(int));
+    
+    return obj;
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    obj->occ = de_serialize_occupation(buff);
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> de_serialize_person.c <==
+#include "serialized_buffer.h"
+
+typedef struct person {
+    char name[30];
+    int age;
+    int weight;
+} person_t;
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> intlinkedlist.c <==
+#include "intlinkedlist.h"
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_list_node_t(obj->head, buff);
+}
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_int((&obj->data), buff);
+    serialize_list_node_t(obj->right, buff);
+}
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    struct list_node_t* obj = calloc(1, sizeof(struct list_node_t));
+    de_serialize_int(buff, (&obj->data));
+    obj->right = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* de_serialize_list_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+    reset_serialize_buffer(buff);
+
+    list_t* obj = calloc(1, sizeof(list_t));
+    obj->head = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* new_linked_list(){
+    list_t * newlist = (list_t*)calloc(1,sizeof(list_t));
+    newlist->head = NULL;
+    return newlist;
+}
+
+int add_int_to_linked_list(list_t* linkedlist, int newitem){
+    if (!linkedlist)
+        return -1;
+
+    struct list_node_t** currentNode;
+    currentNode = &linkedlist->head;
+
+    while (*currentNode != NULL)
+        currentNode = &(*currentNode)->right;
+    
+    *currentNode = (struct list_node_t*)calloc(1, sizeof(struct list_node_t));
+    (*currentNode)->data = newitem;
+    (*currentNode)->right = NULL;
+
+    return 0;
+}
+
+void print_linked_list(list_t linkedlist){
+    int i = 0;
+    struct list_node_t* currentNode = linkedlist.head;
+    while (currentNode != NULL) {
+        printf("Data item %d: %d\n", i, currentNode->data);
+        currentNode = currentNode->right;
+        i++;
+    }
+}
+
+==> intlinkedlist.h <==
+#ifndef LINKED_LIST_H
+#define LINKED_LIST_H
+#include "tree.h"
+
+struct list_node_t {
+    int data;
+    struct list_node_t* right;
+};
+
+typedef struct list {
+    struct list_node_t *head;
+} list_t;
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff);
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff);
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff);
+
+list_t* de_serialize_list_t(ser_buff_t *buff);
+
+list_t* new_linked_list();
+
+int add_int_to_linked_list(list_t* linkedlist, int newitem);
+
+void print_linked_list(list_t linkedlist);
+
+#endif
+
+==> linkedlist.c <==
+#include "linkedlist.h"
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_list_node_t(obj->head, buff);
+}
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_person_t(obj->data, buff);
+    serialize_list_node_t(obj->right, buff);
+}
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    struct list_node_t* obj = calloc(1, sizeof(struct list_node_t));
+    obj->data = de_serialize_person_t(buff);
+    obj->right = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* de_serialize_list_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    list_t* obj = calloc(1, sizeof(list_t));
+    obj->head = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+==> linkedlist.h <==
+#ifndef LINKED_LIST_H
+#define LINKED_LIST_H
+#include "person1.h"
+
+struct list_node_t {
+    person_t* data;
+    struct list_node_t* right;
+};
+
+typedef struct list {
+    struct list_node_t *head;
+} list_t;
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff);
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff);
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff);
+
+list_t* de_serialize_list_t(ser_buff_t *buff);
+
+#endif
+
+==> main1.c <==
+#include "intlinkedlist.h"
+#include "server.h"
+
+int sum_linked_list(list_t linkedlist){
+    int sum = 0;
+    struct list_node_t* currentNode = linkedlist.head;
+
+    while (currentNode){
+        sum += currentNode->data;
+        currentNode = currentNode->right;
+    }
+
+    return sum;
+}
+
+int main(){
+    int socket_desc = 0, sock = 0, clientLen = 0;
+    struct sockaddr_in client;
+   
+    ser_buff_t *buff;
+    init_serialized_buffer(&buff);
+
+    socket_desc = socketCreate();
+    if (socket_desc == -1){
+        printf("Could not create socket");
+        return -1;
+    }
+
+    printf("Socket created\n");
+
+    if (bindCreatedSocket(socket_desc) < 0){
+        printf("Could not bind created socket\n");
+        return -1;
+    }
+
+    listen(socket_desc, 3);
+
+    while(1){
+        printf("Waiting for incoming connections...\n");
+        clientLen = sizeof(struct sockaddr_in);
+        sock = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&clientLen);
+
+        if (sock < 0){
+            perror("accept failed");
+            return -1;
+        }
+
+        printf("Connection accepted\n");
+        
+        if (recv(sock, buff->b, buff->size, 0) < 0){
+            perror("Receive failed");
+            break;
+        }
+
+        list_t* secondlist = de_serialize_list_t(buff);
+        
+        printf("\n");
+        print_linked_list(*secondlist);
+        int sum = sum_linked_list(*secondlist);
+        printf("Sum: %d\n", sum);
+        memset(buff->b, '\0', buff->size);
+        reset_serialize_buffer(buff);
+        serialize_int(&sum, buff);
+        
+        if (send(sock, buff->b, buff->size, 0) < 0){
+            printf("send failed\n");
+            return 1;
+        }
+
+        close(sock);
+        sleep(1);
+    }
+
+    return 0;
+}
+
+==> main2.c <==
+#include "intlinkedlist.h"
+#include "client.h"
+
+int main(){
+    list_t* firstlist = new_linked_list();
+
+    add_int_to_linked_list(firstlist, 2) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 5) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 8) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 3) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+
+    print_linked_list(*firstlist);
+
+    ser_buff_t *buff;
+    init_serialized_buffer(&buff);
+    serialize_list_t(firstlist, buff);
+
+    int hSocket = 0, sum = 0;
+    struct sockaddr_in server;
+    
+    hSocket = socketCreate();
+    if (hSocket == -1){
+        printf("Could not create socket\n");
+        return 1;
+    }    
+
+    printf("Socket is created\n");
+
+    if (socketConnect(hSocket) < 0){
+        printf("Connection failed.\n");
+        close(hSocket);
+        return -1;
+    }
+
+    printf("Successfully connected with server\n");
+    if (socketSend(hSocket, buff->b, buff->size) < 0){
+        printf("Send failed\n");
+        close(hSocket);
+        return -1;
+    }
+
+    ser_buff_t* newbuff;
+    init_serialized_buffer(&newbuff);
+
+    if (socketReceive(hSocket, newbuff->b, newbuff->size) < 0){ 
+        printf("Receive failed\n");
+        close(hSocket);
+        return -1;
+    }
+
+    de_serialize_int(newbuff, (&sum));
+    printf("Server response: %d\n\n", sum);
+  
+    close(hSocket);
+
+    return 0;
+}
+
+==> main.c <==
+#include "intlinkedlist.h"
+
+int main(){
+    list_t* firstlist = new_linked_list();
+
+    add_int_to_linked_list(firstlist, 2) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 5) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 8) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 3) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+
+    print_linked_list(*firstlist);
+
+    ser_buff_t *buff;
+    init_serialized_buffer(&buff);
+    serialize_list_t(firstlist, buff);
+    printf("\n");
+
+    list_t* secondlist = de_serialize_list_t(buff);
+    print_linked_list(*secondlist);
+
+    return 0;
+}
+
+==> person1.h <==
+#ifndef PERSON_H
+#define PERSON_H
+#include "serialized_buffer.h"
+
+struct occupation {
+    char dept_name[30];
+    int employee_code;
+};
+
+typedef struct person {
+    char name[30];
+    int age;
+    struct occupation* occ;
+    int weight;
+} person_t;
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff);
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff);
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff);
+
+person_t* de_serialize_person_t(ser_buff_t* buff);
+
+#define SENTINEL_INSERTION_CODE \
+    if (!obj) { \
+        unsigned int sentinel = 0xFFFFFFFF; \
+        serialize_data(buff, (char*)&sentinel, sizeof(unsigned int)); \
+        return; \
+    }
+ 
+#define SENTINEL_DETECTION_CODE \
+    unsigned int sentinel = 0; \
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int)); \
+    if (sentinel == 0xFFFFFFFF) \
+        return NULL; \
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+
+#endif
+
+==> person2.h <==
+#ifndef PErSON_H
+#define PERSON_H
+#include "serialized_buffer.h"
+
+struct occupation {
+    char dept_name[30];
+    int employee_code;
+};
+
+typedef struct person {
+    char name[30];
+    int age;
+    struct occupation occ;
+    int weight;
+} person_t;
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff);
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff);
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff);
+
+person_t* de_serialize_person_t(ser_buff_t* buff);
+
+#define SENTINEL_INSERTION_CODE \
+    if (!obj){ \
+        unsigned int sentinel = 0xFFFFFFFF; \
+        serialize_data(buff, (char*)&sentinel, sizeof(unsigned int)); \
+        return; \
+    }
+ 
+#define SENTINEL_DETECTION_CODE \
+    unsigned int sentinel = 0; \
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int)); \
+    if (sentinel == 0xFFFFFFFF) \
+        return NULL; \
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+
+#endif
+
+==> person.h <==
+#ifndef PERSON_H
+#define PERSON_H
+#include "serialized_buffer.h"
+#include <stdio.h>
+
+typedef struct person {
+    char name[30];
+    int age;
+    int weight;
+} person_t;
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff);
+
+person_t* de_serialize_person_t(ser_buff_t* buff);
+
+#define SENTINEL_INSERTION_CODE \
+    if (!obj) { \
+        unsigned int sentinel = 0xFFFFFFFF; \
+        serialize_data(buff, (char*)&sentinel, sizeof(unsigned int)); \
+        return; \
+    } 
+
+#define SENTINEL_DETECTION_CODE \
+    unsigned int sentinel = 0; \
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int)); \
+    if (sentinel == 0xFFFFFFFF) \
+        return NULL; \
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+
+
+#endif
+
+==> serialized_buffer.c <==
+#include "serialized_buffer.h"
+
+void init_serialized_buffer(ser_buff_t **ser_buf){
+    (*ser_buf) = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+    (*ser_buf)->b = (char*)calloc(1, SERIALIZED_BUFFER_DEFAULT_SIZE);
+    (*ser_buf)->size = SERIALIZED_BUFFER_DEFAULT_SIZE;
+    (*ser_buf)->next = 0; 
+}
+
+void serialize_data(ser_buff_t *buff, char *data, int nbytes){
+    int available_size = buff->size - buff->next;
+    char isResize = 0;
+    
+    while (available_size < nbytes) {
+	buff->size = buff->size * 2;
+	available_size = buff->size - buff->next;
+	isResize = 1;
+    }
+
+    if (isResize == 0) {
+	memcpy((char*)buff->b + buff->next, data, nbytes);
+	buff->next += nbytes;
+	return;
+    }
+
+    // resize the buffer
+    buff->b = realloc(buff->b, buff->size);
+    memcpy((char*)buff->b + buff->next, data, nbytes);
+    buff->next += nbytes;
+    return;
+}
+
+void de_serialize_data(char* dest, ser_buff_t *buff, int size) {
+    memcpy(dest, (char*)buff->b + buff->next, size);
+    buff->next += size;
+}
+
+void free_serialized_buffer(ser_buff_t *buff){
+    int i = 0;
+    while (i < buff->size){
+        free(buff->b + i);
+        i++;
+    }
+    buff->next = 0;
+    buff->size = SERIALIZED_BUFFER_DEFAULT_SIZE;
+}
+
+void reset_serialize_buffer(ser_buff_t *buff){
+    buff->next = 0;
+}
+
+void serialize_buffer_skip(ser_buff_t *buff, int jump){
+    while (buff->next + jump > buff->size)
+        buff->size *= 2;
+
+    if (buff->next + jump >= 0)
+        buff->next += jump;
+    else
+        fprintf(stderr, "Note nough space in buffer, space: %d, jump size: %d\n", buff->next, jump);
+}
+
+
+==> serialized_buffer.h <==
+#ifndef SERIALIZED_BUFFER_H
+#define SERIALIZED_BUFFER_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define SERIALIZED_BUFFER_DEFAULT_SIZE 100
+
+typedef struct serialized_buffer_ {
+    int size;   /* size of serialized buffer */
+    int next;   /* byte position in serialized buffer where data read from/written into */
+    char *b;    /* pointer to the start of the buffer holding the data */
+} ser_buff_t;
+
+void init_serialized_buffer(ser_buff_t **ser_buf);
+
+void serialize_data(ser_buff_t *buff, char *data, int nbytes);
+
+void de_serialize_data(char* dest, ser_buff_t *buff, int size);
+
+void free_serialized_buffer(ser_buff_t *buff);
+
+void reset_serialize_buffer(ser_buff_t *buff);
+
+void serialize_buffer_skip(ser_buff_t *buff, int jump);
+
+#endif
+
+==> serialize_person1.c <==
+#include "person1.h"
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->dept_name, 30);
+    serialize_data(buff, (char*)&obj->employee_code, sizeof(int));
+}
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->name, 30);
+    serialize_data(buff, (char*)&obj->age, sizeof(int));
+    serialize_occupation(obj->occ, buff);
+    serialize_data(buff, (char*)&obj->weight, sizeof(int));
+}
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff) {
+    unsigned int sentinel = 0;
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int));
+    if (sentinel == 0xFFFFFFFF)
+        return NULL;
+    
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+    struct occupation *obj = calloc(1, sizeof(struct occupation));
+    de_serialize_data((char*)obj->dept_name, buff, 30);
+    de_serialize_data((char*)&obj->employee_code, buff, sizeof(int));
+    
+    return obj;
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    unsigned int sentinel = 0;
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int));
+    if (sentinel == 0xFFFFFFFF)
+        return NULL;
+    
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    obj->occ = de_serialize_occupation(buff);
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> serialize_person2.c <==
+#include "person2.h"
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->dept_name, 30);
+    serialize_data(buff, (char*)&obj->employee_code, sizeof(int));
+}
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->name, 30);
+    serialize_data(buff, (char*)&obj->age, sizeof(int));
+    serialize_occupation(&obj->occ, buff);
+    serialize_data(buff, (char*)&obj->weight, sizeof(int));
+}
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff) {
+    unsigned int sentinel = 0;
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int));
+    if (sentinel == 0xFFFFFFFF)
+        return NULL;
+    
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+    struct occupation *obj = calloc(1, sizeof(struct occupation));
+    de_serialize_data((char*)obj->dept_name, buff, 30);
+    de_serialize_data((char*)&obj->employee_code, buff, sizeof(int));
+    
+    return obj;
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    unsigned int sentinel = 0;
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int));
+    if (sentinel == 0xFFFFFFFF)
+        return NULL;
+    
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    struct occupation* occ = de_serialize_occupation(buff);
+    obj->occ = *occ;
+    free(occ);
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> serialize_person.c <==
+#include "person.h"
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->name, 30);
+    serialize_data(buff, (char*)&obj->age, sizeof(int));
+    serialize_data(buff, (char*)&obj->weight, sizeof(int));
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    unsigned int sentinel = 0;
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int));
+    if (sentinel == 0xFFFFFFFF)
+        return NULL;
+    
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> server.c <==
+#include "server.h"
+
+short socketCreate(){
+    short hSocket;
+    printf("Create the Socket\n");
+    hSocket = socket(AF_INET, SOCK_STREAM, 0);
+    return hSocket;
+}
+
+int bindCreatedSocket(int hSocket){
+    int iRetval = -1;
+    int clientPort = 12345;
+   
+    struct sockaddr_in remote = {0};
+    remote.sin_addr.s_addr = htonl(INADDR_ANY); //Any incoming interface
+    remote.sin_family = AF_INET;                //Internet address family IPv4
+    remote.sin_port = htons(clientPort);        //local port
+
+    iRetval = bind(hSocket, (struct sockaddr*) &remote, sizeof(remote));
+    return iRetval;
+}
+
+==> server.h <==
+#ifndef SERVER_H
+#define SERVER_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
+short socketCreate();
+
+int bindCreatedSocket(int hSocket);
+
+#endif
+
+==> tree1.c <==
+#include "tree.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <time.h>
+
+tree_t*
+init_tree(void)
+{
+    tree_t *tree = calloc(1,sizeof(tree_t));
+    if(!tree)
+        return NULL;
+    tree->root = NULL;
+    return tree;
+}
+
+tree_node_t* init_tree_node(int n)
+{
+    tree_node_t *node = calloc(1, sizeof(tree_node_t));
+    if(!node)   return NULL;
+    node->data = n;
+    return node;
+}
+
+int
+add_tree_node_by_value(tree_t *tree, int n)
+{
+    tree_node_t *root = NULL, *parent = NULL;;
+    if(!tree) return -1;
+    tree_node_t *node = init_tree_node(n);
+    if(!tree->root){
+        tree->root = node;
+        return 0;
+    }
+
+    root = tree->root;
+
+    while(root){
+        parent = root;
+        root = (n < root->data) ? root->left : root->right;
+    } // while ends
+
+    if(n < parent->data)
+        parent->left = node;
+    else if (n >= parent->data)
+        parent->right = node;
+    else
+        return 1;
+
+    node->parent = parent;
+    return 0;
+}
+
+tree_node_t *
+get_left_most(tree_node_t *node){
+
+    if(!node->left)
+        return NULL;
+
+    while(node->left){
+        node = node->left;
+    }
+    return node;
+}
+
+tree_node_t *
+get_next_inorder_succ(tree_node_t *node){
+
+    /* case 1 : Handling root*/
+    if(!node->parent){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+        return NULL;
+    }
+
+    /*case 2 : if node is a left child of its parent*/
+    if(node == node->parent->left){
+        if(!node->right)
+            return node->parent;
+        else
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+    }
+
+    /*case 3 : if node is a right child of its parent*/
+    if(node == node->parent->right){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+    }
+
+    /* case 4 : Inorder successor of node is a ancestor whose
+     * left children is also an ancestor*/
+
+    tree_node_t *gp = node->parent->parent;
+    tree_node_t *parent = node->parent;
+
+    while(gp && gp->left != parent){
+
+        parent = gp;
+        gp = gp->parent;
+    }
+
+    return gp;
+}
+
+int iterinOrder(tree_node_t *node) 
+{ 
+    int count = 0; 
+    while(1){ 
+        while(node->left) 
+            node = node->left; 
+ 
+        count % 50 == 0 ? printf("\n%3u", node->data) : printf("%3u", node->data); 
+        count++; 
+        
+        if (node->right) 
+            node = node->right; 
+        else{ 
+            while (node->parent){ 
+                if (node->data >= node->parent->data) 
+                   node = node->parent; 
+                else 
+                   break; 
+            } 
+            while (node->parent){ 
+                if (node->data < node->parent->data){ 
+                    count % 50 == 0 ? printf("\n%3u", node->parent->data) : printf("%3u", node->parent->data); 
+                    count++; 
+                    node = node->parent; 
+                } 
+                if (node->right){ 
+                    node = node->right; 
+                    break; 
+                } 
+                else{ 
+                    while (node->parent){ 
+                        if (node->data >= node->parent->data) 
+                           node = node->parent; 
+                        else 
+                           break; 
+                    } 
+                } 
+            }     
+        } 
+        if (!node->parent) 
+            return 0; 
+    } 
+    return 0; 
+} 
+
+void serialize_int(int *obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE
+    
+    if (obj != NULL)
+        serialize_data(buff, (char*)obj, sizeof(int));
+}
+
+int* de_serialize_int(ser_buff_t *buff, int* num){
+    SENTINEL_DETECTION_CODE
+    
+    de_serialize_data((char*)num, buff, sizeof(int));
+    return num;
+}
+
+void serialize_tree_node_t(tree_node_t *obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE
+
+    serialize_int((&obj->data), buff);
+
+    if (obj->left)
+        serialize_tree_node_t(obj->left, buff);
+
+    if (obj->right)
+        serialize_tree_node_t(obj->right, buff);
+}
+
+tree_t* de_serialize_tree(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    reset_serialize_buffer(buff);
+
+    tree_t *tree = init_tree();
+    
+    int *num = (int*)calloc(1, sizeof(int));
+    while ((num = de_serialize_int(buff, num)) && (num != NULL)){
+        add_tree_node_by_value(tree, *num);
+    }
+
+    free(num);
+    return tree;
+} 
+
+
+
+//int
+//main(int argc, char **argv){
+//    int item;
+//    tree_t *tree = init_tree();
+//    srand(time(NULL));
+//
+//   // add_tree_node_by_value(tree,  1);
+//    add_tree_node_by_value(tree,  100);
+//    add_tree_node_by_value(tree,  50);
+//    add_tree_node_by_value(tree,  10);
+//    add_tree_node_by_value(tree,  90);
+//    add_tree_node_by_value(tree,  95);
+//    add_tree_node_by_value(tree,  99);
+//   
+//    for (int i = 0; i < 15; i++) {
+//        item = rand() % 100;
+//        i % 50 == 0 ? printf("\n%3d", item) : printf("%3d", item);
+//        add_tree_node_by_value(tree, item);
+//    }
+//    printf("\n");
+//    iterinOrder(tree->root);
+//    printf("\n");
+//
+//    ser_buff_t *buff = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+//
+//    init_serialized_buffer(&buff);
+//
+//    serialize_tree_node_t(tree->root, buff);
+//
+//    int *nptr = NULL;
+//    serialize_int(nptr, buff);
+//    tree_t *newtree = de_serialize_tree(buff);
+//
+//    printf("\n");
+//    iterinOrder(newtree->root);
+//    printf("\n");
+////    printf("\n");
+////    printf("\n");
+////    tree_node_t *treenodeptr = NULL;
+////
+////    ITERATE_BST_BEGIN(tree, treenodeptr){
+////        printf("%3u", treenodeptr->data);
+////
+////    } ITERATE_BST_END;
+////    printf("\n");
+//    
+//    return 0;
+//}
+
+==> tree.c <==
+#include "tree.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <time.h>
+
+tree_t*
+init_tree(void)
+{
+    tree_t *tree = calloc(1,sizeof(tree_t));
+    if(!tree)
+        return NULL;
+    tree->root = NULL;
+    return tree;
+}
+
+tree_node_t* init_tree_node(int n)
+{
+    tree_node_t *node = calloc(1, sizeof(tree_node_t));
+    if(!node)   return NULL;
+    node->data = n;
+    return node;
+}
+
+int
+add_tree_node_by_value(tree_t *tree, int n)
+{
+    tree_node_t *root = NULL, *parent = NULL;;
+    if(!tree) return -1;
+    tree_node_t *node = init_tree_node(n);
+    if(!tree->root){
+        tree->root = node;
+        return 0;
+    }
+
+    root = tree->root;
+
+    while(root){
+        parent = root;
+        root = (n < root->data) ? root->left : root->right;
+    } // while ends
+
+    if(n < parent->data)
+        parent->left = node;
+    else if (n >= parent->data)
+        parent->right = node;
+    else
+        return 1;
+
+    node->parent = parent;
+    return 0;
+}
+
+tree_node_t *
+get_left_most(tree_node_t *node){
+
+    if(!node->left)
+        return NULL;
+
+    while(node->left){
+        node = node->left;
+    }
+    return node;
+}
+
+tree_node_t *
+get_next_inorder_succ(tree_node_t *node){
+
+    /* case 1 : Handling root*/
+    if(!node->parent){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+        return NULL;
+    }
+
+    /*case 2 : if node is a left child of its parent*/
+    if(node == node->parent->left){
+        if(!node->right)
+            return node->parent;
+        else
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+    }
+
+    /*case 3 : if node is a right child of its parent*/
+    if(node == node->parent->right){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+    }
+
+    /* case 4 : Inorder successor of node is a ancestor whose
+     * left children is also an ancestor*/
+
+    tree_node_t *gp = node->parent->parent;
+    tree_node_t *parent = node->parent;
+
+    while(gp && gp->left != parent){
+
+        parent = gp;
+        gp = gp->parent;
+    }
+
+    return gp;
+}
+
+int iterinOrder(tree_node_t *node) 
+{ 
+    int count = 0; 
+    while(1){ 
+        while(node->left) 
+            node = node->left; 
+ 
+        count % 50 == 0 ? printf("\n%3u", node->data) : printf("%4u", node->data); 
+        count++; 
+        
+        if (node->right) 
+            node = node->right; 
+        else{ 
+            while (node->parent){ 
+                if (node->data >= node->parent->data) 
+                   node = node->parent; 
+                else 
+                   break; 
+            } 
+            while (node->parent){ 
+                if (node->data < node->parent->data){ 
+                    count % 50 == 0 ? printf("\n%3u", node->parent->data) : printf("%4u", node->parent->data); 
+                    count++; 
+                    node = node->parent; 
+                } 
+                if (node->right){ 
+                    node = node->right; 
+                    break; 
+                } 
+                else{ 
+                    while (node->parent){ 
+                        if (node->data >= node->parent->data) 
+                           node = node->parent; 
+                        else 
+                           break; 
+                    } 
+                } 
+            }     
+        } 
+        if (!node->parent) 
+            return 0; 
+    } 
+    return 0; 
+} 
+
+int
+main(int argc, char **argv){
+    int item;
+    tree_t *tree = init_tree();
+    srand(time(NULL));
+
+//    add_tree_node_by_value(tree,  1);
+    add_tree_node_by_value(tree,  100);
+    add_tree_node_by_value(tree,  50);
+    add_tree_node_by_value(tree,  10);
+    add_tree_node_by_value(tree,  90);
+    add_tree_node_by_value(tree,  95);
+    add_tree_node_by_value(tree,  99);
+   
+//    for (int i = 0; i < 500; i++) {
+//        item = rand() % 100;
+//        i % 50 == 0 ? printf("\n%3d", item) : printf("%3d", item);
+//        add_tree_node_by_value(tree, item);
+//    }
+//    printf("\n");
+//    iterinOrder(tree->root);
+//    printf("\n");
+
+    printf("\n");
+    printf("\n");
+    tree_node_t *treenodeptr = NULL;
+
+    ITERATE_BST_BEGIN(tree, treenodeptr){
+        printf("%3u", treenodeptr->data);
+
+    } ITERATE_BST_END;
+    printf("\n");
+    
+    return 0;
+}
+
+==> tree.h <==
+#ifndef __TREE__
+#define __TREE__
+#include "person1.h"
+
+typedef struct tree_node {              
+    struct tree_node *left;
+    struct tree_node *right;
+    struct tree_node *parent;
+    int data;
+} tree_node_t;
+
+typedef struct tree {
+    tree_node_t *root;
+} tree_t;
+
+int
+add_tree_node_by_value(tree_t *tree, int n);
+
+tree_t* init_tree(void);
+
+tree_node_t* init_tree_node(int n);
+
+/*Pre-requisites functions to write iterative 
+ * macros for a tree.*/
+
+tree_node_t *
+get_left_most (tree_node_t *node);
+
+tree_node_t *
+get_next_inorder_succ (tree_node_t *node);
+
+void serialize_int(int *obj, ser_buff_t *buff);
+
+int* de_serialize_int(ser_buff_t *buff, int* num);
+
+void serialize_tree_node_t(tree_node_t *obj, ser_buff_t *buff);
+
+tree_t* de_serialize_tree(ser_buff_t *buff);
+
+#define ITERATE_BST_BEGIN(treeptr, currentnodeptr)            \
+{                                                             \
+    tree_node_t *_next = NULL;                                \
+    for(currentnodeptr = get_left_most(treeptr->root); currentnodeptr ; currentnodeptr = _next){    \
+                        _next = get_next_inorder_succ(currentnodeptr);
+
+#define ITERATE_BST_END }}
+
+#endif
+	
+==> backup.c <==
+#include "doublelinkedlist.h"
+
+
+int remove_data_from_dll_by_data_ptr(linked_list_t* linked_list, void* app_data)
+{
+    list_node_t* currentNode = linked_list->head;
+    while(currentNode->data){
+	if (currentNode->data == app_data){
+	    currentNode->leftPtr->rightPtr = currentNode->rightPtr;
+	    currentNode->rightPtr->leftPtr = currentNode->leftPtr;
+            free(currentNode->data);
+            free(currentNode);
+            return 0;
+        } 
+        currentNode = currentNode->rightPtr;
+    }
+
+    return -1;
+}
+
+int is_dll_empty(linked_list_t* linked_list)
+{
+    if (linked_list->head){
+        if (linked_list->head->data)
+            return -1;
+    }
+    return 0;
+}
+
+void drain_dll(linked_list_t* linked_list) //delete all nodes from linked_list,
+{
+    list_node_t* currentNode = linked_list->head;
+    while(currentNode->data){
+        currentNode = currentNode->rightPtr;
+	currentNode->leftPtr->leftPtr = NULL;
+        currentNode->leftPtr->rightPtr = NULL;
+    }
+    linked_list->head = currentNode;
+}
+
+
+
+==> doublelinkedlist.c <==
+#include "doublelinkedlist.h"
+
+linked_list_t* get_new_linkedlist()
+{
+    linked_list_t* newlist = (linked_list_t*)calloc(1, sizeof(linked_list_t));
+    newlist->head = (list_node_t*)calloc(1, sizeof(list_node_t));
+    newlist->head->leftPtr = NULL;
+    newlist->key_match = NULL;
+    return newlist;   
+}
+
+int add_data_to_ordered_list(linked_list_t* linked_list, void* app_data)
+{
+    list_node_t* currentNode = linked_list->head;
+    while (currentNode->data){
+        if(linked_list->key_match(currentNode->data, app_data) == 0)
+            return -1;
+        if (linked_list->compare_items(currentNode->data, app_data) == 0)
+            break;
+        currentNode = currentNode->rightPtr;
+    }
+
+    list_node_t* newNode = (list_node_t*)calloc(1, sizeof(list_node_t));
+    newNode->data = app_data;
+    newNode->leftPtr = currentNode->leftPtr;
+    newNode->rightPtr = currentNode;
+    currentNode->leftPtr = newNode;
+    
+    if (newNode->leftPtr != NULL)
+        newNode->leftPtr->rightPtr = newNode; 
+    else
+        linked_list->head = newNode;
+
+    return 0;
+}
+
+int add_data_to_linked_list(linked_list_t* linked_list, void* app_data)
+{
+    list_node_t* currentNode = linked_list->head;
+    while (currentNode->data)
+	currentNode = currentNode->rightPtr;
+    
+    if ((currentNode->rightPtr = (list_node_t*)calloc(1, sizeof(list_node_t))) == NULL)
+        return 1;
+    currentNode->rightPtr->leftPtr = currentNode;
+    currentNode->data = app_data;
+    return 0;
+}
+
+void register_print_item_callback(linked_list_t* linked_list, void (*print_data_item)(int, void*))
+{
+    linked_list->print_data_item = print_data_item;
+}
+
+void register_compare_items_callback(linked_list_t* linked_list, int (*compare_items)(void*, void*))
+{
+    linked_list->compare_items = compare_items;
+}
+
+void printList(linked_list_t linked_list)
+{
+    int i = 0;
+    list_node_t* currentNode = linked_list.head;
+    while (currentNode->data)
+    {
+	linked_list.print_data_item(i++, currentNode->data);
+	currentNode = currentNode->rightPtr;
+    }
+}
+
+void register_key_match_callback(linked_list_t* linked_list, int (*key_match)(void*, void*))
+{
+    linked_list->key_match = key_match;
+}
+
+void* dll_search_by_key(linked_list_t* linked_list, void* key)
+{
+    list_node_t* currentNode = linked_list->head;
+    while (currentNode->data){
+	if(linked_list->key_match(currentNode->data, key) == 0)
+            return (void*)currentNode->data;
+        currentNode = currentNode->rightPtr;
+    }
+}
+
+
+==> doublelinkedlist.h <==
+#ifndef DOUBLELINKEDLIST_H
+#define DOUBLELINKEDLIST_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+
+typedef struct list_node_ {
+    void* data;
+    struct list_node_* leftPtr;
+    struct list_node_* rightPtr;
+} list_node_t;
+
+typedef struct linked_list_ {
+    struct list_node_* head;
+    int (*key_match)(void*, void*);
+    int (*compare_items)(void*, void*);
+    void (*print_data_item)(int, void*);
+} linked_list_t;
+
+linked_list_t* get_new_linkedlist();
+
+int add_data_to_linked_list(linked_list_t* linked_list, void* app_data);
+
+int add_data_to_ordered_list(linked_list_t* linked_list, void* app_data);
+
+void printList(linked_list_t linked_list);
+
+void register_key_match_callback(linked_list_t* linked_list, int (*key_match)(void*, void*));
+
+void register_compare_items_callback(linked_list_t* linked_list, int (*compare_items)(void*, void*));
+
+void register_print_item_callback(linked_list_t* linked_list, void (*print_data_item)(int, void*));
+
+int remove_data_from_dll_by_data_ptr(linked_list_t* linked_list, void* app_data);
+
+int is_dll_empty(linked_list_t* linked_list);
+
+void drain_dll(linked_list_t* linked_list); //delete all nodes from linked_list,
+
+void* dll_search_by_key(linked_list_t* linked_list, void* key);
+
+#endif
+
+==> doublelinkedlistutil.c <==
+#include "doublelinkedlist.h"
+
+
+int remove_data_from_dll_by_data_ptr(linked_list_t* linked_list, void* app_data)
+{
+    list_node_t* currentNode = linked_list->head;
+    while(currentNode->data){
+	if (linked_list->key_match(currentNode->data, app_data) == 0){
+            if (currentNode->leftPtr != NULL)
+	        currentNode->leftPtr->rightPtr = currentNode->rightPtr;
+	    currentNode->rightPtr->leftPtr = currentNode->leftPtr;
+            if (currentNode == linked_list->head){
+                linked_list->head = currentNode->rightPtr;
+                linked_list->head->leftPtr = linked_list->head;
+            }
+            free(currentNode->data);
+            free(currentNode);
+            return 0;
+        } 
+        currentNode = currentNode->rightPtr;
+    }
+
+    return -1;
+}
+
+int is_dll_empty(linked_list_t* linked_list)
+{
+    if (linked_list->head){
+        if (linked_list->head->data)
+            return -1;
+    }
+    return 0;
+}
+
+void drain_dll(linked_list_t* linked_list) //delete all nodes from linked_list,
+{
+    list_node_t* currentNode = linked_list->head;
+    while(currentNode->data){
+        currentNode = currentNode->rightPtr;
+	currentNode->leftPtr->leftPtr = NULL;
+        currentNode->leftPtr->rightPtr = NULL;
+        //free(currentNode->leftPtr->data);
+        //free(currentNode->leftPtr);
+    }
+
+    printf("Clearing list...\n");
+    linked_list->head = currentNode;
+}
+
+
+
+==> endianness.c <==
+#include <stdio.h>
+
+//unsigned short int a = 1; big endian: 01
+//unsigned short int a = 1; little endian: 10
+
+void machine_endianness_type(){
+    unsigned short int a = 1;
+    char first_byte = *((char*)&a);
+    first_byte == 0 ? printf("Big endian (Network byte order)\n") : printf("Little endian (Host byte order)\n");
+}
+
+int main(){
+    machine_endianness_type();
+
+    return 0;
+}
+
+==> main.c <==
+#include "doublelinkedlist.h"
+
+static int match_number(void* list_data, void* number)
+{
+    if (*(int*)list_data == *(int*)number)
+	return 0;
+
+    return -1;
+}
+
+static int compare_number(void* list_data, void* number)
+{
+    if (*(int*)list_data > *(int*)number)
+	return 0;
+
+    return -1;
+}
+
+static void print_number(int i, void* list_data)
+{
+    printf("Data item %d: %d\n", i, *(int*)list_data);
+}
+
+int main(){
+    int choice;
+    int* input;
+    void *data;
+    char answer[100];
+    linked_list_t* newlist = get_new_linkedlist();
+
+    register_key_match_callback(newlist, match_number);
+    register_print_item_callback(newlist, print_number);
+    register_compare_items_callback(newlist, compare_number);
+    is_dll_empty(newlist) == 0 ? printf("list is empty\n") : printf("list is not empty\n");
+
+    while(1){
+        do{
+           printf("Would you like to enter a new data item? \t1: Yes \t2: No\n");
+           choice = atoi(fgets(answer, sizeof(answer), stdin));
+        } while (choice < 1 && choice > 2);
+     
+        if (choice == 2)
+            break;
+       
+        do{
+           printf("Please enter an integer\n");
+           input = (int*)calloc(1, sizeof(int));
+           *input = atoi(fgets(answer, sizeof(answer), stdin));
+        } while (input == 0);
+    
+        data = input;
+      
+        add_data_to_ordered_list(newlist, data);
+    }
+
+    is_dll_empty(newlist) == 0 ? printf("list is empty\n") : printf("list is not empty\n");
+    printList(*newlist); 
+
+    do{
+       printf("Please enter an integer\n");
+       input = (int*)calloc(1, sizeof(int));
+       *input = atoi(fgets(answer, sizeof(answer), stdin));
+    } while (choice == 0);
+
+    data = input;
+
+    remove_data_from_dll_by_data_ptr(newlist, data); 
+    is_dll_empty(newlist) == 0 ? printf("list is empty\n") : printf("list is not empty\n");
+
+    printList(*newlist); 
+    drain_dll(newlist);
+    is_dll_empty(newlist) == 0 ? printf("list is empty\n") : printf("list is not empty\n");
+
+    return 0;
+}
+
+==> recursive_dependency.c <==
+//Compiler must know the size of struct beforehand, but cannot in case of emp_t as occ_t has not been declared yet
+
+struct emp_t {
+    char name[32];
+    unsigned int emp_id;
+    struct occ_t* occ;
+};
+
+struct occ_t {
+    char name[32];
+    unsigned int salary;
+    struct emp_t boss;
+};
+
+//the same recursive declaration here
+
+struct link_node {
+    int data;
+    link_node nextPtr;
+};
+
+==> recursive_dependency_solution.c <==
+///Forward declaration
+struct occ_t;  //tells compiler that occ_t will be defined in future, please tolerate usage as a pointer
+// size of all pointers on a 32 bit machine is 4 bytes, and all pointers on a 64 bit machine is 8 bytes
+
+
+struct emp_t {
+    char name[32];
+    unsigned int emp_id;
+    struct occ_t* occ;
+};
+
+struct occ_t {
+    char name[32];
+    unsigned int salary;
+    struct emp_t boss;
+};
+
+//same forward declaration used for linked list below
+
+struct link_node {
+    int data;
+    struct link_node* nextNode;
+};
+
+==> tlv_assignment.c <==
+/*
+ * =====================================================================================
+ *
+ *       Filename:  tlv_assignment.c
+ *
+ *    Description:  This file is an assignment on TLV
+ *
+ *        Version:  1.0
+ *        Created:  02/07/2020 10:59:22 AM
+ *       Revision:  none
+ *       Compiler:  gcc
+ *
+ *         Author:  Er. Abhishek Sagar, Juniper Networks (https://csepracticals.wixsite.com/csepracticals), sachinites@gmail.com
+ *        Company:  Juniper Networks
+ *
+ *        This file is part of the TLV Assignment distribution (https://github.com/sachinites) 
+ *        Copyright (c) 2019 Abhishek Sagar.
+ *        This program is free software: you can redistribute it and/or modify it under the terms of the GNU General 
+ *        Public License as published by the Free Software Foundation, version 3.
+ *        
+ *        This program is distributed in the hope that it will be useful, but
+ *        WITHOUT ANY WARRANTY; without even the implied warranty of
+ *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *        General Public License for more details.
+ *
+ *        visit website : https://csepracticals.com for more courses and projects
+ *                                  
+ * =====================================================================================
+ */
+
+
+ /* visit website : https://csepracticals.com */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
+#define TLV_OVERHEAD_SIZE    2
+
+/* Assignment : 
+ * Implement the below macros, and use them in function decode_tlv_buffer
+ * to decode TLV buffer and its contents*/
+#define ITERATE_TLV_BEGIN(start_ptr, type, length, tlv_ptr, buffer_size) {  \
+    long long end = ((long long)start_ptr + buffer_size); \
+    while ((long long)start_ptr < end) { \
+        char* _type = (char*)calloc(1, 1); \
+        memcpy(_type, start_ptr, 1); \
+        type = (uint8_t)(*_type); \
+        start_ptr += 1; \
+        char* _length = (char*)calloc(1,1); \
+        memcpy(_length, start_ptr, 1); \
+        length = (uint8_t)(*_length); \
+        start_ptr += 1; \
+        tlv_ptr = (uint8_t*)start_ptr; \
+        start_ptr += length; 
+
+#define ITERATE_TLV_END(start_ptr, type, length, tlv_ptr, buffer_size) } } \
+   
+
+#define NAME_TLV_CODE	    1  // >> String format , Unit Data length 32B
+#define WEBSITE_TLV_CODE	2  // >> String format,  Unit Data length 64B
+#define EMP_ID_TLV_CODE    	3  // >> Integer format, Unit Data length 8B
+#define IP_ADDRESS_TLV_CODE    	4  // >> Integer format, Unit Data length 16B
+
+static uint8_t
+get_unit_data_size(uint8_t tlv_type )
+{
+    switch(tlv_type){
+        case NAME_TLV_CODE:
+            return 32;
+        case WEBSITE_TLV_CODE:
+            return 64;
+        case EMP_ID_TLV_CODE:
+            return 8;
+        case IP_ADDRESS_TLV_CODE:
+            return 16;
+        default:
+            return 1;
+    }
+}
+
+/*Implement the below function, print all TLVs in the buffer using MACRO definitions*/
+void
+decode_tlv_buffer(unsigned char *tlv_buffer, 
+                  uint32_t tlv_buffer_size){
+
+    uint8_t tlv_type;
+    uint8_t tlv_len;
+    uint8_t *tlv_value;
+
+    int units = 0, i = 0;
+
+    ITERATE_TLV_BEGIN(tlv_buffer, tlv_type, tlv_len, tlv_value, tlv_buffer_size){
+       
+        units = tlv_len/get_unit_data_size(tlv_type);
+
+        switch(tlv_type){
+            case NAME_TLV_CODE:
+            for( i = 0; i < units; i++){
+                printf("TLV Type = %d, Name = %s\n", tlv_type,
+                    tlv_value + (i * get_unit_data_size(tlv_type)));                
+            }
+            break;
+            case WEBSITE_TLV_CODE:
+            for( i = 0; i < units; i++){
+                printf("TLV Type = %d, Website Name = %s\n", tlv_type,
+                    tlv_value + (i * get_unit_data_size(tlv_type)));                
+            }
+            break;
+            case EMP_ID_TLV_CODE:
+            for( i = 0; i < units; i++){
+                printf("TLV Type = %d, Emp ID = %lu\n", tlv_type,
+                    *(uint64_t *)(tlv_value + (i * get_unit_data_size(tlv_type))));                
+            }
+            break;
+            case IP_ADDRESS_TLV_CODE:
+            for( i = 0; i < units; i++){
+                printf("TLV Type = %d, IP Address = %s\n", tlv_type,
+                    tlv_value + (i * get_unit_data_size(tlv_type)));                
+            }
+            break;
+            default:
+                ;
+        }
+    } ITERATE_TLV_END(tlv_buffer, tlv_type, tlv_len, tlv_value, tlv_buffer_size);
+}
+
+/*
+   +------------------------------------+
+   |           tlv_type = 1             |
+   +------------------------------------+
+   |           tlv_len = 64             |
+   +------------------------------------+
+   |                                    |
+   |          Abhishek Sagar(32B)       |
+   +------------------------------------+
+   |                                    |
+   |-         Shivani(32B)              |
+   +------------------------------------+
+   |           tlv_type = 2             |
+   +------------------------------------+
+   |           tlv_len = 128            |
+   +------------------------------------+
+   |                                    |
+   |          www.csepracticals.com(64B)|
+   +------------------------------------+
+   |                                    |
+   |          www.facebook.com(64B)     |
+   +------------------------------------+
+   |          tlv_type = 3              |
+   +------------------------------------+
+   |          tlv_len = 24              |
+   +------------------------------------+
+   |                                    |
+   |          52437(8B)                 |
+   +------------------------------------+
+   |                                    |
+   |          52438(8B)                 |
+   +------------------------------------+
+   |                                    |
+   |          52439(8B)                 |
+   +------------------------------------+
+
+*/
+
+/* The below function prepares the tlv buffer in the format
+ * as shown in above diagram*/
+unsigned char *
+prepare_tlv_buffer(uint32_t *total_buffer_size){
+
+    /*Take 222B of TLV buffer*/
+    *total_buffer_size = 288;
+    unsigned char *tlv_buffer = calloc(1, *total_buffer_size);
+    unsigned char *temp = NULL;
+
+    *tlv_buffer = NAME_TLV_CODE;
+    *(tlv_buffer + 1) = 64;
+    strncpy(tlv_buffer + TLV_OVERHEAD_SIZE, "Abhishek Sagar", 32);
+    strncpy(tlv_buffer + TLV_OVERHEAD_SIZE + 32, "Shivani", 32);
+
+    temp = tlv_buffer + TLV_OVERHEAD_SIZE + (32 * 2);
+
+    *temp = WEBSITE_TLV_CODE;
+    *(temp + 1) = 128;
+    strncpy(temp + TLV_OVERHEAD_SIZE, "www.csepracticals.com", 64);
+    strncpy(temp + TLV_OVERHEAD_SIZE + 64, "www.facebook.com", 64);
+
+    temp += TLV_OVERHEAD_SIZE + (64 * 2);
+
+    *temp = EMP_ID_TLV_CODE;
+    *(temp + 1) = 24;
+
+    uint64_t *emp_id = (uint64_t *)(temp + TLV_OVERHEAD_SIZE);
+    *emp_id = 52437;
+    *(emp_id + 1) = 52438;
+    *(emp_id + 2) = 52439;   
+
+    temp += TLV_OVERHEAD_SIZE + (8 * 3);
+    *temp = IP_ADDRESS_TLV_CODE;
+    *(temp + 1) = 64;
+    strncpy(temp + TLV_OVERHEAD_SIZE, "122.1.1.1", 16);
+    strncpy(temp + 16 + TLV_OVERHEAD_SIZE, "122.1.1.2", 16);
+    strncpy(temp + 32 + TLV_OVERHEAD_SIZE, "122.1.1.3", 16);
+    strncpy(temp + 48 + TLV_OVERHEAD_SIZE, "122.1.1.4", 16);
+
+    return tlv_buffer;
+}
+
+int
+main(int argc, char **argv){
+
+    uint32_t total_buffer_size = 0;
+    unsigned char *tlv_buffer = prepare_tlv_buffer(&total_buffer_size);
+    if(tlv_buffer && total_buffer_size)
+        decode_tlv_buffer(tlv_buffer, total_buffer_size);
+    return 0;
+}
+
+==> glthreads/glthreadsdoublelink.c <==
+#include "glthreadsdoublelink.h"
+
+void register_key_match_callback(glthread_dll_t* list, int (*key_match)(void*, void*))
+{
+    list->key_match = key_match;
+}
+
+void register_print_data_item(glthread_dll_t* list, void (*print_data_item)(int, void*))
+{
+    list->print_data_item = print_data_item;
+}
+
+void register_compare_items_callback(glthread_dll_t* list, int (*compare_items)(void*, void*))
+{
+    list->compare_items = compare_items;
+}
+
+void glthread_add(glthread_dll_t* list, glthread_dll_node_t *node)
+{
+    node->left = NULL;
+    node->right = NULL;
+}
+
+int glthread_remove(glthread_dll_t* list, void *data)
+{
+    glthread_dll_node_t *currentNode = list->head;
+    
+    void* data_struct;
+    if (currentNode == NULL){
+        return -1;
+    }
+    while(currentNode){
+        data_struct = (void*)((long long)currentNode - list->offset);
+        if (list->key_match(data_struct, data) == 0){
+            if (currentNode->left)
+                currentNode->left->right = currentNode->right;
+            if (currentNode->right)
+                currentNode->right->left = currentNode->left;
+//          free(currentNode);
+            return 0;
+        }
+        currentNode = currentNode->right;
+    }
+
+    return -1;
+}
+
+glthread_dll_t* init_glthread(unsigned int offset)
+{
+    glthread_dll_t* list = (glthread_dll_t*)calloc(1, sizeof(glthread_dll_t));
+    list->head = NULL;
+    list->offset = offset;
+}
+
+int add_data_to_linked_list(glthread_dll_t* list, glthread_dll_node_t *node)
+{
+    if (!node)
+        node = (glthread_dll_node_t*)calloc(1, sizeof(glthread_dll_node_t));
+
+    glthread_dll_node_t *currentNode = list->head;
+    if (currentNode == NULL){
+        list->head = node;
+        return 0;
+    }
+    while (currentNode){
+        if (currentNode->right == NULL){
+	    currentNode->right = node;
+            currentNode->right->left = currentNode;
+            return 0;
+        }
+        currentNode = currentNode->right;
+    }
+    return 0;
+}
+
+==> glthreads/glthreadsdoublelink.h <==
+#ifndef GLTHREADS_H
+#define GLTHREADS_H
+#include <stdio.h>
+#include <malloc.h>
+
+#define OFFSET_OFF(struct_name, field_name, off) \
+    off = (long long)&((struct_name *)0)->field_name; 
+
+typedef struct glthread_dll_node_ {
+    struct glthread_dll_node_* left;
+    struct glthread_dll_node_* right;
+} glthread_dll_node_t;
+
+typedef struct glthread_dll_ {
+    glthread_dll_node_t* head;
+    unsigned int offset;
+    int (*key_match)(void*, void*);
+    int (*compare_items)(void*, void*);
+    void (*print_data_item)(int, void*);
+} glthread_dll_t;
+
+void glthread_add(glthread_dll_t* list, glthread_dll_node_t *node);
+
+int glthread_remove(glthread_dll_t* list, void *data);
+
+void register_key_match_callback(glthread_dll_t* list, int (*key_match)(void*, void*));
+
+void register_print_data_item(glthread_dll_t* list, void (*print_data_item)(int, void*));
+
+void register_compare_items_callback(glthread_dll_t* list, int (*compare_items)(void*, void*));
+
+void register_offset(unsigned int offset);
+
+#define ITERATE_GLTHREADS_BEGIN(listptr, struct_type, ptr, count) { \
+    glthread_dll_node_t* _glnode = NULL; \
+    count = 0; \
+    for (_glnode = listptr->head; _glnode; _glnode = _glnode->right, count++){ \
+        ptr = (struct_type*)((long long)_glnode - listptr->offset);
+
+#define ITERATE_GLTHREADS_END }}
+
+#define glthread_node_init(glnode) \
+    glnode->left = NULL; \
+    glnode->right = NULL;
+
+glthread_dll_t* init_glthread(unsigned int offset);
+
+int add_data_to_linked_list(glthread_dll_t* list, glthread_dll_node_t *node);
+
+#endif 
+
+==> glthreads/main.c <==
+#include "glthreadsdoublelink.h"
+
+typedef struct num_struct{
+    int num;
+    glthread_dll_node_t glthread_dll_node;
+} num_struct_t;
+
+void printNumber(int count, num_struct_t* current){
+    printf("Data item %d: %d\n", count, current->num);
+}
+
+int matchKey(void* current, void* key){
+    int* thisNum = (int*)key;
+    num_struct_t* currentNum = (num_struct_t*)(current);
+    if (currentNum->num == *thisNum)
+        return 0;
+    return -1;
+}
+
+int compareKey(void* current, void* key){
+    int* thisNum = (int*)key;
+    num_struct_t* currentNum = (num_struct_t*)(current);
+    if (currentNum->num >= *thisNum)
+        return 0;
+    return -1;
+}
+
+int main(){
+    unsigned int offset = 0;
+    OFFSET_OFF(num_struct_t, glthread_dll_node, offset) 
+
+    num_struct_t newnum1 = {5}, newnum2 = {1}, newnum3 = {3};
+
+    glthread_dll_t* list = init_glthread(offset);
+
+    int* data1 = (int *)calloc(1, sizeof(int));
+    *data1 = 3;
+
+    add_data_to_linked_list(list, &newnum1.glthread_dll_node);
+    add_data_to_linked_list(list, &newnum2.glthread_dll_node);
+    add_data_to_linked_list(list, &newnum3.glthread_dll_node);
+
+    register_key_match_callback(list, matchKey);
+    int count = 0;
+
+    num_struct_t* current;
+    ITERATE_GLTHREADS_BEGIN(list, num_struct_t, current, count) 
+        printNumber(count, current);
+    ITERATE_GLTHREADS_END 
+
+    glthread_remove(list, (void*)data1);
+    ITERATE_GLTHREADS_BEGIN(list, num_struct_t, current, count) 
+        printNumber(count, current);
+    ITERATE_GLTHREADS_END 
+    return 0;
+}
+
+==> tlv/main.c <==
+#include "serialize.h"
+
+int main(){
+    ser_buff_t* ser_buff = NULL;
+
+    init_serialized_buffer(&ser_buff);
+    
+    init_serialized_buffer_of_defined_size(&ser_buff, 1024);
+    return 0;
+}
+
+==> tlv/serialize.c <==
+#include "serialize.h"
+
+typedef struct serialized_buffer {
+    #define SERIALIZE_BUFFER_DEFAULT_SIZE 512
+    void* b;
+    int size;
+    int next;
+    int checkpoint;
+} ser_buff_t;
+
+void init_serialized_buffer(ser_buff_t **ser_buf)
+{
+    *ser_buf = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+    (*ser_buf)->b = calloc(1, SERIALIZE_BUFFER_DEFAULT_SIZE);
+    (*ser_buf)->size = SERIALIZE_BUFFER_DEFAULT_SIZE;
+    (*ser_buf)->next = 0;
+    (*ser_buf)->checkpoint = 0;
+}
+
+void init_serialized_buffer_of_defined_size(ser_buff_t **ser_buf, int size)
+{
+    *ser_buf = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+    (*ser_buf)->b = calloc(1, size);
+    (*ser_buf)->size = size;
+    (*ser_buf)->next = 0;
+    (*ser_buf)->checkpoint = 0;
+}
+
+
+void serialize_string(ser_buff_t* ser_buf, char *data, int size)
+{
+    if (ser_buff == NULL) assert(0);
+    int available = ser_buf->size - ser_buf->next;
+    char reSize = 0;
+
+    while (available < size){
+        ser_buf->size *= 2;
+        available = ser_buf->size - ser_buf->next;
+        reSize = 1;
+    }
+
+    if (reSize == 0){
+        memcpy((char *)ser_buf->b + ser_buf->next, data, size);
+        ser_buf-> next += size;
+        return;
+    }
+
+    ser_buf->b = realloc(ser_buf->b, ser_buf->size);
+    memcpy((char*)ser_buf->b + ser_buf->next, data, size);
+    ser_buf->next += size;
+    return;
+}
+
+int is_serialized_buffer_empty(ser_buff_t* ser_buf)
+{
+    if (ser_buf->next == 0)
+        return 0;
+    return -1;
+}
+
+void de_serialize_string(char* dest, ser_buff_t* ser_buf, int val_size)
+{
+    if (!ser-buf||!ser_buf->b||!size) assert(0);
+    if (ser_buf->size - ser_buf->next < size) assert(0);
+    memcpy(dest, (char*)ser_buf->b + ser_buf->next, val_size);
+    ser_buf->next += val_size;
+}
+
+void copy_in_serialized_buffer_by_offset(ser_buff_t* ser_buf, int size, char* value, int offset)
+{
+    if (offset + size < SERIALIZE_BUFFER_DEFAULT_SIZE)
+        memcpy((char*)ser_buf->b + offset, value, size);
+    else
+        fprintf(stderr, "Error, isufficient space");
+}
+
+void mark_checkpoint_serialize_buffer(ser_buff_t* ser_buf)
+{
+    if (!ser_buf) assert(0);
+    ser_buf->checkpoint = ser_buf->next;
+}
+
+int get_serialize_buffer_checkpoint_offset(ser_buff_t* ser_buf)
+{
+    if (!ser_buf) assert(0);
+    return ser_buf->checkpoint;
+}
+
+void serialize_buffer_skip(ser_buff_t* ser_buf, int skip_size)
+{
+    if (!ser_buf||!skip_size) assert(0);
+
+    while (ser_buf->next + skip_size > ser_buf->size){
+        ser_buf->size *= 2;
+        ser_buf->b = realloc(ser_buf->b, ser_buf->size);
+    }
+
+    if (ser_buf->next + skip_size > 0)
+        ser_buf->next += skip_size;
+    else
+        assert(0);   
+    
+}
+
+void free_serialize_buffer(ser_buff_t* ser_buf)
+{
+    for (int i = 0; i < ser_buf->size; i++)
+        free((char*)(ser_buf->b + i));
+ 
+    free(ser->buf);
+}
+
+==> tlv/serialize.h <==
+#ifndef SERIALIZE
+#define SERIALIZE
+#include <stdio.h>
+#include <malloc.h>
+#include <string.h>
+#include <assert.h>
+
+typedef struct serialized_buffer ser_buff_t; 
+
+/* init functions */
+
+void init_serialized_buffer(ser_buff_t **b);
+
+void init_serialized_buffer_of_defined_size(ser_buff_t **b, int size);
+
+void serialize_string(ser_buff_t* b, char *data, int size);
+
+int is_serialized_buffer_empty(ser_buff_t* b);
+
+void de_serialize_string(char* dest, ser_buff_t* b, int val_size);
+
+void copy_in_serialized_buffer_by_offset(ser_buff_t* b, int size, char* value, int offset);
+
+void mark_checkpoint_serialize_buffer(ser_buff_t* ser_buf);
+
+int get_serialize_buffer_checkpoint_offset(ser_buff_t* ser_buf);
+
+void serialize_buffer_skip(ser_buff_t* ser_buf, int skip_size);
+
+void free_serialize_buffer(ser_buff_t* ser_buf);
+
+#endif
