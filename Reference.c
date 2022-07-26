@@ -9544,3 +9544,106 @@ void serialize_buffer_skip(ser_buff_t* ser_buf, int skip_size);
 void free_serialize_buffer(ser_buff_t* ser_buf);
 
 #endif
+
+==>timer_demo.c<==	
+/*To compile with gcc must link rt library i.e gcc <file> -o <bin> -lrt */
+/*to work with posix timers the two below header files are necessary*/
+#include <signal.h>
+#include <time.h>
+
+/*Other standard header files we would need are*/
+#include <errno.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <memory.h>
+#include <unistd.h> /* for pause() */
+#include <stdint.h>
+#include <stdbool.h>
+
+static void print_current_system_time() {
+	time_t t;
+	time(&t);  /* Get the current system time */
+
+	/* Print the current system time. Will insert one \n character */
+	printf("%s ", ctime(&t));
+}
+
+/* Example user-defined data structure */
+typedef struct pair_{
+	int a;
+	int b;
+} pair_t;
+
+/* Timer callback function which will be called every time the timer expires. The
+signature of the function should be: void <fn_name>(union sigval); */
+void timer_callback(union sigval arg) {
+	print_current_system_time();
+
+	pair_t* newpair = (pair_t*) arg.sival_ptr; /* Extract the user data structure */
+
+	printf("Pair: [%d %d]\n", newpair->a, newpair->b);
+}
+
+pair_t pair = {5, 3};
+
+void timer_demo() {
+	int ret;
+	struct sigevent evp;
+
+	/* You can take it in as a local variable if you wish, but in that case we will
+	free it in the timer_hadler fn */
+	timer_t timer;
+	memset(&timer, 0, sizeof(timer_t));
+
+	/* evp variable is used to setup timer properties */
+	memset(&evp, 0, sizeof(struct sigevent));
+	
+	/* Fill the user defined data structure. When the timer expires, this will be 
+	passed as an argument to the timer callback handler */
+	evp.sigev_value.sival_ptr = (void*)&pair;
+
+	/* On timer expiry, we wat the kernel to launch the timer handler routine in a
+	spearate thread context */
+	evp.sigev_notify = SIGEV_THREAD;
+
+	/* Register the timer handler routine. This routine shall be invoked when the 
+	timer expires - set to address of timer_callback function */
+	evp.sigev_notify_function = timer_callback;
+
+	/* Create a timer. Timer initialization, the timer is not Alarmed/Started */
+	ret = timer_create(CLOCK_REALTIME, &evp, &timer);
+	// CLOCK_REALTIME is the most commmon type of timer
+
+	if (ret < 0) {
+		printf("Timer creation filed, errno = %d\n", errno);
+		exit(0);
+	}
+
+	/* Let us setup the time intervals */
+	struct itimerspec ts;
+
+	/* I want the timer to fire for the first time after 5 seconds */
+	ts.it_value.tv_sec = 5;
+	ts.it_value.tv_nsec = 0;
+
+	ts.it_interval.tv_sec = 2; //defining this makes a periodic timer
+	ts.it_interval.tv_nsec = 0;
+	
+	/* Now start the timer, timer is passed by value but ts is passed by address */
+	ret = timer_settime(timer, 0, &ts, NULL);
+
+	if (ret < 0) {
+		printf("Timer creation filed, errno = %d\n", errno);
+		exit(0);
+	}
+	else {
+		print_current_system_time();
+		printf("Timer alarmed successfully\n");
+	}
+}
+
+int main(int argc, char **argv){
+	timer_demo();
+	pause();
+	return 0;
+}
