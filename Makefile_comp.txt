@@ -1,0 +1,139 @@
+==> Makefile <==
+TARGET: multiply
+multiply: multiply.c serialized_buffer.o
+	gcc -g multiply.c serialized_buffer.o -o multiply -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+cleanall:
+	rm multiply
+
+==> Mk0 <==
+TARGET: main 
+main: main.c intlinkedlist.o serialized_buffer.o tree1.o
+	gcc -g main.c intlinkedlist.o serialized_buffer.o tree1.o -o main -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+intlinkedlist.o: intlinkedlist.c serialized_buffer.o
+	gcc -g -c intlinkedlist.c -o intlinkedlist.o -std=gnu99
+tree1.o: tree1.c
+	gcc -g -c tree1.c -o tree1.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+
+==> Mk1 <==
+TARGET: main1 
+main1: main1.c intlinkedlist.o serialized_buffer.o tree1.o server.o
+	gcc -g main1.c intlinkedlist.o server.o serialized_buffer.o tree1.o -o main1 -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+intlinkedlist.o: intlinkedlist.c serialized_buffer.o
+	gcc -g -c intlinkedlist.c -o intlinkedlist.o -std=gnu99
+tree1.o: tree1.c
+	gcc -g -c tree1.c -o tree1.o -std=gnu99
+server.o: server.c
+	gcc -g -c server.c -o server.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+cleanall:
+	rm main1
+
+==> Mk2 <==
+TARGET: main2
+main2: main2.c intlinkedlist.o client.o serialized_buffer.o tree1.o
+	gcc -g main2.c intlinkedlist.o client.o serialized_buffer.o tree1.o -o main2 -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+intlinkedlist.o: intlinkedlist.c serialized_buffer.o
+	gcc -g -c intlinkedlist.c -o intlinkedlist.o -std=gnu99
+tree1.o: tree1.c
+	gcc -g -c tree1.c -o tree1.o -std=gnu99
+client.o:
+	gcc -g -c client.c -o client.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+
+==> Mkclient <==
+TARGET: multiply
+multiply: multiply.c serialized_buffer.o
+	gcc -g multiply.c serialized_buffer.o -o multiply -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+cleanall:
+	rm multiply
+
+==> Mkcomp <==
+TARGET: comp
+comp: comp.c serialized_buffer.o
+	gcc -g comp.c serialized_buffer.o -o comp -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+cleanall:
+	rm comp
+
+==> Mkserv <==
+TARGET: rpc_server_main
+rpc_server_main: rpc_server_main.c serialized_buffer.o
+	gcc -g rpc_server_main.c serialized_buffer.o -o rpc_server_main -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+cleanall:
+	rm rpc_server_main
+
+==> Mktree <==
+TARGET: comp
+comp: comp.c serialized_buffer.o
+	gcc -g comp.c serialized_buffer.o -o comp -std=gnu99
+	make clean
+serialized_buffer.o: serialized_buffer.c
+	gcc -g -c serialized_buffer.c -o serialized_buffer.o -std=gnu99
+clean: 
+	rm serialized_buffer.o
+	rm intlinkedlist.o
+	rm tree1.o
+	rm server.o
+	rm client.o
+cleanall:
+	rm comp

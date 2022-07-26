@@ -1,0 +1,23 @@
+##### Installing Ruby #####
+1 brew doctor    # once homebrew is instaleed will return errors or warnings that could ointerfere with operation, warnings can generally be ignored.
+2 brew update    # goes out to homebrew servers to check if there is anything new to install/update
+3 ruby -v        # returns same as ruby --version, version no., etcs.
+4 echo 'eval "$(rbenv init -)"' >> ~/.bash_profile    # will initialize rbenv every time a window is opened
+5 rbenv install --list    # returns a list of available ruby versions rbenv knows about, main versions have just numbers, ideally latest version with just numbers
+6 rbenv install 2.6.5   # installing the latest version of ruby
+7 rbenv rehash   # used immediately after installing a new version, adds different commands to command line
+8 rbenv versions     # returns versions of ruby (usually system versions and any additionally installed, version currently being used is marked with an asterisk)
+9 rbenv global 2.6.5    # update version of ruby being used by the system to version specified now ruby -v will return new version
+10 rbenv uninstall 2.6.5    # would uninstall the version of ruby specified
+11 gem -v    # rubygems usually installed with ruby if using a package manager such as rbenv, gems are small self-contained pieces of ruby code such as "rails" or "openssl"
+12 gem list    # shows a list of gems currently installed
+13 gem update --system    # updates to latests version of rubygems
+### https://rubygems.org/ has a list of gems which can be searched 
+14 gem install rails    # will install the latest version of rails and will do so by default 
+15 brew install mysql    # will return two commands to start mysql   
+    16 brew services start mysql    # will start mysql and restart at login, and have as a background service running all the time
+    17 mysql.server start   # will start mysql once and not run at login/persist as backround service  
+
+##### Using Ruby #####
+18 ruby -e 'puts 123'
+19 
