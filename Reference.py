@@ -778,3 +778,139 @@ pyt- ' print(matrix[0:][1]) ' prints 2nd row of matrix (R2 above)
     timeit.timeit('"-".join([str(n) for n in range(100)])', number=10000)  # 0.20959569700062275
 	timeit.timeit('"-".join(map(str, range(100)))', number=10000)  # 0.18049929100016016
   Regular Expressions are often used in Pythonyh 	
+#A bloom filter is  lightweight version of a hash table. It allows for
+#efficient insertions and lookups. It is more space efficient than a hash
+#table, but comes at the cost of having "false positives" for entry lookup
+
+#It is used when someone wants a data structure for fast lookups and insertion
+#And also dont care if it sometimes indicates an item is present when it is not
+
+#An example of this is running a website and wanting to keep track of Ip addresses that
+#are blocked. Don't particularly care if a blocked IP address is occassionally able to
+#access the website, but care if someone not on the blocked list is unable to access
+
+#This implementation of a pokedex may give false positives, i.e. saying you have seen
+#a pokemon before when you haven't
+
+import pyhash
+
+#A bloom filter has two components a bit vector, as implemented below
+#And a non-cryptographic hash function (implemented by pyhash). It is basically a black
+#box which will take in a pokemon and spit out  number we can use which will specify 
+#where to turn on bits in the bit vector
+
+bit_vector = [0] * 20
+print(bit_vector)
+
+# Non cryptographic hash functions (Murmur and FNV)
+fnv = pyhash.fnv1_32()
+murmur = pyhash.murmur3_32()
+
+# Calculate the output of FNV and Murmur hash functions for Pikachu and Charmander.
+fnv_pika = fnv("Pikachu") % 20
+murmur_pika = murmur("Pikachu") % 20
+fnv_char = fnv("Charmander") % 20
+murmur_char = murmur("Chrmander") % 20
+
+print(fnv_pika)
+print(murmur_pika)
+print(fnv_char)
+print(murmur_char)
+
+bit_vector[fnv_pika] = 1
+bit_vector[murmur_pika] = 1
+bit_vector[fnv_char] = 1
+bit_vector[murmur_char] = 1
+
+print(bit_vector)
+----------------------
+#Using a stack to determine whether a string has a balanced use of parentheses
+
+#import class Stack() from file stack.py
+from stack import Stack 
+
+def is_match(p1, p2):
+	if p1 == "(" and p2 == ")":
+		return True
+	elif p1 == "{" and p2 == "}":
+		return True
+	elif p1 == "[" and p2 == "]":
+		return True
+
+def is_paren_balanced(paren_string):
+	s = Stack()
+	is_balanced = True
+	index = 0
+
+	while index < len(paren_string) and is_balanced:
+		paren = paren_string[index]
+		if paren in "([{":
+			s.push(paren)
+		elif s.is_empty():
+			is_balanced = False
+		elif top := s.pop():
+			if not is_match(top, paren):
+				is_balanced = False
+		index+=1
+	
+	if s.is_empty() and is_balanced:
+		return True
+	else:
+		return False
+
+print(is_paren_balanced("{({[]})}"))
+print(is_paren_balanced("{({[]}){}}"))
+print(is_paren_balanced("{({([]}){}})"))
+
+-------------------------------------
+#From stack.py file import Stack() class
+from stack import Stack
+
+#Using a stack data structure to convert integer values to binary
+
+def div_by_2(dec_num):
+	s = Stack()
+
+	while dec_num > 0:
+		remainder = dec_num % 2
+		s.push(remainder)
+		dec_num = dec_num // 2
+
+	bin_num = ""
+	while not s.is_empty():
+		bin_num += str(s.pop())
+
+	return bin_num
+
+print(div_by_2(242))
+-----------------------------------------
+class Stack():
+	def __init__(self):
+		self.items = [] 
+
+	def push(self, item):
+		self.items.append(item)
+
+	def pop(self):
+		return self.items.pop()
+
+	def is_empty(self):
+		return self.items == []
+
+	def peek(self):
+		if not self.is_empty():
+			return self.items[-1] #last item in list
+
+	def get_stack(self):
+		return self.items
+
+#s = Stack()
+#print(s.is_empty())
+#s.push('A')
+#s.push('B')
+#print(s.get_stack())
+#s.push('C')
+#print(s.get_stack())
+#s.pop()
+#print(s.get_stack())
+#print(s.is_empty())
