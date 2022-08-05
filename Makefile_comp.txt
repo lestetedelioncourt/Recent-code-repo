@@ -137,3 +137,117 @@ clean:
 	rm client.o
 cleanall:
 	rm comp
+
+==> LinuxMemoryManagement/06_kmalloc_memleak/Makefile <==
+obj-m := kmalloc_memleak.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp.c -o userapp
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp
+
+==> LinuxSynchronizationConcurrency/sec04/04_spinlock_chardriver/Makefile <==
+obj-m := spinlock_chardriver.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp.c -o userapp
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp
+
+==> LinuxSynchronizationConcurrency/sec04/05_spin_trylock/Makefile <==
+obj-m := spin_trylock.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp.c -o userapp
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp
+
+==> LinuxCharacterDeviceDrivers/sec3/09_unsupported_command_ioctl/Makefile <==
+obj-m := unsupportedioctlcmdrepsonse.o
+#obj-m := comp.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp.c -o userapp
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp
+
+==> LinuxCharacterDeviceDrivers/sec3/10_driver_access_ok/Makefile <==
+obj-m := access_ok_macro.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp1.c -o userapp1
+	gcc userapp2.c -o userapp2
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp1 userapp2
+
+==> LinuxCharacterDeviceDrivers/sec3/12_signal_module_process/Makefile <==
+obj-m := ioctl_signal.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp1.c -o userapp1
+	gcc userapp2.c -o userapp2
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp1 userapp2
+
+==> LinuxCharacterDeviceDrivers/sec2/03_fops/Makefile <==
+obj-m := struct_file.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+userapp:
+	gcc userapp.c -o userapp
+cleanuser:
+	rm userapp
+
+==> LinuxCharacterDeviceDrivers/sec2/08_copy_to_user/Makefile <==
+obj-m := copy_to_user.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp.c -o userapp
+	gcc userapp1.c -o userapp1
+	gcc userapp2.c -o userapp2
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp userapp1 userapp2
+
+==> LinuxCharacterDeviceDrivers/sec2/21_lseek/Makefile <==
+obj-m := lseek.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp.c -o userapp
+clean: 
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	gcc userapp
+
+
+
+
+==> LinuxCharacterDeviceDrivers/sec2/19_offsetupdatesolution/Makefile <==
+obj-m := offset_update.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+	gcc userapp1.c -o userapp1
+	gcc userapp2.c -o userapp2
+	gcc userapp3.c -o userapp3
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
+	rm userapp1
+	rm userapp2
+	rm userapp3
