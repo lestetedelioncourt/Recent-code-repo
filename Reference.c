@@ -6668,7 +6668,7 @@ int bindCreatedSocket(int hSocket){
     return iRetVal;
 }
 
-int main(int argc, char* argv){
+int main(int argc, char** argv){
     int socket_desc = 0, sock = 0, clientLen = 0;
     struct sockaddr_in client;
     char client_message[200] = {0};
@@ -6765,7 +6765,7 @@ int bindCreatedSocket(int hSocket){
     return iRetVal;
 }
 
-int main(int argc, char* argv){
+int main(int argc, char** argv){
     int socket_desc = 0, sock = 0, clientLen = 0;
     struct sockaddr_in client;
     char client_message[200] = {0};
@@ -6870,7 +6870,7 @@ int bindCreatedSocket(int hSocket, int port){
     return iRetVal;
 }
 
-int main(int argc, char* argv){
+int main(int argc, char** argv){
     int socket1_desc = 0, sock1 = 0, clientLen1 = 0;
     int socket2_desc = 0, sock2 = 0, clientLen2 = 0;
     int clientretval;
@@ -6988,7 +6988,7 @@ int bindCreatedSocket(int hSocket){
     return iRetVal;
 }
 
-int main(int argc, char* argv){
+int main(int argc, char** argv){
     int socket_desc = 0, sock = 0, clientLen = 0;
     struct sockaddr_in client;
     char client_message[200] = {0};
