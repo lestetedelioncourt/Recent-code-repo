@@ -9647,3 +9647,2847 @@ int main(int argc, char **argv){
 	pause();
 	return 0;
 }
+
+==> domainclient.c <==
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/un.h>
+#include <sys/socket.h>
+
+#define SOCKET_NAME "/tmp/DemoSocket"
+#define BUFFER_SIZE 128
+
+int main(int argc, char **argv){
+    struct sockaddr_un addr;
+    int i;
+    int ret;
+    int data_socket;
+    char buffer[BUFFER_SIZE];
+
+    /* Create data socket */
+    
+    data_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (data_socket == -1){
+        perror("socket");
+	exit(EXIT_FAILURE);
+    }
+
+    /* For portability clear the whole structure, since some implementations
+       have additional (nonstandard fields in the structure) */
+
+    memset(&addr, 0, sizeof(struct sockaddr_un));
+
+    /* Connect socket to socket address */
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, SOCKET_NAME, sizeof(addr.sun_path) -1);
+
+    ret = connect(data_socket, (const struct sockaddr*)&addr, sizeof(struct sockaddr_un));
+
+    if (ret == -1){
+        fprintf(stderr, "The server is down\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Send arguments */
+    do {
+	printf("Enter number to send to server: \n");
+	scanf("%d", &i);
+	ret = write(data_socket, &i, sizeof(int));
+	if (ret == -1) {
+	    perror("write");
+	    break;
+	}
+	printf("No of bytes sent = %d, data sent = %d\n", ret, i);
+        sleep(1);
+    } while(i);   
+
+    memset(buffer, 0, BUFFER_SIZE);
+    ret = read(data_socket, buffer, BUFFER_SIZE);
+
+    if (ret == -1){
+	perror("write");
+	exit(EXIT_FAILURE);
+    }
+    
+    printf("Recvd from server : %s\n", buffer);
+
+    /* Close socket */
+
+    close(data_socket);
+    exit(EXIT_SUCCESS);
+}
+
+==> domainserver.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/un.h>
+#include <sys/socket.h>
+
+#define SOCKET_NAME "/tmp/DemoSocket"
+#define BUFFER_SIZE 128
+
+int main(int argc, char** argv){
+    struct sockaddr_un name; //provided by standard C APIs
+        
+    #if 0  
+	struct sockaddr_un { 
+	    sa_family_t sun_family;	/* AF_UNIX */
+	    char	sun_path[108];	/* pathname */
+	};
+    #endif
+
+    int ret;
+    int connection_socket;
+    int data_socket;
+    int result;
+    int data;
+    char buffer[BUFFER_SIZE];
+
+    /*In case the program exited inadvertently on the last run
+     *remove the socket */
+    
+    unlink(SOCKET_NAME);
+
+    /* Create Master Socket */
+
+    /* SOCK_DGRAM for Datagram based communication */
+    connection_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (connection_socket == -1) {
+	perror("socket");
+	exit(EXIT_FAILURE);
+    }
+
+    printf("Master socket created\n");
+
+    /*Initialize*/
+    memset(&name, 0, sizeof(struct sockaddr_un));
+
+    /*Specify the socket Credentials*/
+    name.sun_family = AF_UNIX;
+    strncpy(name.sun_path, SOCKET_NAME, sizeof(name.sun_path) - 1);
+    
+    /* Bind socket to socket name 
+       Purpose of bind() system call is that application() dictate the underlying
+       operating system the criteria of receiving the data. Here, bind() system call
+       is telling the OS that if sender process sends the data destined to socket "/tmp/DemoSocket"
+       then such data needs to be delivered to this process no me (the server process)*/
+
+    ret = bind(connection_socket, (const struct sockaddr *) &name, sizeof(struct sockaddr_un));
+
+    if (ret == -1) {
+	perror("bind");
+	exit(EXIT_FAILURE);
+    }
+
+    printf("bind() call succeeds\n");
+
+    /* Prepare for accepting connections. The backlog size is set to 20. So
+       while one request is being processed other requests can be waiting */
+    ret = listen(connection_socket, 20);
+    if (ret == -1) {
+	perror("listen");
+	exit(EXIT_FAILURE);
+    }
+
+    /* This is the main loop for handling connections. All Server process usually runs 24 x 7
+       Good servers should always be up and running and should never go down. */
+    for (;;){
+        /* Wait for incoming connections */
+        printf("Waiting on accept sys() call\n");
+
+        data_socket = accept(connection_socket, NULL, NULL);
+        if (data_socket == -1){
+	    perror("accept");
+	    exit(EXIT_FAILURE);
+        }
+    
+    	printf("Connection accepted from client\n");
+    
+        result = 0;
+    
+    	for (;;) {
+    	    /*Prepare the buffer to receive the data */
+    	    memset(buffer, 0, BUFFER_SIZE);
+    	    
+    	    /* Wait for next data packet. Server is blocked here. Waiting for the
+     	       data to arrive from the client, 'read' is a blocking system call */ 
+    	    printf("Waiting for data from the client\n");
+            ret = read(data_socket, buffer, BUFFER_SIZE);
+
+            if (ret == -1) {
+		perror("read");
+		exit(EXIT_FAILURE);
+    	    }
+    
+    	    /* Add received comand */
+    	    memcpy(&data, buffer, sizeof(int));
+    	    
+            printf("%d\n", data);
+
+    	    if (data == 0) break;
+    	    result += data;
+    	}
+    
+    	/* Send result */
+    	memset(buffer, 0, BUFFER_SIZE);
+    	sprintf(buffer, "Result = %d", result);
+    
+    	printf("Sending final result back to client\n");
+    	ret = write(data_socket, buffer, BUFFER_SIZE);
+    	if (ret == -1){
+    	    perror("write");
+    	    exit(EXIT_FAILURE);
+    	}
+    
+        /* Close socket */
+        close(data_socket);
+    }
+    
+    /*Close master socket*/
+    close(connection_socket);
+    printf("Connection closed.\n");
+
+    return 0;
+}
+
+==> genericll.c <==
+#include "linkedlist.h"
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff, void (*serialize_fn_ptr)(void*, ser_buff_t*)){
+    SENTINEL_INSERTION_CODE
+    serialize_list_node_t(obj->head, buff, serialize_fn_ptr);
+}
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff, void (*serialize_fn_ptr)(void*, ser_buff_t*)){
+    SENTINEL_INSERTION_CODE
+    serialize_fn_ptr(obj->data, buff);
+    serialize_list_node_t(obj->right, buff);
+}
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff, void* (*de_serialize_fn_ptr)(ser_buff_t*)){
+    SENTINEL_DETECTION_CODE
+
+    struct list_node_t* obj = calloc(1, sizeof(struct list_node_t));
+    obj->data = de_serialize_fn_ptr(buff);
+    obj->right = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* de_serialize_list_t(ser_buff_t *buff, void* (*de_serialize_fn_ptr)(ser_buff_t*)){
+    SENTINEL_DETECTION_CODE
+
+    list_t* obj = calloc(1, sizeof(list_t));
+    obj->head = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+==> genericll.h <==
+#ifndef LINKED_LIST_H
+#define LINKED_LIST_H
+
+struct list_node_t {
+    void* data;
+    struct list_node_t* right;
+};
+
+typedef struct list {
+    struct list_node_t *head;
+} list_t;
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff, void (*serialize_fn_ptr)(void*, ser_buff_t *buff));
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff, void (*serialize_fn_ptr)(void*, ser_buff_t *buff));
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff, void* (*de_serialize_fn_ptr)(ser_buff_t*));
+
+list_t* de_serialize_list_t(ser_buff_t *buff, void* (*de_serialize_fn_ptr)(ser_buff_t*));
+
+#endif
+
+==> intlinkedlist.c <==
+#include "intlinkedlist.h"
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_list_node_t(obj->head, buff);
+}
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_int((&obj->data), buff);
+    serialize_list_node_t(obj->right, buff);
+}
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    struct list_node_t* obj = calloc(1, sizeof(struct list_node_t));
+    de_serialize_int(buff, (&obj->data));
+    obj->right = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* de_serialize_list_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+    reset_serialize_buffer(buff);
+
+    list_t* obj = calloc(1, sizeof(list_t));
+    obj->head = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* new_linked_list(){
+    list_t * newlist = (list_t*)calloc(1,sizeof(list_t));
+    newlist->head = NULL;
+    return newlist;
+}
+
+int add_int_to_linked_list(list_t* linkedlist, int newitem){
+    if (!linkedlist)
+        return -1;
+
+    struct list_node_t** currentNode;
+    currentNode = &linkedlist->head;
+
+    while (*currentNode != NULL)
+        currentNode = &(*currentNode)->right;
+    
+    *currentNode = (struct list_node_t*)calloc(1, sizeof(struct list_node_t));
+    (*currentNode)->data = newitem;
+    (*currentNode)->right = NULL;
+
+    return 0;
+}
+
+void print_linked_list(list_t linkedlist){
+    int i = 0;
+    struct list_node_t* currentNode = linkedlist.head;
+    while (currentNode != NULL) {
+        printf("Data item %d: %d\n", i, currentNode->data);
+        currentNode = currentNode->right;
+        i++;
+    }
+}
+
+==> intlinkedlist.h <==
+#ifndef LINKED_LIST_H
+#define LINKED_LIST_H
+#include "tree.h"
+
+struct list_node_t {
+    int data;
+    struct list_node_t* right;
+};
+
+typedef struct list {
+    struct list_node_t *head;
+} list_t;
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff);
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff);
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff);
+
+list_t* de_serialize_list_t(ser_buff_t *buff);
+
+list_t* new_linked_list();
+
+int add_int_to_linked_list(list_t* linkedlist, int newitem);
+
+void print_linked_list(list_t linkedlist);
+
+#endif
+
+==> linkedlist.c <==
+#include "linkedlist.h"
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_list_node_t(obj->head, buff);
+}
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff){
+    SENTINEL_INSERTION_CODE
+    serialize_person_t(obj->data, buff);
+    serialize_list_node_t(obj->right, buff);
+}
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    struct list_node_t* obj = calloc(1, sizeof(struct list_node_t));
+    obj->data = de_serialize_person_t(buff);
+    obj->right = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+list_t* de_serialize_list_t(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    list_t* obj = calloc(1, sizeof(list_t));
+    obj->head = de_serialize_list_node_t(buff);
+    return obj;
+}
+
+==> linkedlist.h <==
+#ifndef LINKED_LIST_H
+#define LINKED_LIST_H
+#include "person1.h"
+
+struct list_node_t {
+    person_t* data;
+    struct list_node_t* right;
+};
+
+typedef struct list {
+    struct list_node_t *head;
+} list_t;
+
+void serialize_list_t(list_t* obj, ser_buff_t* buff);
+
+void serialize_list_node_t(struct list_node_t* obj, ser_buff_t* buff);
+
+struct list_node_t* de_serialize_list_node_t(ser_buff_t *buff);
+
+list_t* de_serialize_list_t(ser_buff_t *buff);
+
+#endif
+
+==> main1.c <==
+#include "intlinkedlist.h"
+#include "server.h"
+
+int sum_linked_list(list_t linkedlist){
+    int sum = 0;
+    struct list_node_t* currentNode = linkedlist.head;
+
+    while (currentNode){
+        sum += currentNode->data;
+        currentNode = currentNode->right;
+    }
+
+    return sum;
+}
+
+int main(){
+    int socket_desc = 0, sock = 0, clientLen = 0;
+    struct sockaddr_in client;
+   
+    ser_buff_t *buff;
+    init_serialized_buffer(&buff);
+
+    socket_desc = socketCreate();
+    if (socket_desc == -1){
+        printf("Could not create socket");
+        return -1;
+    }
+
+    printf("Socket created\n");
+
+    if (bindCreatedSocket(socket_desc) < 0){
+        printf("Could not bind created socket\n");
+        return -1;
+    }
+
+    listen(socket_desc, 3);
+
+    while(1){
+        printf("Waiting for incoming connections...\n");
+        clientLen = sizeof(struct sockaddr_in);
+        sock = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&clientLen);
+
+        if (sock < 0){
+            perror("accept failed");
+            return -1;
+        }
+
+        printf("Connection accepted\n");
+        
+        if (recv(sock, buff->b, buff->size, 0) < 0){
+            perror("Receive failed");
+            break;
+        }
+
+        list_t* secondlist = de_serialize_list_t(buff);
+        
+        printf("\n");
+        print_linked_list(*secondlist);
+        int sum = sum_linked_list(*secondlist);
+        printf("Sum: %d\n", sum);
+        memset(buff->b, '\0', buff->size);
+        reset_serialize_buffer(buff);
+        serialize_int(&sum, buff);
+        
+        if (send(sock, buff->b, buff->size, 0) < 0){
+            printf("send failed\n");
+            return 1;
+        }
+
+        close(sock);
+        sleep(1);
+    }
+
+    return 0;
+}
+
+==> main2.c <==
+#include "intlinkedlist.h"
+#include "client.h"
+
+int main(){
+    list_t* firstlist = new_linked_list();
+
+    add_int_to_linked_list(firstlist, 2) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 5) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 8) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 3) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+
+    print_linked_list(*firstlist);
+
+    ser_buff_t *buff;
+    init_serialized_buffer(&buff);
+    serialize_list_t(firstlist, buff);
+
+    int hSocket = 0, sum = 0;
+    struct sockaddr_in server;
+    
+    hSocket = socketCreate();
+    if (hSocket == -1){
+        printf("Could not create socket\n");
+        return 1;
+    }    
+
+    printf("Socket is created\n");
+
+    if (socketConnect(hSocket) < 0){
+        printf("Connection failed.\n");
+        close(hSocket);
+        return -1;
+    }
+
+    printf("Successfully connected with server\n");
+    if (socketSend(hSocket, buff->b, buff->size) < 0){
+        printf("Send failed\n");
+        close(hSocket);
+        return -1;
+    }
+
+    ser_buff_t* newbuff;
+    init_serialized_buffer(&newbuff);
+
+    if (socketReceive(hSocket, newbuff->b, newbuff->size) < 0){ 
+        printf("Receive failed\n");
+        close(hSocket);
+        return -1;
+    }
+
+    de_serialize_int(newbuff, (&sum));
+    printf("Server response: %d\n\n", sum);
+  
+    close(hSocket);
+
+    return 0;
+}
+
+==> main.c <==
+#include "intlinkedlist.h"
+
+int main(){
+    list_t* firstlist = new_linked_list();
+
+    add_int_to_linked_list(firstlist, 2) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 5) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 8) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+    add_int_to_linked_list(firstlist, 3) == 0 ? printf("Added data item\n") : fprintf(stderr, "Error\n");
+
+    print_linked_list(*firstlist);
+
+    ser_buff_t *buff;
+    init_serialized_buffer(&buff);
+    serialize_list_t(firstlist, buff);
+    printf("\n");
+
+    list_t* secondlist = de_serialize_list_t(buff);
+    print_linked_list(*secondlist);
+
+    return 0;
+}
+
+==> multiplexdomainserver.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#define SOCKET_NAME "/tmp/DemoSocket"
+#define BUFFER_SIZE 128
+#define MAX_CLIENT_SUPPORTED 32
+
+/*An array of file descriptors that the server uses to talk to the connected
+ * clients. Master socket file descriptor is also a member of this array. */ 
+int monitored_fd_set[MAX_CLIENT_SUPPORTED];
+
+/*Each connected client's intermediate result is
+ * maintained in this client array */
+int client_result[MAX_CLIENT_SUPPORTED] = {0};
+
+/*remove all the file descriptors if any from the array*/
+static void initialize_monitor_fd_set(){
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+	monitored_fd_set[i] = -1;
+    }
+}
+
+/*Add the FD from monitored file array*/
+static void add_to_monitored_fd_set(int skt_fd){
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+        if(monitored_fd_set[i] != -1) continue;
+        monitored_fd_set[i] = skt_fd;
+        break;
+    }
+}
+
+/*Remove the FD from monitored file array*/
+static void remove_from_monitored_fd_set(int skt_fd){
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+        if(monitored_fd_set[i] != skt_fd) continue;
+        monitored_fd_set[i] = -1;
+        break;
+    }
+}
+
+/*Clone all the FDs from monitored file array into
+  fd_set Data stucture*/
+static void refresh_fd_set(fd_set *fd_set_ptr){
+    FD_ZERO(fd_set_ptr);
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+	if (monitored_fd_set[i] != -1){
+	    FD_SET(monitored_fd_set[i], fd_set_ptr);
+        }
+    }
+}
+
+/*Get the numerical max value among all FDs which 
+  server is monitoring*/
+static int get_max_fd(){
+    int max = -1;
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+        if (monitored_fd_set[i] > max)
+	    max = monitored_fd_set[i];
+    }
+
+    return max;
+}
+
+int main(int argc, char **argv){
+    struct sockaddr_un name;
+
+#if 0
+    struct sockaddr_un {
+        sa_family_t sun_family;	/*AF_UNIX*/
+	char 	sun_path[100];	/*pathname*/
+    }
+#endif
+
+    int ret;
+    int connection_socket;
+    int data_socket;
+    int result;
+    int data;
+    char buffer[BUFFER_SIZE];
+    fd_set readfds;
+    int comm_socket_fd, i;
+
+    initialize_monitor_fd_set();
+
+    /*In cas the program exited inadvertantly on the
+ *   last run remove the socket */
+    unlink(SOCKET_NAME);
+
+    /*Create Master socket */
+    /*SOCK_DGRA for Datagram-base communication*/
+    connection_socket = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (connection_socket == -1){
+	perror("socket");
+	exit(EXIT_FAILURE);
+    }
+
+    printf("Master socket created\n");
+
+    /*initialize*/
+    memset(&name, 0, sizeof(struct sockaddr_un));
+
+    /*Specify the socket credentials*/
+    name.sun_family = AF_UNIX;
+    strncpy(name.sun_path, SOCKET_NAME, sizeof(name.sun_path) - 1);
+
+    ret = bind (connection_socket, (const struct sockaddr *) &name, 
+	     sizeof(struct sockaddr_un));
+
+    if (ret == -1){
+	perror("socket");
+	exit(EXIT_FAILURE);
+    }
+
+    printf("bind() call succeeded\n");
+
+    /* Prepare for accepting connections. The backlog size is set to 20
+       So while one request is being processm=, other requests can be waiting*/
+
+    ret = listen(connection_socket, 20);
+    if (ret == -1){
+	perror("listen");
+	exit(EXIT_FAILURE);
+    }
+ 
+    /*Add master socket to Monitored set of FDs*/
+    add_to_monitored_fd_set(connection_socket);
+    
+    /*This is the main loop for handling connections. All server process usually
+      run 24/7. Good servers should always be up and running*/
+    for (;;) {
+	refresh_fd_set(&readfds); /*Copy the entire monitored FDs to readfds*/
+	/* Wait for incoming connections*/
+	printf("Waiting on select() sys call\n");
+
+	/*Call the select system call, server process blocks here. Linux OS keeps
+          this process blocked until the connection initiation request, or data
+	  requests arrives on any of the file descriptors in the readfds set */
+	select(get_max_fd() + 1, &readfds, NULL, NULL, NULL);
+
+	if(FD_ISSET(connection_socket, &readfds)){
+	    /*Data arrives on Master socket only when new client connects with
+              the server (that is 'connect' call is invoked on client side */
+	    printf("New connection receivd recvd, accep the connection\n");
+	    data_socket = accept(connection_socket, NULL, NULL);
+
+	    if(data_socket == -1){
+		perror("accept");
+		exit(EXIT_FAILURE);
+	    }
+
+	    printf("New connection accepted from client\n");
+	    
+	    add_to_monitored_fd_set(data_socket);
+	}
+	else{ /* Data arrives on some other client FD*/
+            /*Find the client which has sent us the data request*/
+	    comm_socket_fd = -1;
+
+  	    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+		if(FD_ISSET(monitored_fd_set[i], &readfds)){
+	   	    comm_socket_fd = monitored_fd_set[i];
+
+		    /*Prepare the buffer to recv the data*/
+		    memset(buffer, 0, BUFFER_SIZE);
+
+		    /*Wait for the next data packet. Server is blocked here.
+		      Waiting for the data to arrive from client. 'read' is a 	
+		      blocking system call*/
+		    printf("Waiting for data from the client\n");
+		    ret = read(comm_socket_fd, buffer, BUFFER_SIZE);
+
+            	    if (ret == -1){
+            		perror("read");
+            		exit(EXIT_FAILURE);
+            	    }
+
+		    /* Add received command */
+		    memcpy(&data, buffer, sizeof(int));
+		    if(data == 0) {
+			/* Send result */
+			memset(buffer, 0, BUFFER_SIZE);
+			sprintf(buffer, "Result = %d", client_result[i]);
+
+			printf("Sending final result back to client\n");
+			ret = write(comm_socket_fd, buffer, BUFFER_SIZE);
+	            	if (ret == -1){
+	            	    perror("write");
+	            	    exit(EXIT_FAILURE);
+	            	}
+			
+			/* Close socket. */
+			close(comm_socket_fd);
+			client_result[i] = 0;
+			remove_from_monitored_fd_set(comm_socket_fd);
+			continue; /*go to select() and block*/
+		    }
+		    client_result[i] += data;
+                }
+  	    }
+	}
+    } /* go to select() and block*/
+
+    /*close the master socket*/
+    close(connection_socket);
+    remove_from_monitored_fd_set(connection_socket);
+    printf("Connection closed..\n");
+
+    /*Server should release resources before getting terminated. Unlinkk
+    the socket*/
+
+    unlink(SOCKET_NAME);
+    exit(EXIT_SUCCESS);
+}
+
+==> multiplextcpserver.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <memory.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include "common.h"
+
+/*Server process is running on this port no. Client has to send data to this port no.*/
+#define SERVER_PORT 3000
+#define MAX_CLIENT_SUPPORTED 32
+
+test_struct_t test_struct;
+result_struct_t res_struct;
+char data_buffer[1024];
+
+int monitored_fd_set[MAX_CLIENT_SUPPORTED];
+
+static void initialize_monitor_fd_set(){
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++)
+	monitored_fd_set[i] = -1;
+}
+
+static void add_to_monitored_fd_set(int skt_fd){
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+	if(monitored_fd_set[i] != -1)
+	    continue;
+	monitored_fd_set[i] = skt_fd;
+	break;
+    }    
+}
+
+static void remove_from_monitored_fd_set(int skt_fd){
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+	if(monitored_fd_set[i] != skt_fd)
+	    continue;
+	monitored_fd_set[i] = -1;
+	break;
+    }    
+}
+
+static void re_init_readfds(fd_set *fd_set_ptr){
+    FD_ZERO(fd_set_ptr);   
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+	if (monitored_fd_set[i] != -1){
+	    FD_SET(monitored_fd_set[i], fd_set_ptr);
+	}
+    }
+}
+
+static int get_max_fd(){
+    int max = -1;
+    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+	if (monitored_fd_set[i] > max){
+	    max = monitored_fd_set[i];
+        }
+    }
+
+    return max;
+}
+
+void setup_tcp_server_communication(){
+    /*Step 1: Initialization*/
+    /*Socket handle and other variables*/
+    int master_sock_tcp_fd = 0, /*Master socket file descriptor, used to accept new client connection only, no data exchange*/
+    sent_recv_bytes = 0,
+    addr_len = 0,
+    opt = 1;
+
+    int comm_socket_fd = 0;     /*Client specific communication socket file descriptor, used only for data exchange/communication between file and server*/
+    fd_set readfds;		/*Set of file descriptor on which select() polls. Select() unblocks whenever data arrives on any fd present in the set*/
+    
+    /*variables to hold server information*/
+    struct sockaddr_in server_addr, client_addr; /*structure to store the server and client info */
+
+    /* Just drain the array of monitored file descriptors (sockets)*/
+    initialize_monitor_fd_set();
+
+    /* Step 2: tcp master socket creation */
+    if ((master_sock_tcp_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
+	printf("Socket creation failed.\n");
+	exit(1);
+    }
+
+    /* Step 3: specify server information */
+    server_addr.sin_family = AF_INET; /*This socket will process only ipv4 network packets*/
+    server_addr.sin_port = SERVER_PORT; /*Server will process any data arriving on port 3000*/
+    server_addr.sin_addr.s_addr = INADDR_ANY; /*INADDR_ANY as Server's IP address means Linux will send all data
+					        whose dstination address = address of any local interface on this machine*/
+    addr_len = sizeof(struct sockaddr);
+
+    /*Bind the server. Binding means, we are telling kernel(OS) that any data you receive with dest ip address of any local interface on this machine
+     *and tcp port no = 3000 to send that data to this process. bind() is a mechanism to tell OS what kind of data, the server process is interested in to 
+     *receive. Remember server machine can run multiple server processes to process different data and service different clients. Note that bind(0 is used
+     *only on the server side, not the client side.*/
+    if (bind(master_sock_tcp_fd, (struct sockaddr*)&server_addr, sizeof(struct sockaddr)) == -1){
+	printf("Socket bind failed.\n");
+	exit(1);
+    }
+ 
+    /*Step 4 : Tell the Linux OS to maintain the queue of max length to Queue incoming client connections */
+    if (listen(master_sock_tcp_fd, 5) < 0){
+	printf("Listen failed.\n");
+	exit(1);
+    }
+
+    /*Add master socket to group of monitored FDs*/
+    add_to_monitored_fd_set(master_sock_tcp_fd);
+
+    /*Server infinite loop for servicing the client*/
+    while(1){
+	/* Step 5: initialize and fill readfds*/
+	//FD_ZERO(&readfds);		/*Initialize file descriptor set*/
+	//FD_SET(master_sock_tcp_fd, &readfds);  /*Add the socket to this set on which our server is running*/
+
+	re_init_readfds(&readfds);	/*Copy the entire monitored FDs to readfds*/
+
+	printf("blocked on Select() call...\n");
+
+	/*Step 6 : Wait for client connection*/
+	/* state machine State 1 */
+	select(get_max_fd() + 1, &readfds, NULL, NULL, NULL); //Call the select system call, Linux process blocks here, OS keeps process blocked until data arrives
+	
+	/*Some data on some fd present in monitored fd set has arrived. Now check on what file descriptor the data arrives and process accordingly*/
+	
+	/*If Data arrives on Master Socket FD*/
+	if (FD_ISSET(master_sock_tcp_fd, &readfds)){
+	    /*Data arrives on Master socket only when client connects with the server (that is, 'conect' call is invoked on client side)*/
+	    printf("New connection received recvd, acccept the connection. Client and Server completes TCP 3-way handshake at this point.\n");
+
+	    /*Step 7: Accept() returns a new temporary file descriptor(fd). Server uses this 'comm_socket_fd' fd for the rest of the life of connection with this 
+	     *client to send and receive msg. Master socket is used only for accepting new client's connection and not for data exchange with the client*/
+	    /* state Machine state 2 */
+	    comm_socket_fd = accept(master_sock_tcp_fd, (struct sockaddr*)&client_addr, (socklen_t*)&addr_len);
+	    if (comm_socket_fd < 0){
+		/* if accept failed to return a socket descriptor, display error and exit */
+		printf("accept error : errno = %s\n", strerror(errno));
+		exit(1);
+	    } 
+
+	    add_to_monitored_fd_set(comm_socket_fd);
+	    printf("Connection accepted from client : %s:%u\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+	}
+	else{ /*Data arrives on some other client FD*/
+	    int comm_socket_fd = -1;
+	    for (int i = 0; i < MAX_CLIENT_SUPPORTED; i++){
+		if (FD_ISSET(monitored_fd_set[i], &readfds)){
+		    comm_socket_fd = monitored_fd_set[i];
+		    
+		    memset(data_buffer, 0, sizeof(data_buffer));
+		    sent_recv_bytes = recvfrom(comm_socket_fd, (char*)data_buffer, sizeof(data_buffer), 0, (struct sockaddr*)&client_addr, &addr_len);
+ 
+		    printf("Server recvd %d bytes from %s:%u\n", sent_recv_bytes, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+		    if (sent_recv_bytes == 0){
+			/*If server recvs empty msg from client, server may close the connection and wait for fresh new connection with client - same or different*/
+			close(comm_socket_fd);
+			remove_from_monitored_fd_set(comm_socket_fd);
+			break; /*goto step 5*/
+		    }
+
+		    test_struct_t* client_data = (test_struct_t*)data_buffer;
+		    /*If the client sends a special message to server, then server closes the client communication forever*/
+		    /*Step 9*/
+		    if (client_data->a == 0 && client_data->b == 0){
+			close(comm_socket_fd);
+			remove_from_monitored_fd_set(comm_socket_fd);
+			printf("Server closes connection with client %s:%u\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+			break; /*goto step 5*/
+		    }
+
+		    result_struct_t result;
+		    result.c = client_data->a + client_data->b;
+
+		    /*Server replying back to client now*/
+		    sent_recv_bytes = sendto(comm_socket_fd, (char*)&result, sizeof(result_struct_t), 0, (struct sockaddr*)&client_addr, sizeof(struct sockaddr));
+
+		    printf("Server sent %d bytes in reply to client\n", sent_recv_bytes);
+		}
+	    }
+        }
+    }/*Step 10: wait for new client request again*/
+}
+
+int main(int argc, char** argv){
+    setup_tcp_server_communication();
+    return 0;
+}
+
+==> multiply.c <==
+#include <stdio.h>
+#include <memory.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include "rpc_common.h"
+#include "serialized_buffer.h"
+
+ser_buff_t* multiply_client_stub_marshal(int a, int b){
+    ser_buff_t* client_send_ser_buffer = NULL;
+    init_serialized_buffer_of_defined_size(&client_send_ser_buffer, MAX_RECV_SEND_BUFF_SIZE);
+
+    serialize_data(client_send_ser_buffer, (char*)&a, sizeof(int));
+    serialize_data(client_send_ser_buffer, (char*)&b, sizeof(int));
+
+    return client_send_ser_buffer;
+} 
+
+int multiply_server_stub_unmarshall(ser_buff_t* client_recv_ser_buffer){
+    int a;
+    de_serialize_data((char*)&a, client_recv_ser_buffer, sizeof(int));
+
+    return a;
+}
+
+int rpc_send_rcv(ser_buff_t* client_send_ser_buffer, ser_buff_t* client_recv_ser_buffer){
+    struct sockaddr_in dest;
+    int sockfd = 0, rc = 0, recv_size = 0;
+    int addr_len;
+
+//  dest.asin_family = AF_INET; 
+//  dest.sin_port = htons(PORT); 
+//  dest.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+    dest.sin_family = AF_INET; //IPv4 protocol
+    dest.sin_port = htons(SERVER_PORT); //local port 2000
+    dest.sin_addr.s_addr = INADDR_ANY; // localhost
+    //struct hostent* host = (struct hostent*)gethostbyname(SERVER_IP); // SERVER_IP 127.0.0.1
+    //dest.sin_addr = *((struct in_addr *)host->h_addr);
+    addr_len = sizeof(struct sockaddr);
+
+   // sockfd = socket(AF_INET, SOCK_STREAM, 0);
+//    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    
+    if (sockfd == -1){
+        printf("Socket creation failed\n");
+        return -1;
+    }
+
+    //connect(sockfd, (struct sockaddr*) &dest, sizeof(struct sockaddr_in));
+    //struct timeval tv; tv.tv_sec = 20; tv.tv_usec = 0;
+    //setsockopt(hSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, sizeof(tv);
+    //shortRetval = send(sockfd, client_send_ser_buffer->b, client_send_ser_buffer->size, 0);
+  //     sendto(sockfd, (const char *)hello, strlen(hello), MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+    rc = sendto(sockfd, client_send_ser_buffer->b, client_send_ser_buffer->size, MSG_CONFIRM, (struct sockaddr *)&dest, sizeof(struct sockaddr));
+
+    printf("%s() : %d bytes sent\n", __FUNCTION__, rc);
+    
+    recv_size = recvfrom(sockfd, client_recv_ser_buffer->b, client_recv_ser_buffer->size, MSG_WAITALL, (struct sockaddr*)&dest, &addr_len); 
+
+    printf("%s() : %d bytes received\n", __FUNCTION__, recv_size);
+
+    int res = multiply_server_stub_unmarshall(client_recv_ser_buffer);
+
+    return res;
+}
+
+int multiply_rpc(int a, int b){
+    ser_buff_t* client_send_ser_buffer = multiply_client_stub_marshal(a, b);
+    ser_buff_t* client_recv_ser_buffer = NULL;
+    init_serialized_buffer_of_defined_size(&client_recv_ser_buffer, MAX_RECV_SEND_BUFF_SIZE);
+
+    int res = rpc_send_rcv(client_send_ser_buffer, client_recv_ser_buffer);
+   // free_serialized_buffer(client_send_ser_buffer);
+   // free_serialized_buffer(client_recv_ser_buffer);
+  
+    return res;
+}
+
+int main(){
+    int a, b;
+    printf("Please enter 1st number: ");
+    scanf("%d", &a);
+    printf("Please enter 2nd number: ");
+    scanf("%d", &b);
+
+    int res = multiply_rpc(a, b);
+    printf("\n Result is: %d\n", res);
+
+    return 0;
+}
+
+//    int sockfd; 
+//    char buffer[MAXLINE]; 
+//    char *hello = "Hello from client"; 
+//    struct sockaddr_in     servaddr; 
+//
+//    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+//        perror("socket creation failed"); 
+//        exit(EXIT_FAILURE); 
+//    } 
+//  
+//    memset(&servaddr, 0, sizeof(servaddr)); 
+//    servaddr.sin_family = AF_INET; 
+//    servaddr.sin_port = htons(PORT); 
+//    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+//      
+//    int n, len; 
+//      
+//    sendto(sockfd, (const char *)hello, strlen(hello), 
+//        MSG_CONFIRM, (const struct sockaddr *) &servaddr,  
+//            sizeof(servaddr)); 
+//    printf("Hello message sent.\n"); 
+//          
+//    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
+//                MSG_WAITALL, (struct sockaddr *) &servaddr, 
+//                &len); 
+//    buffer[n] = '\0'; 
+//    printf("Server : %s\n", buffer); 
+//  
+//    close(sockfd); 
+
+==> newserver.c <==
+#include <stdio.h> 
+#include <stdlib.h>
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h> 
+
+#define PORT    12345
+#define MAXLINE  1024 
+
+// Driver code
+int main() { 
+    int sockfd; 
+    char buffer[MAXLINE]; 
+    char *hello = "Hello from server"; 
+    struct sockaddr_in servaddr, cliaddr;
+
+    // Creating socket file descriptor 
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        perror("socket creation failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+      
+    memset(&servaddr, 0, sizeof(servaddr)); 
+    memset(&cliaddr, 0, sizeof(cliaddr)); 
+    // Filling server information
+
+    servaddr.sin_family    = AF_INET; // IPv4 
+    servaddr.sin_addr.s_addr = INADDR_ANY; 
+    servaddr.sin_port = htons(PORT); 
+      
+    // Bind the socket with the server address 
+
+    if ( bind(sockfd, (const struct sockaddr *)&servaddr,  
+            sizeof(servaddr)) < 0 ) 
+    { 
+        perror("bind failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+      
+    int len, n; 
+  
+    len = sizeof(cliaddr);  //len is value/resuslt 
+  
+    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
+                MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
+                &len); 
+    buffer[n] = '\0'; 
+    printf("Client : %s\n", buffer); 
+    sendto(sockfd, (const char *)hello, strlen(hello),  
+        MSG_CONFIRM, (const struct sockaddr *) &cliaddr, 
+            len); 
+    printf("Hello message sent.\n");  
+      
+    return 0; 
+}       
+
+==> person1.h <==
+#ifndef PERSON_H
+#define PERSON_H
+#include "serialized_buffer.h"
+
+struct occupation {
+    char dept_name[30];
+    int employee_code;
+};
+
+typedef struct person {
+    char name[30];
+    int age;
+    struct occupation* occ;
+    int weight;
+} person_t;
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff);
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff);
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff);
+
+person_t* de_serialize_person_t(ser_buff_t* buff);
+
+#endif
+
+==> person2.h <==
+#ifndef PErSON_H
+#define PERSON_H
+#include "serialized_buffer.h"
+
+struct occupation {
+    char dept_name[30];
+    int employee_code;
+};
+
+typedef struct person {
+    char name[30];
+    int age;
+    struct occupation occ;
+    int weight;
+} person_t;
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff);
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff);
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff);
+
+person_t* de_serialize_person_t(ser_buff_t* buff);
+
+#define SENTINEL_INSERTION_CODE \
+    if (!obj){ \
+        unsigned int sentinel = 0xFFFFFFFF; \
+        serialize_data(buff, (char*)&sentinel, sizeof(unsigned int)); \
+        return; \
+    }
+ 
+#define SENTINEL_DETECTION_CODE \
+    unsigned int sentinel = 0; \
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int)); \
+    if (sentinel == 0xFFFFFFFF) \
+        return NULL; \
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+
+#endif
+
+==> person.h <==
+#ifndef PERSON_H
+#define PERSON_H
+#include "serialized_buffer.h"
+#include <stdio.h>
+
+typedef struct person {
+    char name[30];
+    int age;
+    int weight;
+} person_t;
+
+void serialize_person_t_wrapper(void* obj, ser_buff_t *buff);
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff);
+
+person_t* de_serialize_person_t(ser_buff_t* buff);
+
+void* de_serialize_person_t_wrapper(ser_buff_t* buff);
+
+#define SENTINEL_INSERTION_CODE \
+    if (!obj) { \
+        unsigned int sentinel = 0xFFFFFFFF; \
+        serialize_data(buff, (char*)&sentinel, sizeof(unsigned int)); \
+        return; \
+    } 
+
+#define SENTINEL_DETECTION_CODE \
+    unsigned int sentinel = 0; \
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int)); \
+    if (sentinel == 0xFFFFFFFF) \
+        return NULL; \
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+
+
+#endif
+
+==> readershm.c <==
+#include <stdio.h>
+#include <string.h>
+
+extern int read_from_shared_memory(char *mmap_key, char *buffer, unsigned int buff_size, unsigned int bytes_to_read);
+
+int main(int argc, char** argv){
+    char *key = "/introduction";
+    char read_buffer[128];
+    memset(read_buffer, 0, 128);
+    int rc = read_from_shared_memory(key, read_buffer, 128, 128);
+
+    if (rc < 0){
+	printf("Error reading from shared memory\n");
+	return 0;
+    }
+
+    printf("Data read = %s\n", (char*)read_buffer);
+    return 0;
+}
+
+==> recvrMsgQ.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
+#include <errno.h>
+
+#define MAX_MESSAGES		10
+#define MAX_MSG_SIZE		256
+#define MSG_BUFFER_SIZE		(MAX_MSG_SIZE + 10)
+#define QUEUE_PERMISSIONS	0660
+
+int main(int argc, char **argv){
+    fd_set readfds;
+    char buffer[MSG_BUFFER_SIZE];
+    int msgq_fd = 0;
+
+    if(argc == 1){
+	printf("provide a recipient msgQ name : format </msq-name>\n");
+	return 0;
+    }
+
+    /*To set msgQ attributes*/
+
+    struct mq_attr attr;
+    attr.mq_flags = 0;
+    attr.mq_maxmsg = MAX_MSG_SIZE;
+    attr.mq_msgsize = MAX_MSG_SIZE;
+    attr.mq_curmsgs = 0;
+
+    printf("%s\n", argv[1]);
+
+    if ((msgq_fd = mq_open(argv[1], O_RDONLY | O_CREAT, QUEUE_PERMISSIONS, &attr)) == -1) {
+	printf("Client: mq_open failed, errno = %s\n", strerror(errno));
+        exit(1); 
+    }
+
+    while(1){
+	FD_ZERO(&readfds);
+	FD_SET(msgq_fd, &readfds);
+	printf("Receiver blocked on select()\n");
+	select(msgq_fd + 1, &readfds, NULL, NULL, NULL);
+	if(FD_ISSET(msgq_fd, &readfds)){
+	    printf("Msg recvd msgQ %s\n", argv[1]);
+	    memset(buffer, 0, MSG_BUFFER_SIZE);
+	
+	    if(mq_receive(msgq_fd, buffer, MSG_BUFFER_SIZE, NULL) == -1){
+		printf("mq_receive error, errno = %s\n", strerror(errno));
+		exit(1);
+	    }
+	    printf("Msg received from queue = %s\n", buffer);
+	}
+    }
+}
+
+==> rpc_common.h <==
+#ifndef RPC_COMMON_H
+#define RPC_COMMON_H
+
+#define MAX_RECV_SEND_BUFF_SIZE 256
+#define SERVER_PORT 12345
+#define SERVER_IP "127.0.0.1"
+
+#endif
+
+==> rpc_server_main.c <==
+#include <stdio.h>
+#include <memory.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include "rpc_common.h"
+#include "serialized_buffer.h"
+
+int multiply_server_stub_unmarshall(ser_buff_t* server_recv_ser_buffer){
+    int a, b;
+    de_serialize_data((char*)&a, server_recv_ser_buffer, sizeof(int));
+    de_serialize_data((char*)&b, server_recv_ser_buffer, sizeof(int));
+
+    return a * b;
+}
+
+void multiply_server_stub_marshall(int res, ser_buff_t* server_send_ser_buffer){
+    serialize_data(server_send_ser_buffer, (char*)&res, sizeof(int));
+}
+
+void rpc_server_process_msg(ser_buff_t* server_send_ser_buffer, ser_buff_t* server_recv_ser_buffer){
+    int res = multiply_server_stub_unmarshall(server_recv_ser_buffer);
+    multiply_server_stub_marshall(res, server_send_ser_buffer);
+}
+
+int main(){
+    int sock_udp_fd = 0, len, addr_len, reply_msg_size = 0;
+    
+    struct sockaddr_in server_addr, client_addr;
+ 
+  // if ((sock_udp_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    if ((sock_udp_fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+    {
+        printf("Socket creation failed\n");
+        return -1;
+    }
+
+//       servaddr.sin_family = AF_INET; // IPv4 
+//       servaddr.sin_addr.s_addr = INADDR_ANY; 
+//       servaddr.sin_port = htons(PORT); 
+      
+    server_addr.sin_family = AF_INET; //IPv4 protocol
+    server_addr.sin_port = htons(SERVER_PORT); //IPv4 protocol
+    server_addr.sin_addr.s_addr = INADDR_ANY; //IPv4 protocol
+    addr_len = sizeof(struct sockaddr_in);
+
+//    if (setsockopt(sock_udp_fd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0){
+//        perror("setsockopt");
+//        exit(EXIT_FAILURE);
+//    }
+//
+//    if (setsockopt(sock_udp_fd, SOL_SOCKET, SO_REUSEPORT, (char*)&opt, sizeof(opt)) < 0){
+//        perror("setsockopt");
+//        exit(EXIT_FAILURE);
+//    }
+
+ // if (bind(sockfd, (const struct sockaddr *)&servaddr,  sizeof(servaddr)) < 0 ) 
+    if (bind(sock_udp_fd, (struct sockaddr*)&server_addr, sizeof(struct sockaddr)) == -1){
+        printf("Socket bind failed\n");
+        exit(1);
+    }
+
+    ser_buff_t* server_send_ser_buffer = NULL;
+    ser_buff_t* server_recv_ser_buffer = NULL;   
+
+    init_serialized_buffer_of_defined_size(&server_send_ser_buffer, MAX_RECV_SEND_BUFF_SIZE);
+    init_serialized_buffer_of_defined_size(&server_recv_ser_buffer, MAX_RECV_SEND_BUFF_SIZE);
+
+    printf("Server ready to service rpc calls\n");
+
+READ:
+    reset_serialize_buffer(server_recv_ser_buffer);
+
+   // n = recvfrom(sockfd, (char *)buffer, MAXLINE, MSG_WAITALL, ( struct sockaddr *) &cliaddr, &len); 
+    len = recvfrom(sock_udp_fd, server_recv_ser_buffer->b, server_recv_ser_buffer->size, MSG_WAITALL, (struct sockaddr*)&client_addr, &addr_len);
+
+    printf("No of bytes received from client = %d\n", len);
+    reset_serialize_buffer(server_send_ser_buffer);
+    rpc_server_process_msg(server_send_ser_buffer, server_recv_ser_buffer);
+    sendto(sock_udp_fd, server_send_ser_buffer->b, server_send_ser_buffer->size, MSG_CONFIRM, (struct sockaddr*)&client_addr, sizeof(struct sockaddr));
+    goto READ;
+
+    free_serialized_buffer(server_send_ser_buffer);
+    free_serialized_buffer(server_recv_ser_buffer);
+
+  //  close(sock_udp_fd);
+
+    return 0;
+}
+
+
+   /* int sockfd; 
+    char buffer[MAXLINE]; 
+    char *hello = "Hello from server"; 
+    struct sockaddr_in servaddr, cliaddr;
+
+    // Creating socket file descriptor 
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        perror("socket creation failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+      
+    memset(&servaddr, 0, sizeof(servaddr)); 
+    memset(&cliaddr, 0, sizeof(cliaddr)); 
+    // Filling server information
+
+    servaddr.sin_family    = AF_INET; // IPv4 
+    servaddr.sin_addr.s_addr = INADDR_ANY; 
+    servaddr.sin_port = htons(PORT); 
+      
+    // Bind the socket with the server address 
+
+    if ( bind(sockfd, (const struct sockaddr *)&servaddr,  
+            sizeof(servaddr)) < 0 ) 
+    { 
+        perror("bind failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+      
+    int len, n; 
+  
+    len = sizeof(cliaddr);  //len is value/resuslt 
+  
+    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
+                MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
+                &len); 
+    buffer[n] = '\0'; 
+    printf("Client : %s\n", buffer); 
+    sendto(sockfd, (const char *)hello, strlen(hello),  
+        MSG_CONFIRM, (const struct sockaddr *) &cliaddr, 
+            len); 
+    printf("Hello message sent.\n");  */
+
+==> sendMsgQ.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <mqueue.h>
+#include <errno.h>
+
+#define MAX_MSG_SIZE	256
+#define MSG_BUFFER_SIZE	(MAX_MSG_SIZE + 10)
+
+int main(int argc, char **argv){
+    char buffer[MSG_BUFFER_SIZE];
+    int recvr_msgq_fd = 0;
+
+    if(argc == 1){
+	printf("provide a recipient msgQ name : format </msq-name>\n");
+	return 0;
+    }
+
+    memset(buffer, 0, MSG_BUFFER_SIZE);
+    printf("Enter message to be sent to receiver %s\n", argv[1]);
+    scanf("%s", buffer);
+    
+    if ((recvr_msgq_fd = mq_open(argv[1], O_WRONLY | O_CREAT, 0, 0)) == -1) {
+	printf("Client: mq_open failed, errno = %d", errno);
+	exit(1);
+    }
+
+    if (mq_send(recvr_msgq_fd, buffer, strlen(buffer), 0) == -1) {
+	perror("Client: Not able to send message to server");
+	exit(1);
+    }
+
+    mq_close(recvr_msgq_fd);
+    return 0;
+}
+
+==> serialized_buffer.c <==
+#include "serialized_buffer.h"
+
+void init_serialized_buffer(ser_buff_t **ser_buf){
+    (*ser_buf) = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+    (*ser_buf)->b = (char*)calloc(1, SERIALIZED_BUFFER_DEFAULT_SIZE);
+    (*ser_buf)->size = SERIALIZED_BUFFER_DEFAULT_SIZE;
+    (*ser_buf)->next = 0; 
+}
+
+void init_serialized_buffer_of_defined_size(ser_buff_t **ser_buf, int size){
+    (*ser_buf) = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+    (*ser_buf)->b = (char*)calloc(1, size);
+    (*ser_buf)->size = size;
+    (*ser_buf)->next = 0; 
+}
+
+void serialize_data(ser_buff_t *buff, char *obj, int nbytes){
+    int available_size = buff->size - buff->next;
+    char isResize = 0;
+    
+    while (available_size < nbytes) {
+	buff->size = buff->size * 2;
+	available_size = buff->size - buff->next;
+	isResize = 1;
+    }
+
+    if (isResize == 0) {
+	memcpy((char*)buff->b + buff->next, obj, nbytes);
+	buff->next += nbytes;
+	return;
+    }
+
+    // resize the buffer
+    buff->b = realloc(buff->b, buff->size);
+    memcpy((char*)buff->b + buff->next, obj, nbytes);
+    buff->next += nbytes;
+    return;
+}
+
+void de_serialize_data(char* dest, ser_buff_t *buff, int size) {
+    memcpy(dest, (char*)buff->b + buff->next, size);
+    buff->next += size;
+}
+
+void free_serialized_buffer(ser_buff_t *buff){
+    int i = 0;
+    while (i < buff->size){
+        free(buff->b + i);
+        i++;
+    }
+    buff->next = 0;
+    buff->size = SERIALIZED_BUFFER_DEFAULT_SIZE;
+}
+
+void reset_serialize_buffer(ser_buff_t *buff){
+    buff->next = 0;
+}
+
+void serialize_buffer_skip(ser_buff_t *buff, int jump){
+    while (buff->next + jump > buff->size)
+        buff->size *= 2;
+
+    if (buff->next + jump >= 0)
+        buff->next += jump;
+    else
+        fprintf(stderr, "Note nough space in buffer, space: %d, jump size: %d\n", buff->next, jump);
+}
+
+
+==> serialized_buffer.h <==
+#ifndef SERIALIZED_BUFFER_H
+#define SERIALIZED_BUFFER_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define SERIALIZED_BUFFER_DEFAULT_SIZE 100
+
+typedef struct serialized_buffer_ {
+    int size;   /* size of serialized buffer */
+    int next;   /* byte position in serialized buffer where data read from/written into */
+    char *b;    /* pointer to the start of the buffer holding the data */
+} ser_buff_t;
+
+void init_serialized_buffer(ser_buff_t **ser_buf);
+
+void init_serialized_buffer_of_defined_size(ser_buff_t **buff, int size);
+
+void serialize_data(ser_buff_t *buff, char *obj, int nbytes);
+
+void de_serialize_data(char* dest, ser_buff_t *buff, int size);
+
+void free_serialized_buffer(ser_buff_t *buff);
+
+void reset_serialize_buffer(ser_buff_t *buff);
+
+void serialize_buffer_skip(ser_buff_t *buff, int jump);
+
+#define SENTINEL_INSERTION_CODE \
+    if (!obj) { \
+        unsigned int sentinel = 0xFFFFFFFF; \
+        serialize_data(buff, (char*)&sentinel, sizeof(unsigned int)); \
+        return; \
+    }
+ 
+#define SENTINEL_DETECTION_CODE \
+    unsigned int sentinel = 0; \
+    de_serialize_data((char*)&sentinel, buff, sizeof(unsigned int)); \
+    if (sentinel == 0xFFFFFFFF) \
+        return NULL; \
+    serialize_buffer_skip(buff, -1 * sizeof(unsigned int));
+
+#endif
+
+==> serialize_person1.c <==
+#include "person1.h"
+
+void serialize_person_t_wrapper(void* obj, ser_buff_t *buff){
+    serialize_person_t(obj, buff);
+}
+
+void* de_serialize_person_t_wrapper(ser_buff_t* buff){
+    de_serialize_person_t(buff);
+}
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->dept_name, 30);
+    serialize_data(buff, (char*)&obj->employee_code, sizeof(int));
+}
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->name, 30);
+    serialize_data(buff, (char*)&obj->age, sizeof(int));
+    serialize_occupation(obj->occ, buff);
+    serialize_data(buff, (char*)&obj->weight, sizeof(int));
+}
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    struct occupation *obj = calloc(1, sizeof(struct occupation));
+    de_serialize_data((char*)obj->dept_name, buff, 30);
+    de_serialize_data((char*)&obj->employee_code, buff, sizeof(int));
+    
+    return obj;
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    obj->occ = de_serialize_occupation(buff);
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> serialize_person2.c <==
+#include "person2.h"
+
+void serialize_person_t_wrapper(void* obj, ser_buff_t *buff){
+    serialize_person_t(obj, buff);
+}
+
+void* de_serialize_person_t_wrapper(ser_buff_t* buff){
+    de_serialize_person_t(buff);
+}
+
+void serialize_occupation(struct occupation* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->dept_name, 30);
+    serialize_data(buff, (char*)&obj->employee_code, sizeof(int));
+}
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->name, 30);
+    serialize_data(buff, (char*)&obj->age, sizeof(int));
+    serialize_occupation(&obj->occ, buff);
+    serialize_data(buff, (char*)&obj->weight, sizeof(int));
+}
+
+struct occupation* de_serialize_occupation(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    struct occupation *obj = calloc(1, sizeof(struct occupation));
+    de_serialize_data((char*)obj->dept_name, buff, 30);
+    de_serialize_data((char*)&obj->employee_code, buff, sizeof(int));
+    
+    return obj;
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    struct occupation* occ = de_serialize_occupation(buff);
+    obj->occ = *occ;
+    free(occ);
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> serialize_person.c <==
+#include "person.h"
+
+void serialize_person_t_wrapper(void* obj, ser_buff_t *buff){
+    serialize_person_t(obj, buff);
+}
+
+void* de_serialize_person_t_wrapper(ser_buff_t* buff){
+    de_serialize_person_t(buff);
+}
+
+void serialize_person_t(person_t* obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE 
+
+    serialize_data(buff, (char*)obj->name, 30);
+    serialize_data(buff, (char*)&obj->age, sizeof(int));
+    serialize_data(buff, (char*)&obj->weight, sizeof(int));
+}
+
+person_t* de_serialize_person_t(ser_buff_t* buff) {
+    SENTINEL_DETECTION_CODE
+    
+    person_t *obj = calloc(1, sizeof(person_t));
+    de_serialize_data((char*)obj->name, buff, 30);
+    de_serialize_data((char*)&obj->age, buff, sizeof(int));
+    de_serialize_data((char*)&obj->weight, buff, sizeof(int));
+    
+    return obj;
+}
+
+==> server.c <==
+#include "server.h"
+
+short socketCreate(){
+    short hSocket;
+    printf("Create the Socket\n");
+    hSocket = socket(AF_INET, SOCK_STREAM, 0);
+    return hSocket;
+}
+
+int bindCreatedSocket(int hSocket){
+    int iRetval = -1;
+    int clientPort = 12345;
+   
+    struct sockaddr_in remote = {0};
+    remote.sin_addr.s_addr = htonl(INADDR_ANY); //Any incoming interface
+    remote.sin_family = AF_INET;                //Internet address family IPv4
+    remote.sin_port = htons(clientPort);        //local port
+
+    iRetval = bind(hSocket, (struct sockaddr*) &remote, sizeof(remote));
+    return iRetval;
+}
+
+==> server.h <==
+#ifndef SERVER_H
+#define SERVER_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
+short socketCreate();
+
+int bindCreatedSocket(int hSocket);
+
+#endif
+
+==> shm_demo.c <==
+#include <stdio.h>
+#include <memory.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <errno.h>
+
+int create_and_write_shared_memory(char * mmap_key, char *value, unsigned int size){
+    int shm_fd;
+    
+    /*Create a shared memory object in kernel space of size zero bytes. If shared memory
+     *already exists it will truncate to zero bytes again*/ 
+    shm_fd = shm_open(mmap_key, O_CREAT | O_RDWR | O_TRUNC, 0660); 
+
+    if (shm_fd < 0) {
+	printf("falure on shm_open on shm_fd, errcode = %s\n", strerror(errno));
+	return -1;
+    }
+
+    if (ftruncate(shm_fd, size) == -1) { //resizes shared memory using ftruncate() process call
+	printf("Error on truncate to allocate size of shared memory region\n");
+	return -1;
+    }
+
+    /*Now map the shared memory in kernel space into process's virtual address space*/
+    void *shm_reg = mmap(NULL,	//specifies memory base address, if NULL let kernel choose to return  base address for memory  
+		size,		//sizeof the shared memory to map to virtual address space of the process
+		PROT_READ | PROT_WRITE,	//shared memory is read and writable
+		MAP_SHARED,	//shared memory is accessible
+		shm_fd,		//file descriptor of the shared memory
+		0);		//offset from the base address of the physical/shared memory to be mapped
+
+    /* shm_reg is the address in process's Virtual Address Space, just like any other address.
+     * The Linux paging mechanism maps this address to the starting point of the shared memory region
+     * in kernel space. Any operation performed by process on shm_reg address is actually the operation
+     * performed in shared memory which resides in kernel.*/
+     
+    memset(shm_reg, 0, size); 	//
+    memcpy(shm_reg, value, size);
+    munmap(shm_reg, size); 	//destroys mapping to shared memory
+    /*Reader process will not be able to read if writer unlink the name below*/
+    //shm_unlink(mmap_key);
+    close(shm_fd);
+    return size;
+}
+
+int read_from_shared_memory(char *mmap_key, char* buffer, unsigned int buff_size, unsigned int bytes_to_read){
+    int shm_fd = 0, rc = 0;
+
+    shm_fd = shm_open(mmap_key, O_CREAT | O_RDONLY, 0660);
+
+    if (shm_fd < 0) {
+	printf("failure on shm_open on shm_fd, errcode = %s\n", strerror(errno));
+	return -1;
+    }
+
+    void *shm_reg = mmap(NULL, bytes_to_read, PROT_READ, MAP_SHARED, shm_fd, 0);
+    
+    if(shm_reg == MAP_FAILED){
+	printf("Error on mapping\n");
+	return -1;
+    }
+
+    memcpy(buffer, shm_reg, bytes_to_read);
+    rc = munmap(shm_reg, bytes_to_read);
+
+    if(rc < 0){
+	printf("munmap failed.\n");
+	return -1;
+    }
+
+    close(shm_fd);
+    return bytes_to_read; //Return the number of bytes read
+}
+
+==> signals1.c <==
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void signalcatch_func(){
+    printf("Signal caught\n");
+}
+
+int main(int argc, char **argv){
+    void (*ret)(int);
+
+    ret = signal(SIGINT, signalcatch_func);
+
+    if (ret == SIG_ERR){
+	printf("Error: unable to set signal_handler\n");
+	exit(0);
+    }
+
+    int ret2;
+    ret2 = raise(SIGINT);
+
+    if (ret2 != 0){
+	printf("Error: unable to raise SIGINT\n");
+	exit(0);
+    }
+
+    printf("Bye Bye!\n");
+    return 0;
+}
+
+==> signals.c <==
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static void ctrlC_signal_handler(int sig){
+    printf("Ctrl-C pressed.\n");
+    printf("Bye Bye \n");
+    exit(0);
+}
+
+static void abort_signal_handler(int sig){
+    printf("Abort signal raised.\n");
+    printf("Bye Bye \n");
+    exit(0);
+}
+
+int main(int argc, char **argv){
+    signal(SIGINT, ctrlC_signal_handler);
+    signal(SIGABRT, abort_signal_handler);
+    char ch;
+    printf("Abort Process (y/n)?\n");
+    scanf("%c", &ch);
+
+    //raise(SIGABRT);
+    if (ch == 'y')
+	abort();  
+
+    return 0;
+}
+
+==> stubs-32.h <==
+/* This file is automatically generated.
+   It defines a symbol `__stub_FUNCTION' for each function
+   in the C library which is a stub, meaning it will fail
+   every time called, usually setting errno to ENOSYS.  */
+
+#ifdef _LIBC
+ #error Applications may not define the macro _LIBC
+#endif
+
+#define __stub___kernel_cosl
+#define __stub___kernel_sinl
+#define __stub___kernel_tanl
+#define __stub_chflags
+#define __stub_fanotify_init
+#define __stub_fanotify_mark
+#define __stub_fattach
+#define __stub_fchflags
+#define __stub_fdetach
+#define __stub_gtty
+#define __stub_lchmod
+#define __stub_prlimit
+#define __stub_prlimit64
+#define __stub_revoke
+#define __stub_setlogin
+#define __stub_sigreturn
+#define __stub_sstk
+#define __stub_stty
+
+==> tcpclient.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <memory.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include "common.h"
+
+/*Server process is running on this port no. Client has to send data to this port no.*/
+#define DEST_PORT 3000
+#define SERVER_IP_ADDRESS "127.0.0.1"
+
+test_struct_t client_data;
+result_struct_t result;
+
+void setup_tcp_communication(){
+    /*Setup Initialization*/
+    /*Socket handle*/
+    int sockfd = 0, sent_recv_bytes = 0, addr_len = 0;
+
+    addr_len = sizeof(struct sockaddr);
+
+    /*to store socket addresses : ip address and port*/
+    struct sockaddr_in dest;
+
+    /*Step 2: specify server information*/
+    /*Ipv4 sockets, for IPv6: AF_INET6*/
+    dest.sin_family = AF_INET;
+    dest.sin_port = DEST_PORT;
+    dest.sin_addr.s_addr= inet_addr("127.0.0.1");
+
+    //struct hostent host = (struct hostent*)gethostbyname(SERVER_IP_ADDRESS);
+    //dest.sin_addr = *((struct in_addr*)host->h_addr);
+   
+    /*Step 3: Create a TCP socket*/
+    /*Create a socket finally. socket() is a system call which asks for three parameters*/
+    sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);  //(AF_INET, SOCK_DGRAM, IPPROTO_UDP) for UDP transport
+    connect(sockfd, (struct sockaddr*)&dest, sizeof(struct sockaddr));
+
+    /*Step 4: get the data to the server
+     *Our client is now ready to send data to the server. sendto() sends data to Server*/
+
+    while(1){
+	/*prompt the user to enter data*/
+	printf("Enter a : ?\n");
+	scanf("%u", &client_data.a);
+	printf("Enter b : ?\n");
+	scanf("%u", &client_data.b);
+
+	/*step 5: send the data to server*/
+	sent_recv_bytes = sendto(sockfd, &client_data, sizeof(test_struct_t), 0, (struct sockaddr*)&dest, sizeof(struct sockaddr));
+	
+ 	printf("No of bytes sent = %d\n", sent_recv_bytes);
+	/*step 6: client also wants a reply from server after sending data.*/
+
+	/*recvfrom() is a blocking system call, meaning the client program will not run past this point until data arrives from the server*/
+	sent_recv_bytes = recvfrom(sockfd, (char*)&result, sizeof(result_struct_t), 0, (struct sockaddr*)&dest, &addr_len);
+
+	printf("No of bytes received = %d\n", sent_recv_bytes);
+	printf("Result received = %u\n", result.c);
+	/*Step 7: Client would want to send data to the server again goes to step 4*/	 
+    } 
+}
+
+int main(int argc, char **argv){
+    setup_tcp_communication();
+    printf("application quits\n");
+    return 0;
+
+}
+
+==> tcpserver.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <memory.h>
+#include <errno.h>
+#include <arpa/inet.h>
+#include "common.h"
+
+/*Server process is running on this port no. Client has to send data to this port no.*/
+#define SERVER_PORT 3000
+
+test_struct_t test_struct;
+result_struct_t res_struct;
+char data_buffer[1024];
+
+void setup_tcp_server_communication(){
+    /*Step 1 : Initialization*/
+    /*Socket handle and other variables*/
+    /*Master socket file descriptor, used to accep new client connection only, no data exchange*/
+    int master_sock_tcp_fd = 0, sent_recv_bytes = 0, addr_len = 0, opt = 1;
+ 
+    /*Client specific communication socket file descriptor
+     *used for only data exchange/communnication between lient and server*/
+    int comm_socket_fd = 0;
+
+    /* Set of file descriptors on which select() polls. Select() unblocks whenever data arrives on
+     *  any fd present in this set*/
+    fd_set readfds;   
+    
+    /*variables to hold server information*/
+    struct sockaddr_in client_addr, server_addr;
+
+    /*Step 2: tcp master socket creation*/
+    if ((master_sock_tcp_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1){
+	printf("Socket creation failed.\n");
+	exit(1);
+    }
+
+    /*Step 3: specify server information*/
+    server_addr.sin_family = AF_INET; /*This socket will process only IPv4 network packets*/
+    server_addr.sin_port = SERVER_PORT; /*Server will process any data arriving on port no. 2000*/
+
+    /*s_addr = 232249957; //( = 192.168.56.101); Server's IP Address
+     *means, Linux will send all data whose destination address = address of any local interface
+     *of this machine, in this case it is 192.168.56.101, INADDR_ANY means any ip interface.
+     * */
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    addr_len = sizeof(struct sockaddr);
+    
+    /*Bind the server. Binding means, we are telling kernel(OS) that any data  
+     *you receive with dest ip address = 127.0.0.1, and tcp_port no = 2000, please send that data to this process 
+     *bind() is a mechanism to tell OS what kind of data server process is interested in to receive. Remember, server machine
+     *can rum multiple server processes to process different data, and sevice different clients. Note that bind() is used on
+     *server side, not client side
+     * */
+
+    if (bind(master_sock_tcp_fd, (struct sockaddr*)&server_addr, sizeof(struct sockaddr)) == -1){
+	printf("socket bind failed\n");
+	exit(1);
+    }
+
+    /*Step 4 : Tell the Linux OS to maintain the queue of max length
+     *to queue incoming connections*/
+    if (listen(master_sock_tcp_fd, 5) < 0){
+	printf("listen failed.\n");
+	exit(1);
+    }
+
+    /*Server infinite loop for servicing client*/
+    while(1){
+	/*Step 5:Initialize and fill readfds*/
+	FD_ZERO(&readfds);	//Initialize file descriptor set, FD_ZERO & FD_SET standard macro provided y C-Library
+	FD_SET(master_sock_tcp_fd, &readfds);	//Add the socket to this set on which our server is running
+
+	printf("Blocked on select system call...\n");
+
+        /*Step 6: awaiting incoming client connection*/
+	/*state Machine state 1 */
+
+	/*Call the select system call, server process blocks here. Linux OS keeps this process blocked until the data
+         *arrives on an of the file descriptors in the fd_set 'readfds'*/
+	select(master_sock_tcp_fd + 1, &readfds, NULL, NULL, NULL); //first argument in select call should be max file descriptor + 1, but this is simple example
+
+	/*Some data on some fd present in set has arrived, Now check on which file descriptor the data arives, and process accordingly.*/
+	if (FD_ISSET(master_sock_tcp_fd, &readfds)){
+	    /*Data arrives on clients socket only when new client connects with the server (that is, 'connect' call is invoked on the client side)*/
+	    printf("New connection received, accept the connection. Client and server performs TCP 3-Way handshake at this point.\n");
+
+	    /*step 7 : accept() returns a new temporary file descriptor(fd). Server uses this comm_socket_fd for the res of the life
+ 	     *of connection with this client to send and receive messages. Master socket is only used for accepting a new client's connection
+	     *and not for data exchange with any client*/
+	    /*state Machine state 2 */
+	    comm_socket_fd = accept(master_sock_tcp_fd, (struct sockadddr*)&client_addr, (socklen_t*)&addr_len);
+
+	    if (comm_socket_fd < 0){
+		/*if accept failed to return a valid file descriptor, display message and exit*/
+		printf("accept error, error: %s\n", strerror(errno));
+		exit(1);
+	    }	    
+
+	    printf("Connection accepted from client : %s:%u\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+	    while(1){
+		printf("Server ready to service client messages.\n");
+		/*Drain to store client info (ip and port) when data arrives from client, sometimes, 
+ 		 * server would want to find the identity of the client sending messages*/
+		memset(data_buffer, 0, sizeof(data_buffer));
+		
+		/*Step 8: Server receiving the data from client. Client IP and PORT no will be stored in client_addr
+		 *by the kernel. Server will use this client_addr info to reply back to the client*/
+
+		/*Like in client case, this is also a blocking system call, meaning, server process halts here until 
+		 *data arrives on this comm_socket_fd from client whose connection request has been accepted via accept()*/
+
+		/*state Machine state 3*/   
+		sent_recv_bytes = recvfrom(comm_socket_fd, (char*)data_buffer, sizeof(data_buffer), 0, (struct sockaddr*)&client_addr, &addr_len);
+  
+		/*state Machine state 4*/
+		printf("Server received %d bytes from client %s:%u\n", sent_recv_bytes, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port)); 
+
+		if (sent_recv_bytes == 0){
+		    close(comm_socket_fd);
+		    break; //goto Step 5
+   		}
+
+		test_struct_t* client_data = (test_struct_t*) data_buffer;
+
+		/*If the client sends a special message to the server , then server close the client connection forever.*/
+		/*Step 9*/
+		if (client_data->a == 0 && client_data->b == 0){
+		    close(comm_socket_fd);
+		    printf("Server closes connection with  client %s:%u\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port)); 
+		    /*Goto state machine State 1*/
+		    break; /*Get out of inner while loop, server is done with this client, time to check for new connection request by executing select()*/
+		}
+		
+		result_struct_t result;
+		result.c = client_data->a + client_data->b;
+
+		/*Server replying back to client now*/
+		sent_recv_bytes = sendto(comm_socket_fd, (char*)&result, sizeof(result_struct_t), 0, (struct sockaddr*)&client_addr, sizeof(struct sockaddr));
+
+		printf("Server sent %d bytes to client %s:%u\n", sent_recv_bytes, inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port)); 
+		/*Goto state machine State 3*/
+	    }
+	}
+    }/*Step 10: Wait for client request again*/       
+}
+
+int main(int argc, char **argv){
+    setup_tcp_server_communication();
+    return 0;
+}
+
+==> test.c <==
+#include <stdio.h>
+
+int main(){
+    printf("%d\n", sizeof(short));
+    printf("%d\n", sizeof(int));
+    printf("%d\n", sizeof(long));
+    printf("%d\n", sizeof(long long));
+    printf("%d\n", sizeof(char));
+    printf("%d\n", sizeof(float));
+    printf("%d\n", sizeof(double));
+    printf("%d\n", sizeof(long double));
+    printf("%d\n", sizeof(unsigned int));
+    printf("%d\n", sizeof(unsigned char));
+
+    return 0;
+}
+
+==> tree1.c <==
+#include "tree.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <time.h>
+
+tree_t*
+init_tree(void)
+{
+    tree_t *tree = calloc(1,sizeof(tree_t));
+    if(!tree)
+        return NULL;
+    tree->root = NULL;
+    return tree;
+}
+
+tree_node_t* init_tree_node(int n)
+{
+    tree_node_t *node = calloc(1, sizeof(tree_node_t));
+    if(!node)   return NULL;
+    node->data = n;
+    return node;
+}
+
+int
+add_tree_node_by_value(tree_t *tree, int n)
+{
+    tree_node_t *root = NULL, *parent = NULL;;
+    if(!tree) return -1;
+    tree_node_t *node = init_tree_node(n);
+    if(!tree->root){
+        tree->root = node;
+        return 0;
+    }
+
+    root = tree->root;
+
+    while(root){
+        parent = root;
+        root = (n < root->data) ? root->left : root->right;
+    } // while ends
+
+    if(n < parent->data)
+        parent->left = node;
+    else if (n >= parent->data)
+        parent->right = node;
+    else
+        return 1;
+
+    node->parent = parent;
+    return 0;
+}
+
+tree_node_t *
+get_left_most(tree_node_t *node){
+
+    if(!node->left)
+        return NULL;
+
+    while(node->left){
+        node = node->left;
+    }
+    return node;
+}
+
+tree_node_t *
+get_next_inorder_succ(tree_node_t *node){
+
+    /* case 1 : Handling root*/
+    if(!node->parent){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+        return NULL;
+    }
+
+    /*case 2 : if node is a left child of its parent*/
+    if(node == node->parent->left){
+        if(!node->right)
+            return node->parent;
+        else
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+    }
+
+    /*case 3 : if node is a right child of its parent*/
+    if(node == node->parent->right){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+    }
+
+    /* case 4 : Inorder successor of node is a ancestor whose
+     * left children is also an ancestor*/
+
+    tree_node_t *gp = node->parent->parent;
+    tree_node_t *parent = node->parent;
+
+    while(gp && gp->left != parent){
+
+        parent = gp;
+        gp = gp->parent;
+    }
+
+    return gp;
+}
+
+int iterinOrder(tree_node_t *node) 
+{ 
+    int count = 0; 
+    while(1){ 
+        while(node->left) 
+            node = node->left; 
+ 
+        count % 50 == 0 ? printf("\n%3u", node->data) : printf("%3u", node->data); 
+        count++; 
+        
+        if (node->right) 
+            node = node->right; 
+        else{ 
+            while (node->parent){ 
+                if (node->data >= node->parent->data) 
+                   node = node->parent; 
+                else 
+                   break; 
+            } 
+            while (node->parent){ 
+                if (node->data < node->parent->data){ 
+                    count % 50 == 0 ? printf("\n%3u", node->parent->data) : printf("%3u", node->parent->data); 
+                    count++; 
+                    node = node->parent; 
+                } 
+                if (node->right){ 
+                    node = node->right; 
+                    break; 
+                } 
+                else{ 
+                    while (node->parent){ 
+                        if (node->data >= node->parent->data) 
+                           node = node->parent; 
+                        else 
+                           break; 
+                    } 
+                } 
+            }     
+        } 
+        if (!node->parent) 
+            return 0; 
+    } 
+    return 0; 
+} 
+
+void serialize_int(int *obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE
+    
+    if (obj != NULL)
+        serialize_data(buff, (char*)obj, sizeof(int));
+}
+
+int* de_serialize_int(ser_buff_t *buff, int* num){
+    SENTINEL_DETECTION_CODE
+    
+    de_serialize_data((char*)num, buff, sizeof(int));
+    return num;
+}
+
+void serialize_tree_node_t(tree_node_t *obj, ser_buff_t *buff){
+    SENTINEL_INSERTION_CODE
+
+    serialize_int((&obj->data), buff);
+
+    if (obj->left)
+        serialize_tree_node_t(obj->left, buff);
+
+    if (obj->right)
+        serialize_tree_node_t(obj->right, buff);
+}
+
+tree_t* de_serialize_tree(ser_buff_t *buff){
+    SENTINEL_DETECTION_CODE
+
+    reset_serialize_buffer(buff);
+
+    tree_t *tree = init_tree();
+    
+    int *num = (int*)calloc(1, sizeof(int));
+    while ((num = de_serialize_int(buff, num)) && (num != NULL)){
+        add_tree_node_by_value(tree, *num);
+    }
+
+    free(num);
+    return tree;
+} 
+
+void PreOrderTraversal(tree_node_t *obj){
+    printf("%3d", obj->data);
+    if (obj->left)
+        PreOrderTraversal(obj->left);
+    if (obj->right)
+        PreOrderTraversal(obj->right);
+}
+
+void PostOrderTraversal(tree_node_t *obj){
+    if (obj->left)
+        PostOrderTraversal(obj->left);
+    if (obj->right)
+        PostOrderTraversal(obj->right);
+    printf("%3d", obj->data);
+}
+
+void InOrderTraversal(tree_node_t *obj){
+    if (obj->left)
+        InOrderTraversal(obj->left);
+    printf("%3d", obj->data);
+    if (obj->right)
+        InOrderTraversal(obj->right);
+}
+
+int
+main(int argc, char **argv){
+    int item;
+    tree_t *tree = init_tree();
+    srand(time(NULL));
+
+   // add_tree_node_by_value(tree,  1);
+    add_tree_node_by_value(tree,  100);
+    add_tree_node_by_value(tree,  50);
+    add_tree_node_by_value(tree,  10);
+    add_tree_node_by_value(tree,  90);
+    add_tree_node_by_value(tree,  95);
+    add_tree_node_by_value(tree,  99);
+   
+    for (int i = 0; i < 15; i++) {
+        item = rand() % 100;
+        i % 50 == 0 ? printf("\n%3d", item) : printf("%3d", item);
+        add_tree_node_by_value(tree, item);
+    }
+    printf("\n");
+    iterinOrder(tree->root);
+    printf("\nPreOrder: ");
+    PreOrderTraversal(tree->root);
+    printf("\nPostOrder: ");
+    PostOrderTraversal(tree->root);
+    printf("\nInOrder: ");
+    InOrderTraversal(tree->root);
+    printf("\n");
+    ser_buff_t *buff = (ser_buff_t*)calloc(1, sizeof(ser_buff_t));
+
+    init_serialized_buffer(&buff);
+
+    serialize_tree_node_t(tree->root, buff);
+
+    int *nptr = NULL;
+    serialize_int(nptr, buff);
+    tree_t *newtree = de_serialize_tree(buff);
+
+    printf("\n");
+    iterinOrder(newtree->root);
+    printf("\nPreOrder: ");
+    PreOrderTraversal(newtree->root);
+    printf("\nPostOrder: ");
+    PostOrderTraversal(newtree->root);
+    printf("\nInOrder: ");
+    InOrderTraversal(newtree->root);
+    printf("\n");
+//    printf("\n");
+//    printf("\n");
+//    printf("\n");
+//    tree_node_t *treenodeptr = NULL;
+//
+//    ITERATE_BST_BEGIN(tree, treenodeptr){
+//        printf("%3u", treenodeptr->data);
+//
+//    } ITERATE_BST_END;
+//    printf("\n");
+    
+    return 0;
+}
+
+==> tree.c <==
+#include "tree.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <memory.h>
+#include <time.h>
+
+tree_t*
+init_tree(void)
+{
+    tree_t *tree = calloc(1,sizeof(tree_t));
+    if(!tree)
+        return NULL;
+    tree->root = NULL;
+    return tree;
+}
+
+tree_node_t* init_tree_node(int n)
+{
+    tree_node_t *node = calloc(1, sizeof(tree_node_t));
+    if(!node)   return NULL;
+    node->data = n;
+    return node;
+}
+
+int
+add_tree_node_by_value(tree_t *tree, int n)
+{
+    tree_node_t *root = NULL, *parent = NULL;;
+    if(!tree) return -1;
+    tree_node_t *node = init_tree_node(n);
+    if(!tree->root){
+        tree->root = node;
+        return 0;
+    }
+
+    root = tree->root;
+
+    while(root){
+        parent = root;
+        root = (n < root->data) ? root->left : root->right;
+    } // while ends
+
+    if(n < parent->data)
+        parent->left = node;
+    else if (n >= parent->data)
+        parent->right = node;
+    else
+        return 1;
+
+    node->parent = parent;
+    return 0;
+}
+
+tree_node_t *
+get_left_most(tree_node_t *node){
+
+    if(!node->left)
+        return NULL;
+
+    while(node->left){
+        node = node->left;
+    }
+    return node;
+}
+
+tree_node_t *
+get_next_inorder_succ(tree_node_t *node){
+
+    /* case 1 : Handling root*/
+    if(!node->parent){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+        return NULL;
+    }
+
+    /*case 2 : if node is a left child of its parent*/
+    if(node == node->parent->left){
+        if(!node->right)
+            return node->parent;
+        else
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+    }
+
+    /*case 3 : if node is a right child of its parent*/
+    if(node == node->parent->right){
+        if(node->right){
+            if(node->right->left)
+                return get_left_most(node->right);
+            else
+                return node->right;
+        }
+    }
+
+    /* case 4 : Inorder successor of node is a ancestor whose
+     * left children is also an ancestor*/
+
+    tree_node_t *gp = node->parent->parent;
+    tree_node_t *parent = node->parent;
+
+    while(gp && gp->left != parent){
+
+        parent = gp;
+        gp = gp->parent;
+    }
+
+    return gp;
+}
+
+int iterinOrder(tree_node_t *node) 
+{ 
+    int count = 0; 
+    while(1){ 
+        while(node->left) 
+            node = node->left; 
+ 
+        count % 50 == 0 ? printf("\n%3u", node->data) : printf("%4u", node->data); 
+        count++; 
+        
+        if (node->right) 
+            node = node->right; 
+        else{ 
+            while (node->parent){ 
+                if (node->data >= node->parent->data) 
+                   node = node->parent; 
+                else 
+                   break; 
+            } 
+            while (node->parent){ 
+                if (node->data < node->parent->data){ 
+                    count % 50 == 0 ? printf("\n%3u", node->parent->data) : printf("%4u", node->parent->data); 
+                    count++; 
+                    node = node->parent; 
+                } 
+                if (node->right){ 
+                    node = node->right; 
+                    break; 
+                } 
+                else{ 
+                    while (node->parent){ 
+                        if (node->data >= node->parent->data) 
+                           node = node->parent; 
+                        else 
+                           break; 
+                    } 
+                } 
+            }     
+        } 
+        if (!node->parent) 
+            return 0; 
+    } 
+    return 0; 
+} 
+
+int
+main(int argc, char **argv){
+    int item;
+    tree_t *tree = init_tree();
+    srand(time(NULL));
+
+//    add_tree_node_by_value(tree,  1);
+    add_tree_node_by_value(tree,  100);
+    add_tree_node_by_value(tree,  50);
+    add_tree_node_by_value(tree,  10);
+    add_tree_node_by_value(tree,  90);
+    add_tree_node_by_value(tree,  95);
+    add_tree_node_by_value(tree,  99);
+   
+//    for (int i = 0; i < 500; i++) {
+//        item = rand() % 100;
+//        i % 50 == 0 ? printf("\n%3d", item) : printf("%3d", item);
+//        add_tree_node_by_value(tree, item);
+//    }
+//    printf("\n");
+//    iterinOrder(tree->root);
+//    printf("\n");
+
+    printf("\n");
+    printf("\n");
+    tree_node_t *treenodeptr = NULL;
+
+    ITERATE_BST_BEGIN(tree, treenodeptr){
+        printf("%3u", treenodeptr->data);
+
+    } ITERATE_BST_END;
+    printf("\n");
+    
+    return 0;
+}
+
+==> tree.h <==
+#ifndef __TREE__
+#define __TREE__
+#include "person1.h"
+
+typedef struct tree_node {              
+    struct tree_node *left;
+    struct tree_node *right;
+    struct tree_node *parent;
+    int data;
+} tree_node_t;
+
+typedef struct tree {
+    tree_node_t *root;
+} tree_t;
+
+int
+add_tree_node_by_value(tree_t *tree, int n);
+
+tree_t* init_tree(void);
+
+tree_node_t* init_tree_node(int n);
+
+/*Pre-requisites functions to write iterative 
+ * macros for a tree.*/
+
+tree_node_t *
+get_left_most (tree_node_t *node);
+
+tree_node_t *
+get_next_inorder_succ (tree_node_t *node);
+
+void serialize_int(int *obj, ser_buff_t *buff);
+
+int* de_serialize_int(ser_buff_t *buff, int* num);
+
+void serialize_tree_node_t(tree_node_t *obj, ser_buff_t *buff);
+
+tree_t* de_serialize_tree(ser_buff_t *buff);
+
+#define ITERATE_BST_BEGIN(treeptr, currentnodeptr)            \
+{                                                             \
+    tree_node_t *_next = NULL;                                \
+    for(currentnodeptr = get_left_most(treeptr->root); currentnodeptr ; currentnodeptr = _next){    \
+                        _next = get_next_inorder_succ(currentnodeptr);
+
+#define ITERATE_BST_END }}
+
+#endif
+
+==> udpclient.c <==
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/types.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <netinet/in.h> 
+  
+#define PORT    12345
+#define MAXLINE 1024 
+  
+int main() { 
+    int sockfd; 
+    char buffer[MAXLINE]; 
+    char *hello = "Hello from client"; 
+    struct sockaddr_in     servaddr; 
+
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        perror("socket creation failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+  
+    memset(&servaddr, 0, sizeof(servaddr)); 
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_port = htons(PORT); 
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1"); 
+      
+    int n, len; 
+      
+    sendto(sockfd, (const char *)hello, strlen(hello), 
+        MSG_CONFIRM, (const struct sockaddr *) &servaddr,  
+            sizeof(servaddr)); 
+    printf("Hello message sent.\n"); 
+          
+    n = recvfrom(sockfd, (char *)buffer, MAXLINE,  
+                MSG_WAITALL, (struct sockaddr *) &servaddr, 
+                &len); 
+    buffer[n] = '\0'; 
+    printf("Server : %s\n", buffer); 
+  
+    close(sockfd); 
+    return 0; 
+}       
+
+==> writershm.c <==
+#include <stdio.h>
+#include <string.h>
+
+int create_and_write_shared_memory(char *mmap_key, char* value, unsigned int size);
+
+int main(int argc, char** argv){
+    char *key = "/introduction";
+    char *intro = "Hello, I am sending a message through shared memory if permissions allow.";
+    create_and_write_shared_memory(key, intro, strlen(intro));
+    return 0;
+}
