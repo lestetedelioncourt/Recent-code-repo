@@ -7141,3 +7141,2809 @@ class ApplicationTest {
         }
     }
 }
+
+==> BillSplitter/src/main/kotlin/com/example/controller/MainController.kt <==
+package com.example.controller
+
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.beans.property.SimpleIntegerProperty
+import tornadofx.*
+
+class MainController: Controller(){
+    var totalPerPerson = SimpleDoubleProperty(0.0)
+    var tipPercentageAmount = SimpleDoubleProperty(0.0)
+    var sliderPercentageAmount = SimpleIntegerProperty(0)
+
+    fun calculate(billAmtValue: SimpleDoubleProperty, splitByValue: SimpleIntegerProperty,
+                    tipPercVal: SimpleIntegerProperty){
+        //tipPercentageAmount.value = (billAmtValue*tipPercVal/100) - would not work
+        tipPercentageAmount.cleanBind((billAmtValue*tipPercVal)/100)
+        totalPerPerson.cleanBind((tipPercentageAmount.value.toProperty() + billAmtValue) / splitByValue)
+        sliderPercentageAmount.cleanBind(tipPercVal)
+    }
+
+}
+==> BillSplitter/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> BillSplitter/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import javafx.stage.Stage
+import tornadofx.App
+
+class MyApp: App(MainView::class, Styles::class){
+    override fun start(stage: Stage){
+        with(stage){
+            width = 250.0
+            height = 500.0
+        }
+        super.start(stage)
+    }
+}
+==> BillSplitter/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.paint.Color
+import javafx.scene.text.FontWeight
+import tornadofx.*
+import tornadofx.CssRule.Companion.c
+
+class Styles : Stylesheet() {
+    init {
+        reloadViewsOnFocus()
+        reloadStylesheetsOnFocus()
+    }
+
+    companion object {
+        val heading by cssclass()
+        val newStyle by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+
+    init{
+        newStyle{
+            backgroundColor = multi(Color.AQUAMARINE)
+            fontSize = 30.px
+            fontWeight = FontWeight.EXTRA_BOLD
+        }
+    }
+}
+==> BillSplitter/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import com.example.controller.MainController
+import javafx.beans.binding.Bindings
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.beans.property.SimpleIntegerProperty
+import javafx.geometry.Orientation
+import javafx.geometry.Pos
+import javafx.scene.control.ButtonType
+import javafx.scene.control.ComboBox
+import javafx.scene.control.Slider
+import javafx.scene.control.TextField
+import javafx.scene.input.KeyCode
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    val mainController: MainController by inject()
+
+    var splitCombo: ComboBox<Int> by singleAssign()
+    var mSlider: Slider by singleAssign()
+    var billAmountField: TextField by singleAssign()
+
+    override val root = vbox {
+        alignment = Pos.TOP_CENTER
+        label("Total Per Person").apply {
+            addClass(Styles.newStyle)
+        }
+        label{
+            addClass(Styles.newStyle)
+            this.textProperty().bind(Bindings.concat("$",
+                Bindings.format("%.2f", mainController.totalPerPerson)
+                )
+            )
+        }
+
+        form {
+            fieldset(labelPosition = Orientation.HORIZONTAL) {
+                field("Bill Amount") {
+                    maxWidth = 190.0
+                    addClass(Styles.heading)
+                    billAmountField = textfield()
+                    billAmountField.filterInput {
+                        it.controlNewText.isDouble() || it.controlNewText.isInt()
+                    }
+
+                    billAmountField.setOnKeyPressed {
+                        if (it.code == KeyCode.ENTER) {
+                            validateField()
+                        }
+                    }
+                }
+                field {
+                    label("Split By:") {
+
+                    }
+                    splitCombo = combobox(values = listOf(1, 2, 3, 4, 5, 6, 8, 9, 10)) {
+                        prefWidth = 135.0
+                        value = 1
+                    }
+                    splitCombo.valueProperty().onChange {
+                        validateField()
+                    }
+                }
+                field {
+                    hbox(spacing = 23.0) {
+                        label("Total Tip")
+                        label().textProperty().bind(
+                            Bindings.concat(
+                                "$",
+                            Bindings.format("%.2f", mainController.tipPercentageAmount)
+                        ))
+                    }
+                }
+                field {
+                    hbox(spacing = 5.0) {
+                        label("Tip %: ")
+                        mSlider = slider(min = 0, max = 100, orientation = Orientation.HORIZONTAL)
+                        mSlider.valueProperty().onChange {
+                            validateField()
+                        }
+                        label().textProperty().bind(
+                            Bindings.concat(
+                                mainController.sliderPercentageAmount, "%"
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun validateField() {
+        if (!billAmountField.toString().isEmpty()) {
+            mainController.calculate(
+                SimpleDoubleProperty(billAmountField.text.toDouble()),
+                SimpleIntegerProperty(splitCombo.value),
+                SimpleIntegerProperty(mSlider.value.toInt())
+            )
+        } else {
+            error(
+                "Error", "Empty field not allowed",
+                buttons = *arrayOf(ButtonType.OK)
+            )
+        }
+    }
+}
+
+==> BorderPane/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> BorderPane/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import tornadofx.App
+
+class MyApp: App(MainView::class, Styles::class)
+==> BorderPane/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> BorderPane/src/main/kotlin/com/example/view/BottomView.kt <==
+package com.example.view
+
+import javafx.scene.control.Label
+import tornadofx.*
+
+class BottomView : View("My View") {
+    override val root: Label = label("Footer") {
+
+    }
+}
+
+==> BorderPane/src/main/kotlin/com/example/view/CenterView.kt <==
+package com.example.view
+
+import tornadofx.*
+
+class CenterView : View("My View") {
+    override val root = borderpane {
+        button("Center button")
+    }
+}
+
+==> BorderPane/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import javafx.scene.layout.BorderPane
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    override fun onUndock(){
+        print("Undock")
+        super.onUndock()
+    }
+
+    override fun onDock() {
+        print("Dock")
+        super.onDock()
+    }
+
+    override fun onCreate(){
+        print("On Create")
+        super.onCreate()
+    }
+
+    override fun onBeforeShow() {
+        print("Before Show!!")
+        super.onBeforeShow()
+    }
+
+    val topView: TopView by inject()
+
+    val centerView = find(CenterView::class)
+
+    override val root: BorderPane = borderpane {
+
+        //top, bottom, center, left, right
+        /*top<TopView>()**/
+
+        top = topView.root
+
+        center = centerView.root
+
+        bottom<BottomView>()
+
+        left {
+            label("Left")
+        }
+
+        right {
+            label("Right")
+        }
+    }
+}
+
+==> BorderPane/src/main/kotlin/com/example/view/TopView.kt <==
+package com.example.view
+
+import javafx.geometry.Pos
+import javafx.scene.layout.HBox
+import tornadofx.*
+
+class TopView : View("Top View") {
+    override val root: HBox = hbox {
+        alignment = Pos.CENTER
+        spacing = 16.0
+        label ("My View")
+        button("Menu")
+        button("File")
+
+    }
+}
+
+==> BudgetTrackerApp/src/main/kotlin/com/example/app/BudgetTrackerWorkspace.kt <==
+package com.example.app
+
+import com.example.controller.ItemController
+import com.example.model.ExpensesEntryTbl
+import com.example.util.createTables
+import com.example.util.enableConsoleLogger
+import com.example.util.execute
+import com.example.view.ExpensesEditor
+import javafx.scene.control.TabPane
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.insert
+import tornadofx.*
+import java.math.BigDecimal
+import java.time.LocalDate
+
+class BudgetTrackerWorkspace : Workspace("Budget tracker workspace", NavigationMode.Tabs) {
+    init {
+        enableConsoleLogger()
+        //we initialize db etc...
+        Database.connect("jdbc:sqlite:./app-bt250722.db", "org.sqlite.JDBC")
+        createTables()
+
+        //Controller(s)
+        ItemController()
+        //dock our views
+        dock<ExpensesEditor>()
+
+        tabContainer.tabClosingPolicy = TabPane.TabClosingPolicy.UNAVAILABLE //Do not want to be able to close tabs
+    }
+}
+
+==> BudgetTrackerApp/src/main/kotlin/com/example/app/MyApp.kt <==
+package com.example.app
+
+import javafx.stage.Stage
+import tornadofx.App
+
+class MyApp: App(BudgetTrackerWorkspace::class, Styles::class){
+    override fun start(stage: Stage) {
+        with(stage){
+            width = 1200.0
+            height = 800.0
+        }
+
+        super.start(stage)
+    }
+}
+==> BudgetTrackerApp/src/main/kotlin/com/example/app/Styles.kt <==
+package com.example.app
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> BudgetTrackerApp/src/main/kotlin/com/example/controller/ItemController.kt <==
+package com.example.controller
+
+import com.example.model.ExpensesEntry
+import com.example.model.ExpensesEntryModel
+import com.example.model.ExpensesEntryTbl
+import com.example.model.toExpensesEntry
+import com.example.util.execute
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
+import javafx.scene.chart.PieChart
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.selectAll
+import tornadofx.Controller
+import tornadofx.asObservable
+import tornadofx.singleAssign
+import java.math.BigDecimal
+import java.time.LocalDate
+import org.jetbrains.exposed.sql.deleteWhere
+
+class ItemController: Controller() {
+    private val listOfItems: ObservableList<ExpensesEntryModel> = execute {
+        ExpensesEntryTbl.selectAll().map{
+            ExpensesEntryModel().apply {
+                item = it.toExpensesEntry()
+            }
+        }.asObservable()
+    }
+
+    var items: ObservableList<ExpensesEntryModel> by singleAssign()
+    var pieItemsData = FXCollections.observableArrayList<PieChart.Data>()
+
+    init {
+        items = listOfItems
+
+        items.forEach {
+            pieItemsData.add(PieChart.Data(it.itemName.value, it.itemPrice.value.toDouble()))
+        }
+    }
+
+    fun add(newEntryDate: LocalDate, newItem: String, newPrice: Double) : ExpensesEntry {
+        val newEntry =  execute {
+            ExpensesEntryTbl.insert {
+                it[entryDate] = newEntryDate
+                it[itemName] = newItem
+                it[itemPrice] = BigDecimal.valueOf(newPrice)
+            }
+        }
+
+        listOfItems.add(
+            ExpensesEntryModel().apply {
+                item = ExpensesEntry(newEntry[ExpensesEntryTbl.id], newEntryDate, newItem, newPrice)
+            }
+        )
+        pieItemsData.add(PieChart.Data(newItem, newPrice))
+
+        return ExpensesEntry(newEntry[ExpensesEntryTbl.id], newEntryDate, newItem, newPrice)
+    }
+
+    fun update(updatedItem: ExpensesEntryModel): Int {
+        return execute {
+            ExpensesEntryTbl.update ({ ExpensesEntryTbl.id.eq(updatedItem.id.value.toInt()) }) {
+                it[entryDate] = updatedItem.entryDate.value
+                it[itemName] = updatedItem.itemName.value
+                it[itemPrice] = BigDecimal.valueOf(updatedItem.itemPrice.value.toDouble())
+            }
+        }
+    }
+
+    fun delete(deleteItem: ExpensesEntryModel) {
+        execute {
+            ExpensesEntryTbl.deleteWhere(null, null, {ExpensesEntryTbl.id.eq(deleteItem.id.value.toInt())})
+        }
+        listOfItems.remove(deleteItem)
+        removeModelFromPie(deleteItem)
+    }
+
+    fun updatePie(model: ExpensesEntryModel) {
+        val modelId = model.id
+        var currentIndex = 0
+        items.forEachIndexed { index, data ->
+            if (modelId == data.id) {
+                currentIndex = index
+                pieItemsData[currentIndex].name = data.itemName.value
+                pieItemsData[currentIndex].pieValue = data.itemPrice.value.toDouble()
+            }
+        }
+    }
+
+    fun removeModelFromPie(deleteItem: ExpensesEntryModel) {
+        var currentIndex = 0
+        pieItemsData.forEachIndexed { index, data ->
+            if (data.name == deleteItem.itemName.value && index >= -1) {
+                currentIndex = index
+            }
+        }
+        pieItemsData.removeAt(currentIndex)
+    }
+}
+==> BudgetTrackerApp/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import com.example.app.MyApp
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> BudgetTrackerApp/src/main/kotlin/com/example/model/ExpensesEntryTbl.kt <==
+package com.example.model
+
+import javafx.beans.binding.Binding
+import javafx.beans.binding.Bindings
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.beans.property.SimpleIntegerProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import tornadofx.*
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.`java-time`.date
+import java.time.LocalDate
+
+fun ResultRow.toExpensesEntry() = ExpensesEntry(
+    this[ExpensesEntryTbl.id],
+    this[ExpensesEntryTbl.entryDate],
+    this[ExpensesEntryTbl.itemName],
+    this[ExpensesEntryTbl.itemPrice].toDouble()
+)
+
+object ExpensesEntryTbl : Table() {
+    val id = integer("id").autoIncrement().primaryKey()
+    val entryDate = date("entry_date")
+    val itemName = varchar("name", length = 50)
+    val itemPrice = decimal("price", scale = 2, precision = 9)
+}
+
+class ExpensesEntry(id: Int, entryDate: LocalDate, itemName: String, itemPrice: Double){
+    val idProperty = SimpleIntegerProperty(id)
+    var id by idProperty
+
+    val entryDateProperty = SimpleObjectProperty(entryDate)
+    var entryDate by entryDateProperty
+
+    val itemPriceProperty = SimpleDoubleProperty(itemPrice)
+    var itemPrice by itemPriceProperty
+
+    val itemNameProperty = SimpleStringProperty(itemName)
+    var itemName by itemNameProperty
+
+    var totalExpenses = Bindings.add(itemPriceProperty, 0)
+
+    override fun toString(): String {
+        return "ExpensesEntry(id=$id, entryDate=$entryDate, itemName=$itemName, itemPrice=$itemPrice)"
+    }
+}
+
+class ExpensesEntryModel : ItemViewModel<ExpensesEntry>() {
+    val id = bind { item?.idProperty }
+    val entryDate = bind { item?.entryDateProperty }
+    val itemName = bind { item?.itemNameProperty }
+    val itemPrice = bind { item?.itemPriceProperty }
+    var totalExpenses = itemProperty.select( ExpensesEntry::totalExpenses )
+}
+==> BudgetTrackerApp/src/main/kotlin/com/example/util/database.kt <==
+package com.example.util
+
+import com.example.model.ExpensesEntryTbl
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import java.sql.Connection
+
+private var LOG_TO_CONSOLE: Boolean = false
+
+fun newTransaction(): Transaction =
+    TransactionManager.currentOrNew(Connection.TRANSACTION_SERIALIZABLE)
+        .apply {
+            if (LOG_TO_CONSOLE) addLogger(StdOutSqlLogger)
+        }
+
+fun enableConsoleLogger() {
+    LOG_TO_CONSOLE = true
+}
+
+fun createTables(){
+    with(newTransaction()){
+        SchemaUtils.create(ExpensesEntryTbl) //can pass as many tables as we want/need
+    }
+}
+
+fun <T> execute(command: () -> T) : T {
+    with(newTransaction()){
+        return command().apply{
+            commit() //commit changes
+            close()  //close databse
+        }
+    }
+}
+
+
+==> BudgetTrackerApp/src/main/kotlin/com/example/util/utilities.kt <==
+/*package com.example.util
+
+import org.joda.time.DateTime
+import java.time.LocalDate
+
+fun DateTime.toJavaLocalDate(): LocalDate {
+    return java.time.LocalDate.of(this.year, this.monthOfYear, this.dayOfMonth)
+}
+
+fun LocalDate.toDate(default: DateTime = org.joda.time.DateTime(1900, 1, 1, 0, 0, 0 )): DateTime{
+    return DateTime(this.year, this.monthValue, this.dayOfMonth, 0, 0, 0)
+}*/
+==> BudgetTrackerApp/src/main/kotlin/com/example/view/ExpensesEditor.kt <==
+package com.example.view
+
+import com.example.controller.ItemController
+import com.example.model.ExpensesEntryModel
+import javafx.beans.binding.Bindings
+import javafx.beans.property.Property
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.geometry.Pos
+import javafx.scene.control.Button
+import javafx.scene.control.Label
+import javafx.scene.input.KeyCode
+import javafx.scene.paint.Color
+import javafx.scene.text.FontWeight
+import tornadofx.*
+import java.lang.Exception
+
+class ExpensesEditor : View("Expenses") {
+    private val model = ExpensesEntryModel()
+    private val controller: ItemController by inject()
+
+    var mTableView : TableViewEditModel<ExpensesEntryModel> by singleAssign()
+    var totalExpensesLabel: Label by singleAssign()
+    val totalExpensesProperty = SimpleDoubleProperty(0.0)
+    var deleteButton: Button by singleAssign()
+
+    init {
+        updateTotalExpenses()
+    }
+
+    override val root = borderpane {
+        /*
+        disableDelete()
+        disableCreate()
+        To gray out the icons on the top bar
+         */
+
+        disableSave()
+        disableRefresh()
+
+        center = vbox {
+            form {
+                fieldset {
+                    field("Entry Date") {
+                        maxWidth = 220.0
+                        //binds to model entryDate field
+                        datepicker(model.entryDate) {
+                            this.required()
+                            validator {
+                                when {
+                                    it?.dayOfMonth.toString().isEmpty() || it?.dayOfYear.toString().isEmpty() ->
+                                        error("The date entry cannot be blank")
+                                    else -> null
+                                }
+                            }
+                        }
+                    }
+                }
+                fieldset {
+                    field("Item") {
+                        maxWidth = 220.0
+                        //binds to model itemName field
+                        textfield (model.itemName) {
+                            this.required()
+                            validator {
+                                when {
+                                    it.isNullOrEmpty() -> error("Field cannot be null")
+                                    it.length < 3 -> error("Field cannot be less than 3 characters")
+                                    else -> null
+                                }
+                            }
+                        }
+                    }
+                }
+                fieldset {
+                    field("Price") {
+                        maxWidth = 220.0
+                        //binds to model itemPrice field
+                        textfield(model.itemPrice) {
+                            this.required()
+                            validator {
+                                when {
+                                    it == null -> error("Price cannot be blank")
+                                    it.contains("[^0-9\\.]".toRegex())-> error("Field must contain only numbers")
+                                    it.contains("\\.[^$]*\\.".toRegex()) -> error("Field can ony have one decimal point")
+                                    it.contains("\\.[0-9]{3}".toRegex()) -> error("can only contain two decimal places")
+                                    else -> null
+                                }
+                            }
+
+                            setOnKeyPressed {
+                                if (it.code == KeyCode.ENTER) {
+                                    onCreate()
+                                }
+                            }
+                        }
+                    }
+                }
+                hbox( 10.0) {
+                    button("Add Item") {
+                        enableWhen(model.valid)
+                        action {
+                            onCreate()
+                        }
+                    }
+                    deleteButton = button("Delete") {
+                        action{
+                            onDelete()
+                        }
+                    }
+                    button("Reset") {
+                        enableWhen(model.valid)
+                        action {
+                            model.rollback()
+                        }
+                    }
+                }
+                fieldset {
+                    paddingTop = 15.0
+                    tableview<ExpensesEntryModel> {
+                        items = controller.items
+                        mTableView = editModel
+                        column("ID", ExpensesEntryModel::id)
+                        column("Added", ExpensesEntryModel::entryDate).makeEditable()
+                        column("Name", ExpensesEntryModel::itemName).makeEditable()
+                        column("Price", ExpensesEntryModel::itemPrice).makeEditable()
+
+                        onEditCommit {
+                            controller.update(it)
+                            updateTotalExpenses()
+                            controller.updatePie(it)
+                        }
+                    }
+                }
+            }
+        }
+
+        right = vbox(2) {
+            alignment = Pos.CENTER
+            paddingBottom = 10.0
+
+            piechart {
+                data = controller.pieItemsData
+            }
+
+            totalExpensesLabel = label {
+                if (totalExpensesProperty.doubleValue() != 0.0) {
+                    style {
+                        fontSize = 19.px
+                        padding = box(10.px, 0.px, 0.px, 0.px)
+                        textFill = Color.GREEN
+                        fontWeight = FontWeight.EXTRA_BOLD
+                        borderRadius = multi(box(8.px))
+                    }
+                    bind(Bindings.concat("Total Expenses: ", "£", Bindings.format("%.2f", totalExpensesProperty)))
+                } else { }
+            }
+        }
+    }
+
+    private fun updateTotalExpenses() {
+        var total = 0.0
+        try {
+            controller.items.forEach {
+                total += it.itemPrice.value.toDouble()
+            }
+            totalExpensesProperty.set(total)
+            model.totalExpenses.value = total
+        } catch (e:Exception) {
+            totalExpensesProperty.set(0.0)
+        }
+    }
+
+    private fun addItem() {
+        controller.add(model.entryDate.value, model.itemName.value, model.itemPrice.value.toDouble())
+        updateTotalExpenses()
+    }
+
+    override fun onDelete() {
+        val selectedItem = mTableView.tableView.selectedItem
+        when (selectedItem) {
+            null -> return
+            else -> {
+                val diff = totalExpensesProperty.value - selectedItem.item.itemPrice
+                totalExpensesProperty.value = diff
+            }
+        }
+        controller.delete(selectedItem)
+        updateTotalExpenses()
+    }
+
+    override fun onCreate() {
+        model.commit{
+            addItem()
+            model.rollback() //clears the fields on screen
+        }
+    }
+}
+
+==> BudgetTrackerApp/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.app.Styles
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    override val root = hbox {
+        label(title) {
+            addClass(Styles.heading)
+        }
+    }
+}
+
+==> DataControls/src/main/kotlin/com/example/controller/MainController.kt <==
+package com.example.controller
+
+import com.example.model.Student
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
+import tornadofx.Controller
+import tornadofx.observable
+import java.time.LocalDate
+
+class MainController : Controller() {
+    val studentsData = FXCollections.observableArrayList<Student>(
+        Student(1, "Jose", "Marilla",
+            LocalDate.of(2000,11,20)),
+        Student(2, "Candy", "Ass",
+            LocalDate.of(1999,9,5)),
+        Student(3, "Helena", "Mount",
+            LocalDate.of(2000,7,21)),
+        Student(4, "Katrina", "Hurricane",
+            LocalDate.of(2000,2,12)),
+    )
+
+    val students = FXCollections.observableArrayList<String>(
+        "Gina Machava",
+        "James Bond",
+        "Helena Mt",
+        "Georgina Emma"
+    )
+
+    fun addStudent(fullName:String){
+        students.add(fullName)
+    }
+
+    fun addNewStudent(student: Student){
+        studentsData.add(student)
+    }
+
+    val studentNames = listOf(
+        "Gina Machava",
+        "James Bond",
+        "Helena Mt",
+        "Georgina Emma"
+    ).observable()
+}
+==> DataControls/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> DataControls/src/main/kotlin/com/example/model/Student.kt <==
+package com.example.model
+
+import javafx.beans.property.Property
+import tornadofx.*
+import javafx.beans.property.SimpleIntegerProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import java.time.LocalDate
+import java.time.Period
+
+/*class Student(val id: Int, val firstName: String, val lastName: String, val birthday: LocalDate){
+    val age: Int get() = Period.between(birthday, LocalDate.now()).years
+}*/
+
+class Student(id: Int, firstName: String, lastName: String, birthday: LocalDate){
+    val idProperty = SimpleIntegerProperty(id)
+    var id: Int by idProperty
+
+    val firstNameProperty = SimpleStringProperty(firstName)
+    var firstName: String by firstNameProperty
+
+    val lastNameProperty = SimpleStringProperty(lastName)
+    var lastName: String by lastNameProperty
+
+    val birthdayProperty = SimpleObjectProperty<LocalDate>(birthday)
+    var birthday by birthdayProperty
+
+    val age: Int get() = Period.between(birthday, LocalDate.now()).years
+}
+
+class StudentModel : ItemViewModel<Student>(){
+    val id = bind { item?.idProperty }
+    val firstName: Property<String> = bind {item?.firstNameProperty}
+    val lastName: Property<String> = bind {item?.lastNameProperty}
+    val dob: Property<LocalDate> = bind {item?.birthdayProperty}
+}
+==> DataControls/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import javafx.stage.Stage
+import tornadofx.App
+
+class MyApp: App(MainView::class, Styles::class){
+    override fun start(stage: Stage){
+        with (stage){
+            width = 700.0
+            height= 700.0
+        }
+        super.start(stage)
+    }
+}
+==> DataControls/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> DataControls/src/main/kotlin/com/example/view/BottomView.kt <==
+package com.example.view
+
+import com.example.controller.MainController
+import javafx.beans.property.SimpleStringProperty
+import tornadofx.*
+
+class BottomView : View("My View") {
+    val mainController: MainController by inject()
+
+    val firstName = SimpleStringProperty()
+    val lastName = SimpleStringProperty()
+
+    override val root = form {
+        fieldset {
+            field("Add First Name") {
+                textfield(firstName)
+            }
+            field("Add Last Name") {
+                textfield(lastName)
+            }
+        }
+
+        hbox {
+            button {
+                text = "Save Student"
+                action {
+                    if (firstName.value.isNullOrEmpty() || lastName.value.isNullOrEmpty()){
+
+                    } else {
+                        val fullName: String = firstName.value + " " + lastName.value
+                        mainController.addStudent(fullName)
+
+                        firstName.value = ""
+                        lastName.value = ""
+                    }
+                }
+            }
+        }
+    }
+}
+
+==> DataControls/src/main/kotlin/com/example/view/CenterView.kt <==
+package com.example.view
+
+import com.example.controller.MainController
+import com.example.model.Student
+import com.example.model.StudentModel
+import javafx.scene.control.TableView
+import tornadofx.*
+
+class CenterView : View("My View") {
+    val mainController : MainController by inject()
+    val model: StudentModel by inject()
+
+    //If using Strings, etc, can only use readonlyColumns
+     /*TableView<Student> = tableview<Student> {
+        items = mainController.studentsData
+        readonlyColumn("ID", Student::id)
+        readonlyColumn("First name", Student::firstName)
+        readonlyColumn("Last Name", Student::lastName)
+        readonlyColumn("Student Age", Student::age)
+    }*/
+
+
+    override val root: TableView<Student> = tableview<Student> {
+        items = mainController.studentsData
+        isEditable = true
+        column("ID", Student::idProperty)
+        column("First Name", Student::firstNameProperty)
+        column("Last Name", Student::lastNameProperty)
+        readonlyColumn("Student Age", Student::age)
+
+        bindSelected(model)
+    }
+}
+
+==> DataControls/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import com.example.controller.MainController
+import javafx.collections.FXCollections
+import javafx.scene.paint.Color
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    val mainController: MainController by inject()
+    val bottomView: BottomView by inject()
+    val topView: TopView by inject()
+    val centerView: CenterView by inject()
+    val studentEditor: StudentEditor by inject()
+
+    override val root = borderpane() {
+        //bottom = bottomView.root
+        //top = topView.root
+        center= centerView.root
+        left = studentEditor.root
+
+        /*hbox {
+            listview(values = studentNames)
+
+            listview<String> {
+                items.add("James")
+                items.add("Katarina")
+                items.add("Arao")
+                items.add("Ronaldo")
+            }
+            listview(mainController.students) {
+                cellFormat {
+                    text = it
+                    if (text.contains("Emma")) {
+                        //textFill = Color.AQUAMARINE
+                        textFill = c("green", 0.4)
+                        style {
+                            fontSize = 20.px
+                        }
+                    }
+                }
+            }
+
+        }
+        button {
+            text = "Add Student"
+            action {
+                mainController.students.add("New Student")
+            }
+        }*/
+    }
+}
+
+==> DataControls/src/main/kotlin/com/example/view/StudentEditor.kt <==
+package com.example.view
+
+import com.example.controller.MainController
+import com.example.model.Student
+import com.example.model.StudentModel
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import tornadofx.*
+import java.time.LocalDate
+
+class StudentEditor : View("My View") {
+    val mainController: MainController by inject()
+    /*val firstName = SimpleStringProperty()
+    val lastName = SimpleStringProperty()
+    val dob = SimpleObjectProperty<LocalDate>()*/
+
+    val model: StudentModel by inject()
+
+    override val root = form{
+        fieldset{
+            field("First Name"){
+                textfield(model.firstName){
+                    //required()
+                    validator {
+                        if (it.isNullOrEmpty()) error("This is required") else null
+                    }
+                }
+            }
+            field("Last Name"){
+                textfield(model.lastName).required()
+            }
+            field("DOB"){
+                    datepicker(model.dob).required()
+            }
+            hbox{
+                button("Save"){
+                    enableWhen(model.dirty)
+                    action{
+                        model.commit{
+                            val student = Student(1, model.firstName.value, model.lastName.value, model.dob.value)
+                            mainController.addNewStudent(student)
+                        }
+                    }
+                }
+                button("Reset"){
+                    enableWhen(model.dirty)
+                    action{
+                        model.rollback()
+                    }
+                }
+            }
+
+
+        }
+    }
+}
+
+==> DataControls/src/main/kotlin/com/example/view/TopView.kt <==
+package com.example.view
+
+import com.example.controller.MainController
+import tornadofx.*
+
+class TopView : View("My View") {
+    val mainController: MainController by inject()
+    override val root = listview(mainController.students) {
+        cellFormat {
+            text = it
+            if (text.contains("Emma")) {
+                //textFill = Color.AQUAMARINE
+                textFill = c("green", 0.4)
+                style {
+                    fontSize = 20.px
+                }
+            }
+        }
+    }
+}
+
+==> JavaFXAPP/src/main/kotlin/com/example/controller/BubbleController.kt <==
+package com.example.controller
+
+import com.example.view.MainView
+import javafx.animation.Interpolator
+import javafx.beans.property.SimpleStringProperty
+import javafx.geometry.Point2D
+import javafx.scene.Node
+import javafx.scene.input.MouseEvent
+import javafx.scene.media.AudioClip
+import javafx.scene.paint.Color
+import javafx.scene.shape.Circle
+import javafx.util.Duration
+import tornadofx.*
+
+class BubbleController:Controller(){
+    private var circle = Circle()
+    private var audioClip = AudioClip(
+        MainView::class.java.getResource("/celestial-sound.wav")
+        .toExternalForm())
+    var mText = SimpleStringProperty()
+    private val colorList: List<String> = listOf(
+        "#cdeded",
+        "#1A1A1A",
+        "#707070",
+        "#8E8E38",
+        "#71C671",
+        "#7171C6",
+        "#800000",
+        "#EE0000",
+        "#CD5C5C",
+        "#CDC5BF",
+        "#8B7765",
+        "#FF8000",
+        "#E3CF57",
+        "#8B8B00",
+        "#6B8E23",
+        "#00EE76",
+        "#2F4F4F",
+        "#00BFFF",
+        "#1E90FF",
+        "#6E7B8B",
+        "#00008B",
+        "#AB82FF",
+        "#9400D3",
+        "#FF00FF",
+        "#FFBBFF",
+        "#C71585"
+    )
+
+    private val listOfText: List<String> = listOf(
+        "A tall, gracile, brown-eyed girl entered the circle, raven hair shading her face, revealing a straight aquiline nose. A wide, tan coloured skirt stretched down\n" +
+                "past her knees, but her feet were bare", "She dropped to the ground suddenly, beginning to gyrate her bare midriff, revealing for a moment a glimpse of her eyes. Leaning forward, she scooped\n" +
+                "large handfuls of loose dry soil, leaking from her fingers as her arms began to\n" +
+                "rise.", "Spirals of dust were left twirling in the midday sun, before an unseen\n" +
+                "movement made both handfuls explode in a greyish-brown cloud, obscuring\n" +
+                "her from view - plumes erupted, girl invisible behind spraying fountains.", "Keep Learning", "You Can Do It!", "Hakuna Matata",
+        "Hakuna MatataMore spirals appeared amidst the smoke as the girl rose to her feet, twisting\n" +
+                "See the World", "Drink Water", "Eat Well", "Be Well", "Travel the World", "Think Different",
+        "Assess Everything", "Be A Force of Nature", "Be the Change in the World", "Do"
+    )
+
+    fun addCircle(it: MouseEvent, root: Node) {
+        val mousePt: Point2D = root.sceneToLocal(it.sceneX , it.sceneY)
+
+        if (audioClip.isPlaying){
+            audioClip.volumeProperty().value = 0.3
+            audioClip.panProperty().value = 1.0
+        } else {
+            audioClip.volumeProperty().value = 0.8
+            audioClip.play()
+        }
+
+        circle = Circle(mousePt.x, mousePt.y, 14.5, Color.ORANGERED)
+        circle.apply{
+            animateFill(Duration.seconds(0.9), c(randomColor()), Color.TRANSPARENT)
+        }
+        timeline {
+            keyframe(Duration.seconds(1.0)){
+                keyvalue(circle.radiusProperty(), 250, Interpolator.EASE_BOTH)
+                keyvalue(circle.centerYProperty(), 100, Interpolator.EASE_BOTH)
+            }
+        }
+
+        root.getChildList()!!.add(circle)
+    }
+
+    fun addRandomText() {
+        val listSize = listOfText.size
+        val randomNum = (0 until listSize).shuffled().last()
+
+        mText.set(listOfText[randomNum])
+    }
+
+    private fun randomColor(): String {
+        val listSize: Int = colorList.size
+        val randomNum = (0 until listSize).shuffled().last()
+
+        return colorList[randomNum]
+    }
+}
+==> JavaFXAPP/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> JavaFXAPP/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import tornadofx.App
+
+class MyApp: App(MainView::class, Styles::class)
+==> JavaFXAPP/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> JavaFXAPP/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import com.example.controller.BubbleController
+
+import javafx.scene.paint.Color
+import javafx.scene.shape.Circle
+import javafx.util.Duration
+import javafx.animation.Interpolator
+import javafx.geometry.Pos
+import javafx.scene.control.Label
+import javafx.scene.input.MouseDragEvent
+import tornadofx.*
+
+class MainView : View("Bubbles and Ripples!!!") {
+    private val bubbleController: BubbleController by inject()
+    private var circle = Circle()
+    private var myLabel: Label by singleAssign()
+    override val root = borderpane {
+        setPrefSize(1000.0, 800.0)
+        /*center {
+        }*/
+        bottom{
+            label(title) {
+
+                myLabel = this
+                addClass(Styles.heading)
+                bind(bubbleController.mText)
+            }
+            /*label("Click Anywhere..."){
+                alignment = Pos.BOTTOM_CENTER
+                paddingAll = 19.0
+            }.apply{
+                style{
+                    opacity = 0.3
+                    fontSize = 25.px
+                }
+            }*/
+        }
+    }.apply{
+        style{
+            backgroundColor += c("#E0EEEE")
+        }
+
+        addEventFilter(MouseDragEvent.MOUSE_CLICKED) {
+
+            myLabel.opacity = 1.0
+            myLabel.layoutY = 400.0
+
+            bubbleController.addCircle(it, this)
+            bubbleController.addRandomText()
+
+            circle = Circle(myLabel.layoutX, myLabel.layoutY, 4.5, Color.ORANGERED)
+
+            timeline{
+                keyframe(Duration.seconds(0.3)){
+                    keyvalue(myLabel.styleProperty(), "-fx-font-size: 25",
+                        Interpolator.EASE_BOTH)
+                }
+                keyframe(Duration.seconds(0.0)){
+                    keyvalue(myLabel.opacityProperty(), 1, Interpolator.EASE_BOTH)
+                }
+                keyframe(Duration.seconds(0.0)){
+                    keyvalue(myLabel.translateYProperty(), 0.0, Interpolator.EASE_BOTH)//(this@apply.height - 100))
+                }
+                keyframe(Duration.seconds(8.5)){
+                    keyvalue(myLabel.translateYProperty(), -800.0, Interpolator.EASE_BOTH)//(this@apply.height - 100))
+                }
+                keyframe(Duration.seconds(8.0)){
+                    keyvalue(myLabel.opacityProperty(), 0, Interpolator.EASE_BOTH)
+                }
+            }
+        }
+    }
+}
+==> Klimatic/src/main/kotlin/com/example/controller/ForecastController.kt <==
+package com.example.controller
+
+import com.example.model.City
+import com.example.model.CityModel
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
+import tornadofx.*
+import java.text.SimpleDateFormat
+import java.util.*
+
+class ForecastController: Controller(){
+    var allWeather = FXCollections.emptyObservableList<City>()
+    val api: Rest by inject()
+    val selectedCity: CityModel by inject()
+
+    fun getIcon(iconString: String) = when(iconString) {
+        "Rain" -> "rain"
+        "Clouds" -> "clouds"
+        "Snow" -> "snow"
+        "Clear" -> "clear"
+        "Drizzle" -> "rain"
+        "Fog" -> "fog"
+        else -> "clear"
+    }
+
+    fun getFormattedDate(date: Long) = SimpleDateFormat("EEE, d MMM, YYYY").format(Date(date * 1000))
+
+    fun listPayload(latitude: Double = selectedCity.lat.value, longitude: Double = selectedCity.lon.value) : ObservableList<City> {
+        val forecast = api.get("https://api.openweathermap.org/data/2.5/onecall?lat=$latitude&lon=$longitude&exclude=minutely,hourly&appid=37515839fc422f35997fa945f15d2c53")
+            .list().toModel<City>()
+
+        forecast[0].daily.forEach {
+            print("Forecast::::${it.temp.day}\n")
+        }
+
+        return forecast
+    }
+}
+==> Klimatic/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> Klimatic/src/main/kotlin/com/example/model/City.kt <==
+package com.example.model
+
+import javafx.beans.property.*
+import tornadofx.*
+import javax.json.JsonObject
+import kotlin.reflect.KProperty
+
+class City : JsonModel {
+    val latProperty = SimpleDoubleProperty()
+    var lat: Double by latProperty
+
+    val lonProperty = SimpleDoubleProperty()
+    var lon: Double by lonProperty
+
+    val nameProperty = SimpleStringProperty()
+    var name: String by nameProperty
+
+    val dailyProperty = SimpleListProperty<Daily>()
+    var daily: List<Daily> by property(dailyProperty)
+
+    override fun updateModel(json: JsonObject) {
+        with(json){
+            lat = getDouble("lat")
+            lon = getDouble("lon")
+            name = getString("timezone")
+            daily = getJsonArray("daily").toModel()
+        }
+    }
+
+    override fun toString() = name!!
+}
+
+class CityModel : ItemViewModel<City>(){
+    var lon = bind(City::lonProperty)
+    var lat = bind(City::latProperty)
+    var name = bind(City::nameProperty)
+    var daily = bind(City::dailyProperty)
+}
+==> Klimatic/src/main/kotlin/com/example/model/Daily.kt <==
+package com.example.model
+
+import javafx.beans.property.*
+import tornadofx.*
+import javax.json.JsonObject
+import kotlin.reflect.KProperty
+
+class Daily : JsonModel{
+    val dtProperty = SimpleIntegerProperty()
+    var dt by dtProperty
+
+    val humidityProperty = SimpleIntegerProperty()
+    var humidity by humidityProperty
+
+    val speedProperty = SimpleDoubleProperty()
+    var speed by speedProperty
+
+    val tempProperty = SimpleObjectProperty<Temp>()
+    var temp by tempProperty
+
+    val weatherProperty = SimpleListProperty<Weather>()
+    var weather: List<Weather> by property(weatherProperty)
+
+    override fun updateModel(json: JsonObject) {
+        with(json){
+            dt = getInt("dt")
+            speed = getDouble("wind_speed")
+            humidity = getInt("humidity")
+            temp = getJsonObject("temp").toModel()
+            weather = getJsonArray("weather").toModel()
+        }
+    }
+}
+
+
+==> Klimatic/src/main/kotlin/com/example/model/ForecastPayload.kt <==
+package com.example.model
+
+import javafx.beans.property.SimpleListProperty
+import tornadofx.*
+import javax.json.JsonObject
+
+class ForecastPayload: JsonModel{
+    val dailyProperty = SimpleListProperty<Daily>()
+    var daily: List<Daily> by property(dailyProperty)
+
+    override fun updateModel(json: JsonObject) {
+        with(json){
+            daily = getJsonArray("daily").toModel()
+        }
+    }
+}
+==> Klimatic/src/main/kotlin/com/example/model/Temp.kt <==
+package com.example.model
+
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.beans.property.SimpleStringProperty
+import tornadofx.*
+import javax.json.JsonObject
+import kotlin.reflect.KProperty
+
+class Temp: JsonModel{
+    val dayProperty = SimpleDoubleProperty()
+    var day: Double by dayProperty
+
+    val minProperty = SimpleDoubleProperty()
+    var min: Double by minProperty
+
+    val maxProperty = SimpleDoubleProperty()
+    var max: Double by maxProperty
+
+    val nightProperty = SimpleDoubleProperty()
+    var night: Double by nightProperty
+
+    val eveProperty = SimpleDoubleProperty()
+    var eve: Double by eveProperty
+
+    val mornProperty = SimpleDoubleProperty()
+    var morn: Double by mornProperty
+
+    override fun updateModel(json: JsonObject) {
+        with(json){
+            morn = getDouble("morn")
+            eve = getDouble("eve")
+            night = getDouble("night")
+            max = getDouble("max")
+            day = getDouble("day")
+            min = getDouble("min")
+        }
+    }
+}
+
+
+==> Klimatic/src/main/kotlin/com/example/model/Weather.kt <==
+package com.example.model
+
+import javafx.beans.property.SimpleIntegerProperty
+import javafx.beans.property.SimpleStringProperty
+import tornadofx.*
+import javax.json.JsonObject
+import kotlin.reflect.KProperty
+
+class Weather : JsonModel{
+    val mainProperty = SimpleStringProperty()
+    var main: String by mainProperty
+
+    val descriptionProperty = SimpleStringProperty()
+    var description: String by descriptionProperty
+
+    val iconProperty = SimpleStringProperty()
+    var icon: String by iconProperty
+
+    val idProperty = SimpleIntegerProperty()
+    var id: Int by idProperty
+
+    override fun updateModel(json: JsonObject) {
+        with(json){
+            icon = getString("icon")
+            description = getString("description")
+            main = getString("main")
+            id = getInt("id")
+        }
+    }
+}
+==> Klimatic/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.WeatherForecast
+import javafx.stage.Stage
+import tornadofx.App
+
+class MyApp: App(WeatherForecast::class, Styles::class){
+    override fun start(stage: Stage) {
+        with (stage){
+            width = 1400.0
+            height = 800.0
+        }
+
+        super.start(stage)
+    }
+}
+==> Klimatic/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.paint.Color
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+        val mainLabels by cssclass()
+    }
+
+    init {
+        mainLabels{
+            fontSize = 20.px
+            fill = Color.GRAY
+        }
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> Klimatic/src/main/kotlin/com/example/util/utils.kt <==
+package com.example.util
+
+val appid = "37515839fc422f35997fa945f15d2c53"
+==> Klimatic/src/main/kotlin/com/example/view/WeatherForecast.kt <==
+package com.example.view
+
+import com.example.Styles
+import com.example.controller.ForecastController
+import javafx.beans.binding.Bindings
+import com.example.model.City
+import com.example.model.Daily
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.geometry.Orientation
+import javafx.geometry.Pos
+import javafx.scene.control.ButtonType
+import javafx.scene.control.*
+import javafx.scene.input.KeyCode
+import javafx.scene.layout.*
+import javafx.scene.paint.Color
+import javafx.scene.text.FontPosture
+import tornadofx.*
+
+class WeatherForecast : View("Hello TornadoFX") {
+    val controller: ForecastController by inject()
+    var latField: TextField by singleAssign()
+    var lonField: TextField by singleAssign()
+    var latValid = false
+    var lonValid = false
+    var cityLabel: Label by singleAssign()
+    var todayTemp: Label by singleAssign()
+    var todayIcon: Label by singleAssign()
+    var sevenDayLabel: Label by singleAssign()
+    var dividerHB: HBox by singleAssign()
+    var forecastPayload = City()
+    var forecastView: DataGrid<Daily> by singleAssign()
+
+    init{
+        controller.listPayload(latitude = 51.51, longitude = 0.13)
+    }
+
+    override val root = borderpane {
+        style{
+            backgroundColor += c("#666699")
+        }
+        center = vbox{
+            currentWeatherView()
+            vbox{
+                alignment = Pos.TOP_CENTER
+                cityLabel = label()
+                todayIcon = label()
+                todayTemp = label()
+                sevenDayLabel = label()
+                dividerHB = HBox()
+                forecastView = datagrid()
+            }
+        }
+    }
+
+    private fun VBox.currentWeatherView() = vbox {
+        form{
+            paddingAll = 20.0
+            fieldset {
+                field("Enter Latitude", Orientation.VERTICAL) {
+                    latField = textfield(){
+                        filterInput {
+                            it.controlNewText.isDouble()
+                        }
+                        setOnKeyPressed {
+                            if (it.code == KeyCode.ENTER){
+                                runAsync {
+                                    validateLat()
+                                }
+                            }
+                        }
+                    }
+                }
+                field("Enter Longitude", Orientation.VERTICAL) {
+                    lonField = textfield(){
+                        filterInput {
+                            it.controlNewText.isDouble()
+                        }
+                        setOnKeyPressed{
+                            if (it.code == KeyCode.ENTER){
+                                runAsync {
+                                    validateLon()
+                                } ui {
+                                    vbox{
+                                        if (lonValid && latValid) {
+                                            forecastPayload = controller.allWeather[0]
+                                            cityLabel.text = forecastPayload.name + " " + controller.getFormattedDate(forecastPayload.daily[0].dt.toLong())
+                                            cityLabel.apply {
+                                                addClass(Styles.mainLabels)
+                                            }
+                                            latValid = false
+                                            lonValid = false
+                                            todayTemp.text = "%.2f".format(forecastPayload.daily[0].temp.day - 273.15).toString() + "°C" + " ${forecastPayload.daily[0].weather[0].description}"
+                                            todayTemp.apply {
+                                                addClass(Styles.mainLabels)
+                                            }
+
+                                            todayIcon.graphic = imageview("${controller.getIcon(
+                                                    forecastPayload.daily[0].weather[0].main
+                                                    )}.png", lazyload = true){
+                                                fitHeight = 200.0
+                                                fitWidth = 200.0
+                                            }
+                                            dividerHB.style{
+                                                borderColor += box(Color.TRANSPARENT, Color.TRANSPARENT, Color.TRANSPARENT, Color.TRANSPARENT)
+                                            }
+                                            sevenDayLabel.text = "7-Day Weather Forecast"
+                                            sevenDayLabel.style {
+                                                fill = Color.GREY
+                                                fontStyle = FontPosture.ITALIC
+                                                opacity = 0.7
+                                            }
+
+                                            forecastView.items = forecastPayload.daily.observable()
+                                            forecastView.apply {
+                                                cellWidth = 150.0
+                                                cellHeight = 230.0
+                                                cellCache{
+                                                    stackpane {
+                                                        vbox(alignment = Pos.TOP_CENTER) {
+                                                            label(controller.getFormattedDate(it.dtProperty.value.toLong())
+                                                                .split(",")[0])
+                                                            label{
+                                                                graphic = imageview("${controller.getIcon(
+                                                                    it.weather[0].mainProperty.value)}.png").apply{
+                                                                        fitHeight = 100.0
+                                                                        fitWidth = 100.0
+                                                                }
+                                                            }
+                                                            paddingBottom = 20.0
+                                                        }
+                                                        vbox(alignment = Pos.CENTER){
+                                                            paddingTop = 105.0
+                                                            label("Min: " + "%.2f".format(it.temp.min - 273.15).toString() + "°c")
+                                                            label("Max: " + "%.2f".format(it.temp.max - 273.15).toString() + "°c")
+                                                            label{
+                                                                this.textProperty().bind(
+                                                                    Bindings.concat("Hum: ", it.humidityProperty, "%")
+                                                                )
+                                                            }
+                                                            label(it.weather[0].description)
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun validateLat() : Boolean {
+        if(!latField.toString().isEmpty()){
+            controller.selectedCity.lat = SimpleDoubleProperty(latField.text.toDouble())
+            latValid = true
+            callPayload()
+        } else {
+            error(
+                "Error", "Empty field not allowed", buttons = *arrayOf(ButtonType.OK)
+            )
+        }
+
+        return latValid
+    }
+
+    private fun validateLon() : Boolean{
+        if(!lonField.toString().isEmpty()){
+            controller.selectedCity.lon = SimpleDoubleProperty(lonField.text.toDouble())
+            lonValid = true
+            callPayload()
+        } else {
+            error(
+                "Error", "Empty field not allowed", buttons = *arrayOf(ButtonType.OK)
+            )
+        }
+
+        return lonValid
+    }
+
+    private fun callPayload(){
+        if (latValid && lonValid){
+            print("New forecast for Lat: ${controller.selectedCity.lat.value} and Lon: ${controller.selectedCity.lon.value}\n")
+            controller.allWeather = controller.listPayload()
+        }
+    }
+}
+
+==> NewProj/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> NewProj/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import tornadofx.App
+
+class MyApp: App(MainView::class, Styles::class)
+==> NewProj/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> NewProj/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    override val root = hbox {
+        label(title) {
+            addClass(Styles.heading)
+        }
+    }
+}
+
+==> ShapesApp/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> ShapesApp/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import javafx.stage.Stage
+import tornadofx.App
+import tornadofx.reloadStylesheetsOnFocus
+import tornadofx.reloadViewsOnFocus
+
+class MyApp: App(MainView::class, Styles::class){
+    init {
+        reloadStylesheetsOnFocus()
+        reloadViewsOnFocus()
+    }
+
+
+    override fun start(stage: Stage) {
+        with(stage){
+            minWidth = 800.0
+            minHeight = 600.0
+        }
+
+        super.start(stage)
+    }
+}
+==> ShapesApp/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 23.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> ShapesApp/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import javafx.animation.Interpolator
+import javafx.geometry.Pos
+import javafx.scene.paint.Color
+import javafx.util.Duration
+import tornadofx.*
+
+class MainView : View("Shapes") {
+    override val root = borderpane {
+        center = vbox {
+            alignment = Pos.CENTER
+            label(title) {
+                addClass(Styles.heading)
+            }
+
+            rectangle {
+                width = 100.0
+                height = 80.0
+                x = 700.0
+                y = 100.0
+                style{
+                    fill = Color.GREEN
+                }
+            }
+
+            val myCirc = circle{
+                isManaged = false
+                radius = 89.0
+                centerX = 400.0
+                centerY = 100.0
+            }
+
+            line{
+                isManaged= false
+                startX = 23.0
+                startY = 23.0
+                endX = 120.0
+                endY= 100.0
+            }
+
+            //myCirc.radiusProperty().animate(endValue = 1, duration = 3.seconds)
+            timeline {
+                keyframe(Duration.seconds(2.0)){
+                    keyvalue(myCirc.radiusProperty(), 34.0, Interpolator.EASE_BOTH)
+                }
+                isAutoReverse = true
+                cycleCount = 4
+            }
+        }
+    }
+}
+
+==> Styles/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> Styles/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import javafx.stage.Stage
+import tornadofx.App
+import tornadofx.reloadStylesheetsOnFocus
+import tornadofx.reloadViewsOnFocus
+
+class MyApp: App(MainView::class, Styles::class){
+    init{
+        reloadStylesheetsOnFocus()
+        reloadViewsOnFocus()
+    }
+    override fun start(stage: Stage) {
+        with(stage){
+            width = 1000.0
+            height = 800.0
+        }
+
+        super.start(stage)
+    }
+}
+==> Styles/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.paint.Color
+import javafx.scene.text.FontWeight
+import tornadofx.*
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+        val ourStyle: CssRule by cssclass()
+
+        private val topColor: Color = c("#cedede")
+        private val rightColor: Color = c("green")
+        private val leftColor: Color = Color.RED
+        private val bottomColor: Color = c(red = 123, green = 21, blue = 111)
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+        ourStyle{
+            borderColor = multi(box(
+                top = topColor,
+                right = rightColor,
+                left = leftColor,
+                bottom = bottomColor
+            ))
+        }
+    }
+}
+==> Styles/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import javafx.scene.paint.Color
+import javafx.scene.text.FontWeight
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    override val root = vbox {
+        label(title) {
+            style {
+                fontSize = 30.px
+                fontWeight = FontWeight.BOLD
+                textFill = Color.GREEN
+            }
+        }
+        button("Hello Again"){
+            style{
+                addClass(Styles.ourStyle)
+               // fontWeight = FontWeight.EXTRA_BOLD
+               // backgroundColor = multi(c("aliceblue"))
+            }
+        }
+
+        button("Hello Twice"){
+            style{
+                fontWeight = FontWeight.EXTRA_BOLD
+                backgroundColor = multi(Color.AQUAMARINE)
+                borderRadius = multi(box(474.px))
+                rotate = 47.deg
+                borderColor = multi(box(
+                    top = Color.RED,
+                    right = c("red"),
+                    bottom = Color.RED,
+                    left = Color.BLUE))
+            }
+        }
+    }
+}
+
+==> Styling/src/main/kotlin/com/example/main.kt <==
+package com.example
+
+import tornadofx.launch
+
+fun main() {
+    launch<MyApp>()
+}
+==> Styling/src/main/kotlin/com/example/MyApp.kt <==
+package com.example
+
+import com.example.view.MainView
+import tornadofx.App
+
+class MyApp: App(MainView::class, Styles::class)
+==> Styling/src/main/kotlin/com/example/Styles.kt <==
+package com.example
+
+import javafx.scene.text.FontWeight
+import tornadofx.Stylesheet
+import tornadofx.box
+import tornadofx.cssclass
+import tornadofx.px
+
+class Styles : Stylesheet() {
+    companion object {
+        val heading by cssclass()
+    }
+
+    init {
+        label and heading {
+            padding = box(10.px)
+            fontSize = 20.px
+            fontWeight = FontWeight.BOLD
+        }
+    }
+}
+==> Styling/src/main/kotlin/com/example/view/MainView.kt <==
+package com.example.view
+
+import com.example.Styles
+import tornadofx.*
+
+class MainView : View("Hello TornadoFX") {
+    override val root = hbox {
+        label(title) {
+            addClass(Styles.heading)
+        }
+    }
+}
+
+==> bookstore/src/Application.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlinx.css.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import io.ktor.sessions.*
+import io.ktor.features.*
+import org.slf4j.event.*
+import io.ktor.auth.*
+import io.ktor.gson.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
+import io.ktor.locations.*
+import kotlinx.coroutines.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(Sessions) {
+        cookie<MySession>("MY_SESSION") {
+            cookie.extensions["SameSite"] = "lax"
+        }
+    }
+
+    install(CallLogging) {
+        level = Level.INFO
+        filter { call -> call.request.path().startsWith("/") }
+    }
+
+    install(PartialContent) {
+        // Maximum number of ranges that will be accepted from a HTTP request.
+        // If the HTTP request specifies more ranges, they will all be merged into a single range.
+        maxRangeCount = 10
+    }
+
+    install(StatusPages){
+        exception<Throwable> { cause ->
+            call.respond(HttpStatusCode.InternalServerError)
+            throw cause
+        }
+    }
+
+    install(Locations){
+
+    }
+
+    val users = listOf<String>("shopper1", "shopper2", "shopper3")
+    val admins = listOf<String>("admin")
+
+    install(Authentication) {
+        basic("bookStoreAuth") {
+            realm = "Book store"
+            validate {
+                if ((users.contains(it.name) || admins.contains(it.name)) && it.password == "password")
+                    UserIdPrincipal(it.name)
+                else null
+            }
+        }
+    }
+
+    install(ContentNegotiation) {
+        gson {
+            setPrettyPrinting()
+        }
+    }
+
+    val client = HttpClient(Apache) {
+        install(JsonFeature) {
+            serializer = GsonSerializer()
+        }
+    }
+    runBlocking {
+        // Sample for making a HTTP Client request
+        /*
+        val message = client.post<JsonSampleClass> {
+            url("http://127.0.0.1:8080/path/to/endpoint")
+            contentType(ContentType.Application.Json)
+            body = JsonSampleClass(hello = "world")
+        }
+        */
+    }
+
+    routing {
+        books()
+
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+
+        get("/styles.css") {
+            call.respondCss {
+                body {
+                    backgroundColor = Color.red
+                }
+                p {
+                    fontSize = 2.em
+                }
+                rule("p.myclass") {
+                    color = Color.blue
+                }
+            }
+        }
+
+        // Static feature. Try to access `/static/ktor_logo.svg`
+        static("/static") {
+            resources("static")
+        }
+
+        get("/session/increment") {
+            val session = call.sessions.get<MySession>() ?: MySession()
+            call.sessions.set(session.copy(count = session.count + 1))
+            call.respondText("Counter is ${session.count}. Refresh to increment.")
+        }
+
+        authenticate("bookStoreAuth") {
+            get("/api") {
+                val principal = call.principal<UserIdPrincipal>()!!
+                call.respondText("Hello ${principal.name}")
+            }
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+data class MySession(val count: Int = 0)
+
+class AuthenticationException : RuntimeException()
+class AuthorizationException : RuntimeException()
+
+data class JsonSampleClass(val hello: String)
+
+fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> Unit) {
+    style(type = ContentType.Text.CSS.toString()) {
+        +CSSBuilder().apply(builder).toString()
+    }
+}
+
+fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> Unit) {
+    this.style = CSSBuilder().apply(builder).toString().trim()
+}
+
+suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
+    this.respondText(CSSBuilder().apply(builder).toString(), ContentType.Text.CSS)
+}
+
+==> bookstore/src/BookRoutes.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.locations.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.routing.get
+import io.ktor.auth.authenticate
+
+@Location("/api/book/list")
+data class BookListLocation(val sortby: String, val asc: Boolean)
+
+fun Route.books(){
+    val dataManager = DataManagerMongoDB()
+    authenticate("bookStoreAuth") {
+            get<BookListLocation>() {
+                call.respond(dataManager.sortedBooks(it.sortby, it.asc))
+            }
+
+            get("/api/book/all") {
+                call.respond(dataManager.allBooks())
+            }
+
+            post("/api/book/{id}") {
+                val id = call.parameters.get("id")
+                val book = call.receive(Book::class)
+                val updatedbook = dataManager.updateBook(book)
+                call.respondText("The book has been updated $updatedbook")
+            }
+
+            put("/api/book") {
+                val book = call.receive(Book::class)
+                val newbook = dataManager.newBook(book)
+                call.respond(newbook)
+            }
+
+            delete("/api/book/{id}") {
+                val id = call.parameters.get("id").toString()
+                val deletedbook = dataManager.deleteBook(id)
+                call.respond(deletedbook)
+            }
+    }
+}
+==> bookstore/src/DataManager.kt <==
+//package com.learning
+//
+//import org.slf4j.LoggerFactory
+//import kotlin.reflect.full.declaredMemberProperties
+//
+//class DataManager {
+//    val log = LoggerFactory.getLogger(DataManager::class.java)
+//    var books = ArrayList<Book>()
+//    fun gimmeId(): String = books.size.toString()
+//
+//    init{
+//        books.add(Book(gimmeId(), "How to grow apples", "Mr Appleton", 100.0f))
+//        books.add(Book(gimmeId(), "How to grow oranges", "Mr Orangeton", 90.0f))
+//        books.add(Book(gimmeId(), "How to grow lemons", "Mr Lemonton", 110.0f))
+//        books.add(Book(gimmeId(), "How to grow pineapples", "Mr Pineappleton", 100.0f))
+//        books.add(Book(gimmeId(), "How to grow pears", "Mr Pearton", 110.0f))
+//        books.add(Book(gimmeId(), "How to grow coconuts", "Mr Coconuton", 130.0f))
+//        books.add(Book(gimmeId(), "How to grow bananass", "Mr Appleton", 120.0f))
+//    }
+//
+//    fun newBook(book: Book){
+//        books.add(book)
+//    }
+//
+//    fun updateBook(book: Book): Book?{
+//        val foundbook = books.find {
+//            it.id == book.id
+//        }
+//        foundbook?.title = book.title
+//        foundbook?.author = book.author
+//        foundbook?.price = book.price
+//        return foundbook
+//    }
+//
+//    /*fun deleteBook(book: Book): Book?{
+//        val bookfound = books.find {
+//            it.id == book.id
+//        }
+//        books.remove(bookfound)
+//        return bookfound
+//    }*/
+//
+//    fun deleteBook(bookid: String): Book{
+//        val bookfound = books.find {
+//            println("${it.id} $bookid")
+//            it.id == bookid
+//        }
+//        books.remove(bookfound)
+//        return bookfound!!
+//    }
+//
+//    fun allBooks(): ArrayList<Book>{
+//        return books
+//    }
+//
+//    fun sortedBooks(sortby: String, asc: Boolean): List<Book> {
+//        val member = Book::class.declaredMemberProperties.find { it.name.equals(sortby) }
+//        if (member == null){
+//            log.info("The field to sort by does not exist")
+//            return allBooks()
+//        }
+//
+//        if (asc)
+//            return allBooks().sortedBy { member?.get(it).toString() }
+//        else
+//            return allBooks().sortedByDescending { member?.get(it).toString() }
+//    }
+//}
+==> bookstore/src/DataManagerMongoDB.kt <==
+package com.learning
+
+import com.mongodb.MongoClientSettings
+import com.mongodb.client.MongoClients
+import com.mongodb.client.MongoCollection
+import com.mongodb.client.MongoDatabase
+import com.mongodb.client.model.Filters.eq
+import org.bson.Document
+import org.bson.codecs.configuration.CodecRegistries.fromProviders
+import org.bson.codecs.configuration.CodecRegistries.fromRegistries
+import org.bson.codecs.configuration.CodecRegistry
+import org.bson.codecs.pojo.PojoCodecProvider
+import org.bson.types.ObjectId
+import org.slf4j.LoggerFactory
+
+class DataManagerMongoDB {
+    val log = LoggerFactory.getLogger(DataManagerMongoDB::class.java)
+    val database: MongoDatabase
+    val bookCollection: MongoCollection<Book>
+
+    init{
+        val pojoCodecRegistry: CodecRegistry = fromProviders(PojoCodecProvider.builder().automatic(true).build())
+        val codecRegistry: CodecRegistry = fromRegistries(
+            MongoClientSettings.getDefaultCodecRegistry(), pojoCodecRegistry
+        )
+
+        val clientSettings = MongoClientSettings.builder()
+            .codecRegistry(codecRegistry)
+            .build()
+
+        val mongoClient = MongoClients.create(clientSettings)
+        database = mongoClient.getDatabase("development")
+        bookCollection = database.getCollection(Book::class.java.simpleName, Book::class.java)
+        initBooks()
+    }
+
+    fun initBooks(){
+        deleteAllBooks()
+        bookCollection.insertOne(Book(null, "How to grow apples", "Mr Appleton", 100.0f))
+        bookCollection.insertOne(Book(null, "How to grow oranges", "Mr Orangeton", 90.0f))
+        bookCollection.insertOne(Book(null, "How to grow lemons", "Mr Lemonton", 110.0f))
+        bookCollection.insertOne(Book(null, "How to grow pineapples", "Mr Pineappleton", 100.0f))
+        bookCollection.insertOne(Book(null, "How to grow pears", "Mr Pearton", 110.0f))
+        bookCollection.insertOne(Book(null, "How to grow coconuts", "Mr Coconuton", 130.0f))
+        bookCollection.insertOne(Book(null, "How to grow bananass", "Mr Appleton", 120.0f))
+    }
+
+    fun deleteAllBooks(){
+        bookCollection.deleteMany(Document())
+    }
+
+    fun newBook(book: Book) : Book{
+        bookCollection.insertOne(book)
+        return book
+    }
+
+    fun updateBook(book: Book): Book{
+        val foundbook: Book? = bookCollection.find(Document("_id", book.id)).first()
+        foundbook?.title = book.title
+        foundbook?.author = book.author
+        foundbook?.price = book.price
+        return foundbook!!
+    }
+
+    fun deleteBook(bookid: String): Book {
+        val bookfound = bookCollection.find(eq("_id", bookid)).first()
+        bookCollection.deleteOne(eq("_id", ObjectId(bookid)))
+        return bookfound!!
+    }
+
+    fun allBooks(): List<Book>{
+        return bookCollection.find().toList()
+    }
+
+    fun sortedBooks(sortby: String, asc: Boolean): List<Book> {
+        val pageno = 1
+        val pageSize = 1000
+        val ascint: Int = if(asc) 1 else -1
+        return bookCollection
+            .find()
+            .sort(Document(mapOf(Pair(sortby, ascint), Pair("_id", -1))))
+            .skip(pageno - 1)
+            .limit(pageSize)
+            .toList()
+    }
+}
+==> bookstore/src/DataModel.kt <==
+package com.learning
+
+import org.bson.codecs.pojo.annotations.BsonId
+import org.bson.types.ObjectId
+
+class Book(id: ObjectId?, title: String, author: String, price: Float){
+    @BsonId var id: ObjectId?
+    var title: String
+    var author: String
+    var price: Float
+
+    constructor() : this(null, "not_set", "not_set", 0.00f)
+
+    init{
+        this.id = id
+        this.title = title
+        this.author = author
+        this.price = price
+    }
+}
+
+
+data class ShoppingCart(var id: String, var userid: String, val items: ArrayList<ShoppingItem>)
+
+
+
+data class ShoppingItem(var bookid: String, var qty: Int)
+
+
+data class User(var id: String, var name: String, var username: String, var password:String)
+
+
+
+==> bookstore/src/ui/Endpoints.kt <==
+package ui
+
+enum class Endpoints(val url: String) {
+    LOGIN("/html/login"),
+    LOGOUT("/html/logout"),
+    DOLOGIN("/html/dologin"),
+    HOME("/html/home"),
+    BOOKS("/html/books"),
+    CART("/html/cart");
+}
+==> bookstore/test/ApplicationTest.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlinx.css.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import io.ktor.sessions.*
+import io.ktor.features.*
+import org.slf4j.event.*
+import io.ktor.auth.*
+import io.ktor.gson.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
+import kotlinx.coroutines.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> comm_dummy/src/main/kotlin/Main.kt <==
+import java.io.BufferedReader
+import java.io.FileWriter
+import java.io.FileReader
+import java.io.IOException
+
+fun main(args: Array<String>) {
+    val items = listOf(1, 2, 3, 4, 5)
+
+    items.fold( 0)
+
+    println("Hello world!")
+
+    return
+}
+
+public class DummyController(val filename: String){
+    public companion object{
+        public const val command_code_position : Int = 8
+        public const val port_number_position : Int = 6
+        public const val command_range_end : Int = 1
+        public const val range_start : Int = 0
+        public const val port_range_end : Int = 9
+    }
+
+    private fun WriteToDummyController(command: String, filename: String)
+            : Boolean{
+        var fo = FileWriter(
+            filename
+            , false
+        )
+
+        return when {
+            (command.equals("<1,HI>")) -> {
+                fo.write("1,HI,0")
+                fo.close()
+                true
+            }
+            (command.length > command_code_position) -> {
+                try {
+                    var num1 = command[port_number_position].digitToInt()
+                    var num2 = command[command_code_position].digitToInt()
+                    if (num1 in range_start .. port_range_end &&
+                        num2 in range_start .. command_range_end){
+                        var opcodes = arrayOf("DO", "OP")
+                        for (subString in opcodes) {
+                            if (command == "<1,${subString},${num1},${num2}>") {
+                                fo.write("1,${subString},0,${command[port_number_position]}")
+                                fo.close()
+                            }
+                        }
+                    }
+                }
+                catch (e: IllegalArgumentException){
+                    println(e.message.toString())
+                }
+                true
+            }
+            else -> {
+                fo.write("Error Serial: $command")
+                fo.close()
+                false
+            }
+        }
+    }
+
+
+
+    private fun DummyControllerResponse(filename: String){
+        val inFile = BufferedReader(
+            FileReader(filename)
+        )
+
+        try {
+            if (inFile.ready()) {
+                println(inFile.readLine())
+            }
+        } catch (e: IOException) {
+            println(e)
+        }
+
+        val items = listOf(1, 2)
+
+        inFile.close()
+    }
+}
+
+==> coroutinedemo/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+
+//fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+}
+
+
+==> coroutinedemo/src/Coroutines.kt <==
+package com.example
+
+import kotlinx.coroutines.*
+import java.io.File
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+
+fun main(args: Array<String>) = runBlocking {
+    var port = 0
+    val openPorts = mutableListOf<String>()
+
+    suspend fun firstcoroutine(ipaddress: String, port: Int){
+        val query="nc -vz $ipaddress $port"
+        val reply = query.runCommand(File("/")).toString()
+        if (reply.contains("succeeded")){
+            openPorts.add(reply)
+        }
+    }
+    withContext(Dispatchers.IO){
+        repeat(200_000) {
+            port += 1
+            launch {
+                firstcoroutine("51.219.137.5", port)
+            }
+        }
+    }
+    openPorts.forEach {
+        println(it)
+    }
+
+}
+
+@Suppress("SpreadOperator")
+private fun String.runCommand(workingDir: File): List<String> {
+    try {
+        val parts = this.split("\\s".toRegex())
+        val proc = ProcessBuilder(*parts.toTypedArray())
+            .directory(workingDir)
+            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+            .redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+
+        proc.waitFor(60, TimeUnit.SECONDS)
+        return proc.inputStream.bufferedReader().readText().split("\\n".toRegex())
+    } catch (e: IOException) {
+        println(e.toString())
+        return listOf()
+    }
+}
+==> endpoint-demo/src/Application.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/") {
+            call.respondText { "HELLO WORLD!" }
+        }
+
+        var weather = "sunny"
+        get("/weatherforecast") {
+            call.respondText { weather }
+        }
+        post("weatherforecast"){
+            weather = call.receiveText()
+            call.respondText { "The weather has been set to: $weather" }
+        }
+    }
+}
+
+
+==> endpoint-demo/test/ApplicationTest.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
