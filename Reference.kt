@@ -3822,3 +3822,3322 @@ suspend fun preparePosts(): Token {
  * with the rest of the code. However, a coroutine is not bound to any particular thread. It may suspend its execution in one thread and resume in another one.
  */
 
+==> ./3-2-ktor-jackson/src/Application.kt <==
+package com.example
+
+import com.fasterxml.jackson.annotation.JsonFormat
+import com.fasterxml.jackson.annotation.JsonInclude
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import com.fasterxml.jackson.databind.*
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import io.ktor.jackson.*
+import io.ktor.features.*
+import java.time.LocalDateTime
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        jackson {
+            enable(SerializationFeature.INDENT_OUTPUT)
+            registerModule(JavaTimeModule())
+            //enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+            enable(SerializationFeature.WRAP_ROOT_VALUE) //not default way to present Json
+            enable(SerializationFeature.WRITE_SINGLE_ELEM_ARRAYS_UNWRAPPED)
+            disable(SerializationFeature.WRITE_DATE_KEYS_AS_TIMESTAMPS)
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/jackson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+
+        get("/ship"){
+            call.respond(SpaceShip(null, 80, listOf("Mike")))
+        }
+    }
+}
+
+data class SpaceShip(@JsonInclude(value= JsonInclude.Include.NON_NULL) val name: String?, //does not display field if value is null
+                     val fuel: Int,
+                     val crew: List<String>,
+                     @JsonFormat(pattern="yyyy-MM-dd HH:mm") val launchDate: LocalDateTime = LocalDateTime.now())
+
+==> ./3-2-ktor-jackson/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./3-4-ktor-autoreload/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD 2!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./3-4-ktor-autoreload/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./3-5-ktor-location-path/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.locations.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(Locations) {
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get<MyLocation> {
+            call.respondText("Location: name=${it.name}")
+        }
+        // Register nested routes
+        get<Book.Author> {
+            call.respondText("$it")
+        }
+        get<Book.List> {
+            call.respondText("$it")
+        }
+    }
+}
+
+@Location("/location/{name}")
+class MyLocation(val name: String)
+
+@Location("/book/{category}") data class Book(val category: String) {
+    @Location("/{author}")
+    data class Author(val book: Book, val author: String)
+
+    @Location("/list")
+    data class List(val book: Book)
+}
+
+
+==> ./3-5-ktor-location-path/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.locations.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./3-6-ktor-location-request-parameter/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.locations.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(Locations) {
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get<MyLocation> {
+            call.respondText("Location: name=${it.name}")
+        }
+        // Register nested routes
+        get<MyLocation> {
+            call.respondText("Location: name=${it.name}")
+        }
+        // Register nested routes
+        get<Book.Author> {
+            call.respondText("$it")
+        }
+        get<Book.List> {
+            call.respondText("$it")
+        }
+    }
+}
+
+@Location("/location/{name}")
+class MyLocation(val name: String)
+
+@Location("/book/{category}") data class Book(val category: String) {
+    @Location("/{author}")
+    data class Author(val book: Book, val author: String)
+
+    @Location("/list")
+    data class List(val book: Book, val sortby: String, val asc: Int)
+}
+
+
+
+==> ./3-6-ktor-location-request-parameter/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.locations.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./3-7-ktor-default-headers/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.features.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(DefaultHeaders) {
+        header("MySystemName", "BookstoreApp") // will send this header with each response
+    }
+
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            for (h in call.request.headers.entries()){
+                log.info("header: ${h.key} ${h.value}")
+            }
+            call.response.header("Myheader...", "Myheadervalue")
+            call.response.header(HttpHeaders.SetCookie, "cookieToUse")
+            call.respondText("HELLO WORLD!")
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./3-7-ktor-default-headers/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.features.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./4-1-ktor-status-pages/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.features.*
+import io.ktor.gson.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    install(StatusPages) {
+        statusFile(
+            HttpStatusCode.InternalServerError,
+            HttpStatusCode.NotFound,
+            filePattern = "customerrors/myerror#.html"
+        )
+
+        exception<MyFirstException> { cause ->
+            call.respond(HttpStatusCode.Unauthorized)
+            log.error(cause.localizedMessage)
+            throw cause
+        }
+        exception<MySecondException> { cause ->
+            call.respondRedirect("/", false)
+            throw cause
+        }
+        exception<MyThirdException> { cause ->
+            call.respondText("The third exception just happened... Please fix it")
+            throw cause
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+        /*ception<AuthenticationException> { cause ->
+            call.respond(HttpStatusCode.Unauthorized)
+        }
+        exception<AuthorizationException> { cause ->
+            call.respond(HttpStatusCode.Forbidden)
+        }*/
+
+        get("/first") {
+            throw MyFirstException()
+        }
+        get("/second") {
+            throw MySecondException()
+        }
+        get("/third") {
+            throw MyThirdException()
+        }
+    }
+}
+
+//class AuthenticationException : RuntimeException()
+//class AuthorizationException : RuntimeException()
+class MyFirstException : RuntimeException()
+class MySecondException : RuntimeException()
+class MyThirdException : RuntimeException()
+
+==> ./4-1-ktor-status-pages/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.features.*
+import io.ktor.gson.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./4-2-ktor-data-posted-to-endpoint/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.http.ContentDisposition.Companion.File
+import io.ktor.http.content.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        post("/text") {
+            val text = call.receiveText()
+            println("text received: $text")
+            call.respondText("thank you we received $text")
+        }
+
+        post("/form"){
+            val parameters = call.receiveParameters()
+            parameters.names().forEach {
+                val myvalue = parameters.get(it)
+                println("key: $it, value: $myvalue")
+            }
+            call.respondText("Thank you for the form data")
+        }
+
+        post("/file"){
+            val multipart = call.receiveMultipart()
+            var title = ""
+            val uploadDir = "./upload"
+            multipart.forEachPart { part ->
+                when (part) {
+                    is PartData.FormItem -> {
+                        if (part.name == "title") {
+                            title = part.value
+                        }
+                    }
+                    is PartData.FileItem -> {
+                        val ext = File(part.originalFileName).extension
+                        val file = File(uploadDir, "upload-${System.currentTimeMillis()}--${title.hashCode()}-${title.hashCode()}.$ext")
+                        part.streamProvider().use { input -> file.outputStream().buffered().use { output -> input.copyToSuspend(output) }}
+                    }
+                }
+                part.dispose()
+            }
+            call.respondText("Your file has been stored")
+        }
+
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+suspend fun InputStream.copyToSuspend(out: OutputStream,
+                                      bufferSize: Int = DEFAULT_BUFFER_SIZE,
+                                      yieldSize: Int = 4 * 1024 * 1024,
+                                      dispatcher: CoroutineDispatcher = Dispatchers.IO
+): Long {
+    return withContext(dispatcher) {
+        val buffer = ByteArray(bufferSize)
+        var bytesCopied = 0L
+        var bytesAfterYield = 0L
+        while (true) {
+            val bytes = read(buffer).takeIf { it >= 0 } ?: break
+            out.write(buffer, 0, bytes)
+            if (bytesAfterYield >= yieldSize) {
+                yield()
+                bytesAfterYield %= yieldSize
+            }
+            bytesCopied += bytes
+            bytesAfterYield += bytes
+        }
+        return@withContext bytesCopied
+    }
+}
+==> ./4-2-ktor-data-posted-to-endpoint/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./4-3-basic-authentication/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.auth.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(Authentication) {
+        basic("myBasicAuth1") {
+            realm = "My Realm"
+            validate { if (it.name == "mike" && it.password == "password") UserIdPrincipal(it.name) else null }
+        }
+        basic("myBasicAuth2") {
+            realm = "My Other Realm"
+            validate { if (it.password == "${it.name}abc123") UserIdPrincipal(it.name) else null }
+        }
+    }
+
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        authenticate("myBasicAuth1") {
+            get("/secret/weather") {
+                val principal = call.principal<UserIdPrincipal>()!!
+                call.respondText("Dear ${principal.name}, i looks like sun tomorrow")
+            }
+        }
+
+        authenticate("myBasicAuth2") {
+            get("/trendycolor/nextyear") {
+                val principal = call.principal<UserIdPrincipal>()!!
+                call.respondText("Hi ${principal.name}, we think that green will be popular next year")
+            }
+            get("/trendycolor/nextmonth") {
+                val principal = call.principal<UserIdPrincipal>()!!
+                call.respondText("Hi ${principal.name}, we think that purple will be popular next month")
+            }
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./4-3-basic-authentication/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.auth.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./4-4-ktor-interceptor/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.features.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.util.pipeline.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+
+        }
+    }
+
+    val mike = PipelinePhase("Mike") //creating own pipeline phase just to show its possible
+    //insertPhaseAfter(ApplicationCallPipeline.Call, mike) //Phase is set after the ApplicationCallPipeline.Call phase
+    insertPhaseBefore(ApplicationCallPipeline.Call, mike)
+    intercept(ApplicationCallPipeline.Setup){
+        log.info("Setup phase...")
+    }
+    intercept(ApplicationCallPipeline.Call){
+        log.info("Call phase...")
+    }
+    intercept(ApplicationCallPipeline.Features){
+        log.info("Features phase..")
+    }
+    intercept(ApplicationCallPipeline.Monitoring){
+        log.info("Monitoring phase...")
+    }
+    intercept(ApplicationCallPipeline.Fallback){
+        log.info("Fallback phase...")
+    }
+    intercept(mike){
+        log.info("Mike phase... ${call.request.uri}") //prints out the uri we tried to call
+        if (call.request.uri.contains("mike")){
+            log.info("The uri contains mike")
+
+            //this response is denied if we have already created a response to be sent to the client (in call phase), returns an exception, if finish() not called
+            //if set before the Call phase, the endpoint response is handled here, and the routing response is not sent, finish() stops the call phase being called
+            call.respondText("The endpoint contains mike")
+            finish() //finish() prevents the rest of the interceptors from being called
+        }
+    }
+
+    routing { //also interceptors, all located in the call phase of the Application Call pieline
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/something/mike/anotherthing"){
+            call.respondText("This endpoint is handled by the route. Have a nice day!")
+            //finish()
+        }
+    }
+}
+
+
+==> ./4-4-ktor-interceptor/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./4-5-call-logging/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.features.*
+import org.slf4j.event.*
+import io.ktor.routing.*
+import io.ktor.http.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(CallLogging) {
+        level = Level.TRACE
+        filter { call -> call.request.path().startsWith("/calllogging") }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+        get("/calllogging/test"){
+            call.respondText("Test 123!")
+        }
+    }
+}
+
+
+==> ./4-5-call-logging/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.features.*
+import org.slf4j.event.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./4-6-metrics/src/Application.kt <==
+package com.example
+
+import com.codahale.metrics.Slf4jReporter
+import com.codahale.metrics.jmx.JmxReporter
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.metrics.dropwizard.*
+import java.util.concurrent.TimeUnit
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    //jconsole can be used from the command line to access the metrics through a GUI
+    install(DropwizardMetrics){
+        Slf4jReporter.forRegistry(registry)
+            .outputTo(log)
+            .convertRatesTo(TimeUnit.SECONDS)
+            .convertDurationsTo(TimeUnit.MILLISECONDS)
+            .build()
+            .start(15, TimeUnit.SECONDS)
+
+        JmxReporter.forRegistry(registry)
+            .convertRatesTo(TimeUnit.SECONDS)
+            .convertDurationsTo(TimeUnit.MILLISECONDS)
+            .build()
+            .start()
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+        get("/weatherforecast"){
+            call.respondText("Sun or rain!")
+        }
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./4-6-metrics/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./5-1-mongodb/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+val mongoDataHandler = MongoDataHandler()
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        jackson {
+            enable(SerializationFeature.INDENT_OUTPUT)
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/jackson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+
+        get("/allships") {
+            call.respond(mongoDataHandler.allSpaceShips())
+        }
+
+        get("/oneship/{spaceshipid}"){
+            val shipid = call.parameters.get("spaceshipid")!!
+            log.info("shipid $shipid")
+            call.respond(mongoDataHandler.findOneSpaceShip(shipid)!!)
+        }
+
+        post("/fuelup/{spaceshipid}"){
+            val shipid = call.parameters.get("spaceshipid")!!
+            log.info("shipid $shipid")
+            mongoDataHandler.fuelUpSpaceShip(shipid)
+            call.respond(mongoDataHandler.allSpaceShips())
+        }
+
+        get("/sortedships"){
+            val pageno = call.parameters.get("page")!!
+            val pagesize = call.parameters.get("pagesize")!!
+            log.info("pageno: $pageno, pagesize: $pagesize")
+            val ships = mongoDataHandler.shipsSortedByFuelAndPaged(pageno.toInt(), pagesize.toInt())
+            call.respond(ships!!)
+        }
+
+        get("/ships"){ //extracts data with a query
+            val fuelmin = call.parameters.get("fuelmin")!!
+            log.info("fuelmin $fuelmin")
+            val ships = mongoDataHandler.shipsWithMoreFuelThan(fuelmin.toFloat())
+            call.respond(ships!!)
+        }
+
+        post("/replace"){
+            log.info("ship replace started")
+            val ship = call.receive(SpaceShip::class)
+            log.info("ship $ship")
+            mongoDataHandler.replaceSpaceShip(ship)
+            call.respond(mongoDataHandler.findOneSpaceShip(ship.getIdAsHex())!!)
+        }
+    }
+}
+==> ./5-1-mongodb/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./6-1-test-strategy/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.client.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    val client = HttpClient() {
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+    }
+}
+
+
+==> ./6-1-test-strategy/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.client.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+
+    @Test
+    fun testClientMock() {
+        runBlocking {
+            val client = HttpClient(MockEngine) {
+                engine {
+                    addHandler { request -> 
+                        when (request.url.fullPath) {
+                            "/" -> respond(
+                                ByteReadChannel(byteArrayOf(1, 2, 3)),
+                                headers = headersOf("X-MyHeader", "MyValue")
+                            )
+                            else -> respond("Not Found ${request.url.encodedPath}", HttpStatusCode.NotFound)
+                        }
+                    }
+                }
+                expectSuccess = false
+            }
+            assertEquals(byteArrayOf(1, 2, 3).toList(), client.get<ByteArray>("/").toList())
+            assertEquals("MyValue", client.request<HttpResponse>("/").headers["X-MyHeader"])
+            assertEquals("Not Found other/path", client.get<String>("/other/path"))
+        }
+    }
+}
+
+==> ./6-2-setting-up-a-ktor-test/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    val client = HttpClient(Apache) {
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./6-2-setting-up-a-ktor-test/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+
+    @Test
+    fun testClientMock() {
+        runBlocking {
+            val client = HttpClient(MockEngine) {
+                engine {
+                    addHandler { request -> 
+                        when (request.url.fullPath) {
+                            "/" -> respond(
+                                ByteReadChannel(byteArrayOf(1, 2, 3)),
+                                headers = headersOf("X-MyHeader", "MyValue")
+                            )
+                            else -> respond("Not Found ${request.url.encodedPath}", HttpStatusCode.NotFound)
+                        }
+                    }
+                }
+                expectSuccess = false
+            }
+            assertEquals(byteArrayOf(1, 2, 3).toList(), client.get<ByteArray>("/").toList())
+            assertEquals("MyValue", client.request<HttpResponse>("/").headers["X-MyHeader"])
+            assertEquals("Not Found other/path", client.get<String>("/aapi/other/path"))
+        }
+    }
+}
+
+==> ./6-3-what-is-a-good-test/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    val client = HttpClient(Apache) {
+    }
+
+    var nresponses = 0
+    routing {
+        get("/") {
+            if (testing){
+                log.info("respond no: $nresponses")
+                call.respondText("Testing!", contentType = ContentType.Text.Plain)
+            }
+            else{
+                call.respondText("we are not testing")
+            }
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./6-3-what-is-a-good-test/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+
+    @Test
+    fun testClientMock() {
+        runBlocking {
+            val client = HttpClient(MockEngine) {
+                engine {
+                    addHandler { request -> 
+                        when (request.url.fullPath) {
+                            "/" -> respond(
+                                ByteReadChannel(byteArrayOf(1, 2, 3)),
+                                headers = headersOf("X-MyHeader", "MyValue")
+                            )
+                            else -> respond("Not Found ${request.url.encodedPath}", HttpStatusCode.NotFound)
+                        }
+                    }
+                }
+                expectSuccess = false
+            }
+            assertEquals(byteArrayOf(1, 2, 3).toList(), client.get<ByteArray>("/").toList())
+            assertEquals("MyValue", client.request<HttpResponse>("/").headers["X-MyHeader"])
+            assertEquals("Not Found other/path", client.get<String>("/other/path"))
+        }
+    }
+}
+
+==> ./6-4-k6-performance-testing/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    val client = HttpClient(Apache) {
+    }
+
+    var nresponses = 0
+    routing {
+        get("/") {
+            nresponses++
+            log.info("respond no. $nresponses")
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./6-4-k6-performance-testing/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+
+    @Test
+    fun testClientMock() {
+        runBlocking {
+            val client = HttpClient(MockEngine) {
+                engine {
+                    addHandler { request -> 
+                        when (request.url.fullPath) {
+                            "/" -> respond(
+                                ByteReadChannel(byteArrayOf(1, 2, 3)),
+                                headers = headersOf("X-MyHeader", "MyValue")
+                            )
+                            else -> respond("Not Found ${request.url.encodedPath}", HttpStatusCode.NotFound)
+                        }
+                    }
+                }
+                expectSuccess = false
+            }
+            assertEquals(byteArrayOf(1, 2, 3).toList(), client.get<ByteArray>("/").toList())
+            assertEquals("MyValue", client.request<HttpResponse>("/").headers["X-MyHeader"])
+            assertEquals("Not Found other/path", client.get<String>("/other/path"))
+        }
+    }
+}
+
+==> ./7-1-html-dsl/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlinx.css.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+
+        get("/styles.css") {
+            call.respondCss {
+                body {
+                    backgroundColor = Color.red
+                }
+                p {
+                    fontSize = 2.em
+                }
+                rule("p.myclass") {
+                    color = Color.blue
+                }
+            }
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> Unit) {
+    style(type = ContentType.Text.CSS.toString()) {
+        +CSSBuilder().apply(builder).toString()
+    }
+}
+
+fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> Unit) {
+    this.style = CSSBuilder().apply(builder).toString().trim()
+}
+
+suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
+    this.respondText(CSSBuilder().apply(builder).toString(), ContentType.Text.CSS)
+}
+
+==> ./7-1-html-dsl/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlinx.css.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./7-1-html-dsl1/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("html-template"){
+            call.respondHtmlTemplate(BookstoreTemplate()){
+                booksOnSale {
+                    +"How to grow oranges - By Jane Orangeton"
+                }
+                bookRecommended {
+                    +"How to grow carrots - Jane Carrotson"
+                }
+            }
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./7-1-html-dsl1/src/BookstoreTemplate.kt <==
+package com.example
+
+import io.ktor.html.*
+import io.ktor.html.insert
+import kotlinx.html.*
+import kotlinx.html.HTML
+
+class BookstoreTemplate: Template<HTML> {
+    val booksOnSale = Placeholder<FlowContent>()
+    val bookRecommended = Placeholder<FlowContent>()
+
+    override fun HTML.apply() {
+        head {
+            title { +"Bookstore Application"}
+        }
+        body{
+            h1{
+                +"Welcome to my bookstore"
+            }
+
+            div{
+                h1 {
+                    +"On sale!"
+                }
+                h2 {
+                    insert(booksOnSale)
+                }
+            }
+            div{
+                h1 {
+                    +"On sale!"
+                }
+                h2 {
+                    insert(bookRecommended)
+                }
+            }
+        }
+    }
+}
+==> ./7-1-html-dsl1/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./7-2-HTML-DSL-import-css/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/htmlexample"){
+            call.respondHtml {
+                head {
+                    link(
+                        rel = "stylesheet",
+                        href = "https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css",
+                        type = "text/css"
+                    ) {
+                        this.integrity = "sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk"
+                        this.attributes.put("crossorigin", "anonymous")
+                    }
+                }
+
+                body {
+                    div(classes = "container") {
+                        div(classes = "row") {
+                            div(classes = "offset-md-4 col-md-4 order-md-2 mb-4"){
+                                h1 {+"HTML"}
+                                ul{
+                                    for (n in 1..10){
+                                        li { +"$n"}
+                                    }
+                                }
+                                button(classes = "btn btn-warning") { +"Test 123" }
+                                br(){}
+                                br(){}
+                                div(classes="alert alert-success"){
+                                    this.role="alert"
+                                    +"My Ktor and Bootstrap application loaded with success!"
+                                }
+                            }
+                        }
+                    }
+                    script(type = "javascript", src = "https://code.jquery.com/jquery-3.5.1.slim.min.js"){
+                        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+                        this.attributes.put("crossorigin", "anonymous")
+                    }
+                    script(
+                        type = "javascript",
+                        src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+                    ) {
+                        integrity = "sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo"
+                        this.attributes.put("crossorigin", "anonymous")
+                    }
+                    script(
+                        type = "javascript",
+                        src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+                    ) {
+                        integrity = "sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
+                        this.attributes.put("crossorigin", "anonymous")
+                    }
+
+                }
+            }
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+==> ./7-2-HTML-DSL-import-css/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./7-3-static-files/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import java.io.FileWriter
+import kotlin.math.log
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                head{
+                    link(href="/static/dynamic_styles.css", type="text/css", rel="stylesheet")
+                }
+                body {
+                    h1 { +"CSS-DSL Example with advanced CSS" }
+                    div("colorchange") {
+                        +"Hi this ia a color changing box"
+                    }
+                    div("divblue") {
+                        +"Hi this ia a blue box"
+                    }
+                    div("divgreen") {
+                        +"Hi this ia a green box"
+                    }
+                    div("divbrown") {
+                        +"Hi this ia a brown box. The color is made from a hex value"
+                    }
+                    img(src="/static/ktor_logo.svg")
+                    script(type="application/javascript", src="/static/myjavascript.js"){}
+                }
+            }
+        }
+
+        get("/lighton/{port}") {
+            val port = call.parameters.get("port")
+            val str: String = "<1,DO,$port,1>"
+            WriteToFile(str)
+            log.info(str)
+            call.respondText(str + " carriage_return")
+        }
+
+        get("/lightoff/{port}") {
+            val port = call.parameters.get("port")
+            val str: String = "<1,DO,$port,0>"
+            WriteToFile(str)
+            log.info(str)
+            call.respondText(str + " carriage_return")
+        }
+
+        get("/pulseon/{port}") {
+            val port = call.parameters.get("port")
+            val str: String = "<1,OP,$port,300>"
+            WriteToFile(str)
+            log.info(str)
+            call.respondText(str + " carriage_return")
+        }
+
+        get("/pulseoff/{port}") {
+            val port = call.parameters.get("port")
+            val str: String = "<1,OP,$port,0>"
+            WriteToFile(str)
+            log.info(str)
+            call.respondText(str + " carriage_return")
+        }
+
+        get("/return_error") {
+            val str: String = "<1,DO,0,1>"
+            WriteToFile(str)
+            log.info("/return_error")
+            call.respondText(str + " no_return)")
+        }
+
+        // Static feature. Try to access `/static/ktor_logo.svg`
+        static("/static") {
+            resources("static")
+        }
+    }
+}
+
+
+fun WriteToFile(str: String){
+    try {
+        var fo = FileWriter("/dev/ttyACM0", true)
+        fo.write(str)
+        fo.close()
+    } catch (ex: Exception){
+        print(ex.message)
+    }
+}
+==> ./7-3-static-files/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./7-4-css-dsl/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+==> ./7-4-css-dsl/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./8-1-jar-file/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD! Running from a jar file", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./8-1-jar-file/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD! Running from a jar file", response.content)
+            }
+        }
+    }
+}
+
+==> ./8-2-docker-build-image/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD! Running from a jar file", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./8-2-docker-build-image/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD! Running from a jar file", response.content)
+            }
+        }
+    }
+}
+
+==> ./bookstore/src/Application.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlinx.css.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import io.ktor.sessions.*
+import io.ktor.features.*
+import org.slf4j.event.*
+import io.ktor.auth.*
+import io.ktor.gson.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
+import io.ktor.locations.*
+import kotlinx.coroutines.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(Sessions) {
+        cookie<MySession>("MY_SESSION") {
+            cookie.extensions["SameSite"] = "lax"
+        }
+    }
+
+    install(CallLogging) {
+        level = Level.INFO
+        filter { call -> call.request.path().startsWith("/") }
+    }
+
+    install(PartialContent) {
+        // Maximum number of ranges that will be accepted from a HTTP request.
+        // If the HTTP request specifies more ranges, they will all be merged into a single range.
+        maxRangeCount = 10
+    }
+
+    install(StatusPages){
+        exception<Throwable> { cause ->
+            call.respond(HttpStatusCode.InternalServerError)
+            throw cause
+        }
+    }
+
+    install(Locations){
+
+    }
+
+    val users = listOf<String>("shopper1", "shopper2", "shopper3")
+    val admins = listOf<String>("admin")
+
+    install(Authentication) {
+        basic("bookStoreAuth") {
+            realm = "Book store"
+            validate {
+                if ((users.contains(it.name) || admins.contains(it.name)) && it.password == "password")
+                    UserIdPrincipal(it.name)
+                else null
+            }
+        }
+    }
+
+    install(ContentNegotiation) {
+        gson {
+            setPrettyPrinting()
+        }
+    }
+
+    val client = HttpClient(Apache) {
+        install(JsonFeature) {
+            serializer = GsonSerializer()
+        }
+    }
+    runBlocking {
+        // Sample for making a HTTP Client request
+        /*
+        val message = client.post<JsonSampleClass> {
+            url("http://127.0.0.1:8080/path/to/endpoint")
+            contentType(ContentType.Application.Json)
+            body = JsonSampleClass(hello = "world")
+        }
+        */
+    }
+
+    routing {
+        books()
+
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+
+        get("/styles.css") {
+            call.respondCss {
+                body {
+                    backgroundColor = Color.red
+                }
+                p {
+                    fontSize = 2.em
+                }
+                rule("p.myclass") {
+                    color = Color.blue
+                }
+            }
+        }
+
+        // Static feature. Try to access `/static/ktor_logo.svg`
+        static("/static") {
+            resources("static")
+        }
+
+        get("/session/increment") {
+            val session = call.sessions.get<MySession>() ?: MySession()
+            call.sessions.set(session.copy(count = session.count + 1))
+            call.respondText("Counter is ${session.count}. Refresh to increment.")
+        }
+
+        authenticate("bookStoreAuth") {
+            get("/api") {
+                val principal = call.principal<UserIdPrincipal>()!!
+                call.respondText("Hello ${principal.name}")
+            }
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+data class MySession(val count: Int = 0)
+
+class AuthenticationException : RuntimeException()
+class AuthorizationException : RuntimeException()
+
+data class JsonSampleClass(val hello: String)
+
+fun FlowOrMetaDataContent.styleCss(builder: CSSBuilder.() -> Unit) {
+    style(type = ContentType.Text.CSS.toString()) {
+        +CSSBuilder().apply(builder).toString()
+    }
+}
+
+fun CommonAttributeGroupFacade.style(builder: CSSBuilder.() -> Unit) {
+    this.style = CSSBuilder().apply(builder).toString().trim()
+}
+
+suspend inline fun ApplicationCall.respondCss(builder: CSSBuilder.() -> Unit) {
+    this.respondText(CSSBuilder().apply(builder).toString(), ContentType.Text.CSS)
+}
+
+==> ./bookstore/src/BookRoutes.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.locations.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.routing.get
+import io.ktor.auth.authenticate
+
+@Location("/api/book/list")
+data class BookListLocation(val sortby: String, val asc: Boolean)
+
+fun Route.books(){
+    val dataManager = DataManagerMongoDB()
+    authenticate("bookStoreAuth") {
+            get<BookListLocation>() {
+                call.respond(dataManager.sortedBooks(it.sortby, it.asc))
+            }
+
+            get("/api/book/all") {
+                call.respond(dataManager.allBooks())
+            }
+
+            post("/api/book/{id}") {
+                val id = call.parameters.get("id")
+                val book = call.receive(Book::class)
+                val updatedbook = dataManager.updateBook(book)
+                call.respondText("The book has been updated $updatedbook")
+            }
+
+            put("/api/book") {
+                val book = call.receive(Book::class)
+                val newbook = dataManager.newBook(book)
+                call.respond(newbook)
+            }
+
+            delete("/api/book/{id}") {
+                val id = call.parameters.get("id").toString()
+                val deletedbook = dataManager.deleteBook(id)
+                call.respond(deletedbook)
+            }
+    }
+}
+==> ./bookstore/test/ApplicationTest.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import kotlinx.css.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import io.ktor.sessions.*
+import io.ktor.features.*
+import org.slf4j.event.*
+import io.ktor.auth.*
+import io.ktor.gson.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
+import kotlinx.coroutines.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./coroutinedemo/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+
+//fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+}
+
+
+==> ./endpoint-demo/src/Application.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/") {
+            call.respondText { "HELLO WORLD!" }
+        }
+
+        var weather = "sunny"
+        get("/weatherforecast") {
+            call.respondText { weather }
+        }
+        post("weatherforecast"){
+            weather = call.receiveText()
+            call.respondText { "The weather has been set to: $weather" }
+        }
+    }
+}
+
+
+==> ./endpoint-demo/test/ApplicationTest.kt <==
+package com.learning
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-content-negotiation/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+        register(ContentType.Application.Xml, XmlConverter())
+
+        /*jackson {
+            enable(SerializationFeature.INDENT_OUTPUT)
+        }*/
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+
+        get("/json/jackson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+
+        get("/spaceship"){
+            call.respond(SpaceShip("Mike", 88))
+        }
+    }
+}
+
+data class SpaceShip(val name: String, val fuel: Int)
+==> ./ktor-content-negotiation/src/XmlConverter.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.features.*
+import io.ktor.http.*
+import io.ktor.http.content.*
+import io.ktor.request.*
+import io.ktor.util.pipeline.*
+import io.ktor.utils.io.*
+import io.ktor.utils.io.jvm.javaio.*
+import com.fasterxml.jackson.dataformat.xml.XmlMapper
+
+class XmlConverter : ContentConverter {
+    override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
+        val request = context.subject
+        val channel = request.value as? ByteReadChannel ?: return null
+        val reader = channel.toInputStream().reader(context.call.request.contentCharset() ?: Charsets.UTF_8)
+        val type = request.type
+        val xmlMapper = XmlMapper()
+        val xml = reader
+        val result: Any? = xmlMapper.readValue(xml, type.javaObjectType)
+        return result
+    }
+
+    override suspend fun convertForSend(
+        context: PipelineContext<Any, ApplicationCall>,
+        contentType: ContentType,
+        value: Any
+    ): Any? {
+        val xmlMapper = XmlMapper()
+        val xml = xmlMapper.writeValueAsString(value)
+        return TextContent(xml, contentType.withCharset(context.call.suitableCharset()))
+    }
+}
+==> ./ktor-content-negotiation/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-demofromweb/src/main/kotlin/example/com/Application.kt <==
+package example.com
+
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import example.com.plugins.*
+
+fun main() {
+    embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
+        configureRouting()
+    }.start(wait = true)
+}
+
+==> ./ktor-demofromweb/src/main/kotlin/example/com/plugins/Routing.kt <==
+package example.com.plugins
+
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+
+fun Application.configureRouting() {
+
+    routing {
+        get("/") {
+                call.respondText("Hello World!")
+            }
+    }
+}
+
+==> ./ktor-demofromweb/src/test/kotlin/example/com/ApplicationTest.kt <==
+package example.com
+
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import example.com.plugins.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ configureRouting() }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("Hello World!", response.content)
+            }
+        }
+    }
+}
+==> ./ktor-extensiondemo/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+import io.ktor.features.*
+
+//fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        jackson {
+            enable(SerializationFeature.INDENT_OUTPUT)
+        }
+    }
+
+    routing {
+
+        get("/json/jackson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./ktor-extensiondemo/src/UserRoutes.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.routing.*
+
+fun Routing.userRoutes(){
+    get("/user") {
+        call.respondText("User1", contentType = ContentType.Text.Plain)
+    }
+
+    post("/user") {
+        call.respondText ("The user has been created")
+    }
+}
+
+
+==> ./ktor-extensiondemo/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import com.fasterxml.jackson.databind.*
+import io.ktor.jackson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-httpclient/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
+import kotlinx.coroutines.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    val client = HttpClient(Apache) {
+        install(JsonFeature) {
+            serializer = GsonSerializer()
+        }
+    }
+    runBlocking {
+        // Sample for making a HTTP Client request
+        /*
+        val message = client.post<JsonSampleClass> {
+            url("http://127.0.0.1:8080/path/to/endpoint")
+            contentType(ContentType.Application.Json)
+            body = JsonSampleClass(hello = "world")
+        }
+        */
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+
+        get("/spaceship"){
+            call.respond(Spaceship("myspaceship", 15))
+        }
+
+        get("/consumeservice"){
+            //call.respondText(client.get<String>("http://localhost:8080/spaceship"))
+            log.info("consume BEGIN")
+            val result = client.get<ByteArray>("http://localhost:8080/spaceship")
+            val result2 = client.get<Spaceship>("http://localhost:8080/spaceship")
+            call.respond(result2)
+            log.info("The result: ${String(result)}")
+            log.info("The result: ${result2.toString()}") //data classes (Spaceship) have an inherent toString() method
+            log.info("consume END")
+        }
+    }
+}
+
+data class JsonSampleClass(val hello: String)
+
+data class Spaceship(val name: String, val fuel: Int)
+==> ./ktor-httpclient/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import io.ktor.client.engine.apache.*
+import io.ktor.client.features.json.*
+import io.ktor.client.request.*
+import kotlinx.coroutines.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-hypermedia-response/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+        get("/library/book/{bookid}/checkout"){
+            val bookid = call.parameters.get("bookid")
+            call.respond(BookReserveResponse("You checked out the book $bookid", emptyList<HypermediaLink>()))
+        }
+
+
+        get("/library/book/{bookid}/reserve"){
+            val bookid = call.parameters.get("bookid")
+            call.respond(BookReserveResponse(
+                "You reserved the book $bookid",
+                emptyList<HypermediaLink>())
+            )
+        }
+
+        get("/library/book/{bookid}"){
+            val bookid = call.parameters.get("bookid")
+            val book = Book(bookid!!, "How to grow apples", "Mr Appleton")
+            val hypermedialinks = listOf<HypermediaLink>(
+                HypermediaLink("http://localhost:8080/library/book/$bookid/checkout", "checkout", "GET"),
+                HypermediaLink("http://localhost:8080/library/book/$bookid/reserve", "reserve", "GET")
+            )
+            val bookResponse = BookResponse(book, hypermedialinks)
+            call.respond(bookResponse)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+data class Book(val id: String, val title: String, val author: String)
+data class BookResponse(val book: Book, val links: List<HypermediaLink>)
+data class BookReserveResponse(val message: String, var links: List<HypermediaLink>)
+data class HypermediaLink(val href: String, val rel: String, val type: String)
+==> ./ktor-hypermedia-response/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-install-feature/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    install(Routing){ //passed as a trailing lambda to the Routing  (usually installed by default)
+        get("/goodevening"){
+            call.respondText("good evening world!")
+        }
+    }
+
+    routing {  //helper function which puts us in the context of routing
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./ktor-install-feature/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-routes/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        //buildText() inherent to routing result trace() function, good for logging, returns in Application run window
+        trace { application.log.trace(it.buildText()) }
+        route("/weather"){
+            route("/europe", HttpMethod.Get){ //the get {} witht trailing lambda is a shortcut helper function
+                header("systemtoken", "weathersystem") {  //without passing in a header the system will not respond
+                    param("name") { //without passing in a name parameter, this route will now not respond
+                        handle {
+                            val name = call.parameters.get("name")
+                            call.respondText { "Dear $name, the weather in Europe is sunny" }
+                        }
+                    }
+                }
+            }
+
+            get("/usa"){
+                call.respondText("the weather in the US is snowy")
+            }
+        }
+    }
+}
+
+
+==> ./ktor-routes/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-webdemo/src/main/kotlin/example/com/Application.kt <==
+package example.com
+
+import io.ktor.application.*
+import example.com.plugins.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.routing.*
+
+fun main(args: Array<String>): Unit =
+    io.ktor.server.netty.EngineMain.main(args)
+
+//@Suppress("unused") // application.conf references the main function. This annotation prevents the IDE from marking it as unused.
+fun Application.module() {
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+    }
+}
+
+==> ./ktor-webdemo/src/main/kotlin/example/com/plugins/Routing.kt <==
+package example.com.plugins
+
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+
+fun Application.configureRouting() {
+
+    routing {
+        get("/") {
+                call.respondText("Hello World!")
+            }
+    }
+}
+
+==> ./ktor-webdemo/src/test/kotlin/example/com/ApplicationTest.kt <==
+package example.com
+
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import example.com.plugins.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ configureRouting() }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("Hello World!", response.content)
+            }
+        }
+    }
+}
+==> ./ktor-websockets-chat-sample/Hi_to_controller/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import java.io.FileReader
+import java.io.FileWriter
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/say_hi") {
+            val str: String = "<1,HI>"
+            WriteToFile(str)
+        }
+
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+fun WriteToFile(str: String){
+    try {
+        var fo = FileWriter("/dev/ttyACM0", true)
+        fo.write(str + "\r")
+        fo.close()
+    } catch (ex: Exception){
+        print(ex.message)
+    }
+}
+
+/*fun ReadFromFile(){
+    try{
+        var fin = FileReader
+    } catch (ex: Exception){
+        print(ex.message)
+    }
+
+}*/
+==> ./ktor-websockets-chat-sample/Hi_to_controller/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktor-websockets-chat-sample/SetupTests/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    install(ContentNegotiation) {
+        gson {
+        }
+    }
+
+    val client = HttpClient() {
+    }
+
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+
+        get("/html-dsl") {
+            call.respondHtml {
+                body {
+                    h1 { +"HTML" }
+                    ul {
+                        for (n in 1..10) {
+                            li { +"$n" }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Static feature. Try to access `/static/ktor_logo.svg`
+        static("/static") {
+            resources("static")
+        }
+
+        get("/json/gson") {
+            call.respond(mapOf("hello" to "world"))
+        }
+    }
+}
+
+
+==> ./ktor-websockets-chat-sample/SetupTests/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import io.ktor.html.*
+import kotlinx.html.*
+import io.ktor.content.*
+import io.ktor.http.content.*
+import io.ktor.gson.*
+import io.ktor.features.*
+import io.ktor.client.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+import io.ktor.client.engine.mock.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+
+    @Test
+    fun testClientMock() {
+        runBlocking {
+            val client = HttpClient(MockEngine) {
+                engine {
+                    addHandler { request -> 
+                        when (request.url.fullPath) {
+                            "/" -> respond(
+                                ByteReadChannel(byteArrayOf(1, 2, 3)),
+                                headers = headersOf("X-MyHeader", "MyValue")
+                            )
+                            else -> respond("Not Found ${request.url.encodedPath}", HttpStatusCode.NotFound)
+                        }
+                    }
+                }
+                expectSuccess = false
+            }
+            assertEquals(byteArrayOf(1, 2, 3).toList(), client.get<ByteArray>("/").toList())
+            assertEquals("MyValue", client.request<HttpResponse>("/").headers["X-MyHeader"])
+            assertEquals("Not Found other/path", client.get<String>("/other/path"))
+        }
+    }
+}
+
+==> ./ktor-websockets-chat-sample/client/src/main/kotlin/com/jetbrains/handson/chat/client/ChatClient.kt <==
+package com.jetbrains.handson.chat.client
+
+import io.ktor.client.*
+import io.ktor.client.features.websocket.*
+import io.ktor.http.*
+import io.ktor.http.cio.websocket.*
+import io.ktor.util.*
+import kotlinx.coroutines.*
+
+@KtorExperimentalAPI
+fun main() {
+    val client = HttpClient { //Creates HttpClient
+        install(WebSockets)   //Sets up Ktor's WebSocket plugin
+    }
+    runBlocking {   //Functions responsible fpr making network calls use the suspension mechanism from Kotlin's coroutines, so is wrapped in a runBlocking block
+        client.webSocket(method = HttpMethod.Get, host = "127.0.0.1", port = 8080, path = "/chat") {
+            val messageOutputRoutine = launch { outputMessages() }
+            val userInputRoutine = launch { inputMessages() }
+
+            userInputRoutine.join() // Wait for completion; either "exit" or error
+            messageOutputRoutine.cancelAndJoin()
+        }
+    }
+    client.close()
+    println("Connection closed. Goodbye!")
+}
+
+suspend fun DefaultClientWebSocketSession.outputMessages() { //extension function for a DefaultClientWebSocketSession
+    try {
+        for (message in incoming) {
+            message as? Frame.Text ?: continue
+            println(message.readText())
+        }
+    } catch (e: Exception) {
+        println("Error while receiving: " + e.localizedMessage)
+    }
+}
+
+suspend fun DefaultClientWebSocketSession.inputMessages() {
+    while (true) {
+        val message = readLine() ?: ""
+        if (message.equals("exit", true)) return
+        try {
+            send(message)
+        } catch (e: Exception) {
+            println("Error while sending: " + e.localizedMessage)
+            return
+        }
+    }
+}
+==> ./ktor-websockets-chat-sample/server/src/main/kotlin/com/jetbrains/handson/chat/server/Application.kt <==
+package com.jetbrains.handson.chat.server
+
+import io.ktor.application.*
+import io.ktor.http.cio.websocket.*
+import io.ktor.routing.*
+import io.ktor.websocket.*
+import java.util.*
+
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused")
+fun Application.module() {
+
+}
+
+==> ./ktorIntellij/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/new") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+    }
+}
+
+
+==> ./ktorIntellij/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
+
+==> ./ktorfromIntelliJplugin/src/Application.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+
+fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
+
+@Suppress("unused") // Referenced in application.conf
+@kotlin.jvm.JvmOverloads
+fun Application.module(testing: Boolean = false) {
+    routing {
+        get("/") {
+            call.respondText("HELLO WORLD!", contentType = ContentType.Text.Plain)
+        }
+    }
+}
+
+
+==> ./ktorfromIntelliJplugin/test/ApplicationTest.kt <==
+package com.example
+
+import io.ktor.application.*
+import io.ktor.response.*
+import io.ktor.request.*
+import io.ktor.routing.*
+import io.ktor.http.*
+import kotlin.test.*
+import io.ktor.server.testing.*
+
+class ApplicationTest {
+    @Test
+    fun testRoot() {
+        withTestApplication({ module(testing = true) }) {
+            handleRequest(HttpMethod.Get, "/").apply {
+                assertEquals(HttpStatusCode.OK, response.status())
+                assertEquals("HELLO WORLD!", response.content)
+            }
+        }
+    }
+}
