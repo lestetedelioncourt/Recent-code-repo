@@ -914,3 +914,381 @@ class Stack():
 #s.pop()
 #print(s.get_stack())
 #print(s.is_empty())
+
+==> imperfecttictactoe.py <==
+#!/usr/bin/python3.8
+#Personal challenge: Using knowledge of python, produce a tictactoe game and a.i in less than 100 lines of code
+from random import shuffle
+
+play = True
+def display_board(board):
+    print(board[1]+'|'+board[2]+'|'+board[3])
+    print(board[4]+'|'+board[5]+'|'+board[6])
+    print(board[7]+'|'+board[8]+'|'+board[9])
+    
+def human_move(board):
+    move = 100
+    while move < 1 or move > 9:
+        try:
+            move = int(input('Enter a number [1-9]: '))
+        except ValueError:
+            move = 100
+        if (move >= 1 and move <= 9 and board[move] == ' '):
+            board[move] = 'x'
+        else:
+            print('Invalid move. Try again')
+    add_to_paths(move,0)
+    
+def add_to_paths(move,player):
+    global win_paths
+    global best_move
+    global assess_move
+    for path in paths[move]:
+        win_paths[player][path] += 1
+        for x in (0,2):
+            if (win_paths[x][path] > 0 and win_paths[x+1][path] > 0):
+                win_paths[x][path] = -1
+                win_paths[x+1][path] = -1
+    for path in (1,2,3,4,5,6,7,8):
+        if (win_paths[3][path] == 3):
+            assess_move[0] += 1024
+        if (win_paths[0][path] == 2 and win_paths[2][path] == -1):
+            assess_move[0] += 64
+        if (win_paths[3][path] == 2):
+            assess_move[0] += 16
+        if (win_paths[0][path] == 1 and win_paths[2][path] == -1):
+            assess_move[0] += 4
+        if (win_paths[3][path] == 1):
+            assess_move[0] += 1            
+        win_paths[3][path] = win_paths[1][path]
+        win_paths[2][path] = win_paths[0][path] 
+    if (assess_move[0] > assess_move[1]):
+        assess_move[1] = assess_move[0]  
+        best_move = [move]
+    elif (assess_move[0] == assess_move[1]):
+        best_move += [move]
+    assess_move[0] = 0    
+    
+def computer_move(board):
+    global best_move
+    global assess_move
+    for move in (1,2,3,4,5,6,7,8,9):
+        if (board[move] == ' '):
+            add_to_paths(move,3)
+    shuffle(best_move)
+    board[best_move[0]] = 'o'
+    add_to_paths(best_move[0],1)
+    assess_move = [0,0]
+    
+def game_over():
+    space = 0
+    for path in (1,2,3,4,5,6,7,8):
+        if (win_paths[0][path] == 3):
+            who_won[1] = True
+        elif (win_paths[1][path] == 3):
+            who_won[2] = True
+        if (test_board[path] == ' '):
+            space += 1
+    if (space == 0 and test_board[9] != ' '):
+        who_won[0] = True
+    for x in (0,1,2):
+        if (who_won[x] == True):
+            print(f'{x}p won')
+            return True
+            
+if (play == True):
+    best_move = [0]
+    assess_move = [0,0]
+    paths = ['#',(1,4,7),(1,5),(1,6,8),(2,4),(2,5,7,8),(2,6),(3,4,8),(3,5),(3,6,7)] 
+    test_board = ['#'] + [' '] * 9
+    win_paths = [['#',0,0,0,0,0,0,0,0],['#',0,0,0,0,0,0,0,0],['#',0,0,0,0,0,0,0,0],['#',0,0,0,0,0,0,0,0]]
+    wins = [['#'] + [0] *8] *4
+#    print(win_paths)
+#    print(wins)
+    display_board(test_board)
+    who_won = [False,False,False]
+    while (game_over() != True):
+        human_move(test_board)
+        if (game_over() == True):
+            display_board(test_board)
+            break
+        computer_move(test_board)0
+        display_board(test_board)
+    play = input('Play again? (Y or N): ') == 'Y'       
+
+==> nephewcoding-ataribreakout.py <==
+from tkinter import *
+import tkinter.messagebox
+import time
+
+window = Tk()
+window.title("Atari Breakout")
+canvas_width = 600
+canvas_height = 500
+
+def new_game():
+    canvas = Canvas(window, width=canvas_width, height=canvas_height, )
+    canvas.pack()
+    
+    puck = canvas.create_rectangle(170, 200, 180, 210, fill="green")
+    paddle = canvas.create_rectangle(260, 470, 340, 480, fill="orange")
+    
+    def you_won():
+        active = False
+        canvas.destroy()
+        PlayAgain = tkinter.messagebox.askyesno ("You Won!", "Do you want to play again?" )
+        if PlayAgain:
+            new_game()
+        else:
+            window.destroy()
+            raise SystemExit()
+            
+    def game_over():
+        active = False
+        canvas.destroy()
+        PlayAgain = tkinter.messagebox.askyesno("Game Over", "Do you want to play again?" )
+        if PlayAgain:
+            new_game()
+        else:
+            window.destroy()
+            raise SystemExit()
+            
+    def hit_paddle(pos):
+        paddle_pos = canvas.coords(paddle)
+        if pos[2] >= paddle_pos[0] and pos[0] <= paddle_pos[2]:
+            if pos[3] >= paddle_pos[1] and pos[3] <= paddle_pos[3]:
+                return True
+        return False
+    
+    def hit_brick(pos):
+        for brick in bricks:
+            brick_pos = canvas.coords(brick)
+            if pos[2] >= brick_pos[0] and pos[0] <= brick_pos[2]:
+                if pos[3]  >= brick_pos[1] and pos[1] <= brick_pos[3]:
+                    canvas.delete(brick)
+                    bricks.remove(brick)
+                    return True
+        return False
+    
+    def move_left(evt):
+        pos = canvas.coords(paddle)
+        if pos[0] > 0:
+            canvas.move(paddle, -10, 0)
+            
+    def move_right(evt):
+        pos = canvas.coords(paddle)
+        if pos[2] < canvas_width:
+            canvas.move(paddle, 10, 0)
+            
+    bricks = []
+    
+    for i in range(16):
+        brick_top = 50
+        brick_left = 60+30*i
+        brick = canvas.create_rectangle(brick_left, brick_top, brick_left+20, brick_top+20, fill="red")
+        bricks.append(brick)
+    
+    for i in range(10):
+        brick_top = 90
+        brick_left = 150+30*i
+        brick = canvas.create_rectangle(brick_left, brick_top, brick_left+20, brick_top+20, fill="red")
+        bricks.append(brick)
+    
+    for i in range(16):
+        brick_top = 130
+        brick_left = 60+30*i
+        brick = canvas.create_rectangle(brick_left, brick_top, brick_left+20, brick_top+20, fill="red")
+        bricks.append(brick)
+        
+    for i in range(10):
+        brick_top = 170
+        brick_left = 150+30*i
+        brick = canvas.create_rectangle(brick_left, brick_top, brick_left+20, brick_top+20, fill="red")
+        bricks.append(brick)
+              
+    canvas.bind_all("<KeyPress-Left>", move_left)
+    canvas.bind_all("<KeyPress-Right>", move_right)
+    
+    px = 1
+    py = 1
+    active = True
+    while active:
+        canvas.move(puck, px, py)
+        pos = canvas.coords(puck)
+        if pos[1] <= 0: # if puck hits top of screen
+            py = 4
+        elif pos[3] >= canvas_height: #if puck hits bottom of screen
+            active = False
+        if pos[0] <=0:
+            px = 4
+        elif pos[2] >= canvas_width:
+            px = -4
+        
+        if hit_paddle(pos):
+            py = -4
+           
+        if hit_brick(pos):
+            py = -py
+            if (len(bricks) == 0):
+                active = False
+        
+        window.update()
+        time.sleep(.015)
+            
+new_game()
+
+==> nephewcoding-shootergame.py <==
+from tkinter import *
+import tkinter.messagebox
+import time
+import random
+import winsound
+
+window = Tk()
+window.title("Space Shooter")
+
+img1 = PhotoImage(file="ship.png")
+img2 = PhotoImage(file="missle_purple.png")
+img3 = PhotoImage(file="missle_red.png")
+
+points = 0
+speed = 0.1
+
+def play_shoot():
+    winsound.PlaySound("shoot.wav", 1)
+    
+def play_boom():
+    winsound.PlaySound("explosion.wav", 1)
+    
+def play_launch():
+    winsound.PlaySound("launch.wav", 1)
+    
+def new_game():
+    active = True
+    global points
+    global speed
+    points = 0
+    speed = 0.5
+    play_launch()
+    canvas = Canvas(window, width = 800, height = 650)
+    canvas.pack()
+    ship = canvas.create_image(360, 550, anchor=NW, image=img1)
+    rand_left = random.randint(50,750)
+    rand_top = random.randint(100,700)
+    missile1 = canvas.create_image(rand_left, -rand_top, anchor=NW, image=img2)
+    rand_left = random.randint(50,750)
+    rand_top = random.randint(100,700)
+    missile2 = canvas.create_image( rand_left, -rand_top, anchor=NW, image=img3)
+    score = Label(window, text="Score: 0")
+    score.config(font=("Courier", 24))
+    score.pack()
+    
+    
+    def game_over():
+        play_boom()
+        active = False
+        canvas.destroy()
+        score.destroy()
+        global points
+        PlayAgain = tkinter.messagebox.askyesno("Game Over", "Your score is %i! \r\rDo you want to play again?"  % points)
+        if PlayAgain:
+            new_game()
+        else:
+            window.destroy()
+            raise SystemExit
+            
+    
+    def update_score():
+        global points
+        score.config(text=  " Score: %i" % points)
+        score.update_idletasks()
+        
+    shots = []
+    
+    def shoot(evt):
+        pos = canvas.coords(ship)
+        shot = canvas.create_rectangle(pos[0]+35, 530, pos[0]+40, 540, fill="yellow")
+        shots.append(shot)
+        play_shoot()
+        
+    def move_shots():
+        for shot in shots:
+            canvas.move(shot, 0, -5)
+            pos = canvas.coords(shot)
+            m1_pos = canvas.coords(missile1)
+            m2_pos = canvas.coords(missile2)
+            if pos[1] <=0:
+                canvas.delete(shot)
+                shots.remove(shot)
+            elif pos[1] <= m1_pos[1]+257 and pos[1] > m1_pos[1]:
+                if pos[0] >= m1_pos[0]+5 and pos[0] <= m1_pos[0]+67:
+                   reset_missile1()
+                   canvas.delete(shot)
+                   shots.remove(shot)
+            elif pos[1] <= m2_pos[1]+257 and pos[1] > m2_pos[1]:
+                if pos[0] >= m2_pos[0]+5 and pos[0] <= m2_pos[0]+67:
+                    reset_missile2()
+                    canvas.delete(shot)
+                    shots.remove(shot)
+                
+    def move_missiles():
+        global speed
+        canvas.move(missile1, 0, speed)
+        pos = canvas.coords(missile1)
+        ship_pos = canvas.coords(ship)
+        if pos[1]+257 >= 650: 
+            game_over()
+        elif pos[1]+257 >= 550 and pos[0]+67 >= ship_pos[0] and pos[0] <= ship_pos[0]+76:
+            game_over()
+        canvas.move(missile2, 0, speed)
+        pos = canvas.coords(missile2)
+        ship_pos = canvas.coords(ship)
+        if pos[1]+257 >= 650:
+            game_over()
+        elif pos[1]+257 >= 550 and pos[0]+67 >= ship_pos[0] and pos[0] <= ship_pos[0]+76:
+            game_over()
+             
+    def reset_missile1():
+        rand_left = random.randint(50,750)
+        rand_top = random.randint(100,700)
+        canvas.coords(missile1, rand_left, -rand_top)
+        play_boom()
+        global points
+        global speed
+        points +=10
+        speed += 0.1
+        update_score()
+        
+    def reset_missile2():
+        rand_left = random.randint(50,750)
+        rand_top = random.randint(100,700)
+        canvas.coords(missile2, rand_left, -rand_top)
+        play_boom()
+        global points
+        global speed
+        points +=10 
+        speed += 0.1
+        update_score()
+    
+    def move_left(evt):
+        pos = canvas.coords(ship)
+        if pos[0] > 0:
+            canvas.move(ship, -15, 0)
+            
+    def move_right(evt):
+        pos = canvas.coords(ship)
+        if pos[0] < 730:
+            canvas.move(ship, 15, 0)
+            
+    canvas.bind_all("<KeyPress-Left>", move_left)
+    canvas.bind_all("<KeyPress-Right>", move_right)
+    canvas.bind_all("<space>", shoot)
+    
+    while active:
+        move_missiles()
+        move_shots()
+        window.update()
+        time.sleep(.015)
+        
+    
+new_game()
