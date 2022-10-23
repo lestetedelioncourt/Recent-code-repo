@@ -12491,3 +12491,1320 @@ int main(int argc, char** argv){
     create_and_write_shared_memory(key, intro, strlen(intro));
     return 0;
 }
+	
+==> brute_force_nn_main.c <==
+#include "simple_nn.h"
+
+double weight = 0.5;
+double input = 0.5;
+double expected_value = 0.8;
+double step_amount = 0.001;
+
+
+int main()
+{
+    brute_force_learning(input,weight,expected_value,step_amount,1200);
+  
+    return 0;
+}
+
+==> find_error_nn_main.c <==
+#include "simple_nn.h"
+
+#define Sad 0.9
+#define HAPPY_PREDICTION_IDX 0
+#define HEALTH_PREDICTION_IDX    1
+#define ACTIVE_PREDICTION_IDX 2
+#define INPUT_LENGTH 3
+#define HIDDEN_LENGTH 3
+#define OUTPUT_LENGTH 3
+
+double temperature[] = { 12,23,50,-10,16 };
+double humidity[] = { 60,67,53,55,58 };
+double air_quality[] = { 60,47,187,194,84 };
+double weight[] = {-2, 2, 1};
+
+double predicted_results[3];
+double i_to_h_weights[HIDDEN_LENGTH][INPUT_LENGTH] = {{-2, 9.5, 4.1},    //hidden[0]
+                                                      {-0.2, 0.5, 0.1},  //hidden[1]
+                                                      {6.2, -3.5, 8.1}}; //hidden[2]
+
+double h_to_o_weights[OUTPUT_LENGTH][HIDDEN_LENGTH] = {{12.8, -7, 3.2},   //happy
+                                                      {10.6, 8.5, -3.1}, //healthy
+                                                      {5.3, -6.5, -9}};  //active
+
+double expected_values[] = {11000,7500,800};
+
+int main()
+{
+  printf("%f\r\n", powf(3,2));
+  print_statement();
+  double input_vector[] = {temperature[0],humidity[0],air_quality[0]};
+  hidden_layer_nn(input_vector, INPUT_LENGTH, HIDDEN_LENGTH, predicted_results, OUTPUT_LENGTH, i_to_h_weights, h_to_o_weights);
+  printf("The happy prediction is %f: \r\n", predicted_results[HAPPY_PREDICTION_IDX]);
+  printf("The happy error is %f:\r\n", find_error_simp(predicted_results[HAPPY_PREDICTION_IDX],expected_values[HAPPY_PREDICTION_IDX]));
+  printf("The health prediction is %f: \r\n", predicted_results[HEALTH_PREDICTION_IDX]);
+  printf("The health error is %f:\r\n", find_error_simp(predicted_results[HEALTH_PREDICTION_IDX],expected_values[HEALTH_PREDICTION_IDX]));
+  printf("The active prediction is %f: \r\n", predicted_results[ACTIVE_PREDICTION_IDX]);
+  printf("The active error is %f:\r\n", find_error_simp(predicted_results[ACTIVE_PREDICTION_IDX],expected_values[ACTIVE_PREDICTION_IDX]));
+  return 0;
+}
+
+==> fwd_propgation_main.c <==
+#include "simple_n.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+#define NUM_OF_FEATURES 2 //nx values
+#define NUM_OF_EXAMPLES 3 //m values
+#define NUM_HIDDEN_NODES 3 
+#define NUM_OUTPUT_NODES 1 
+
+double raw_x[NUM_OF_FEATURES][NUM_OF_EXAMPLES] = {{2,5,1},  //hours of workout
+                                                 {8,5,8}};  //hours of rest
+
+double raw_y[1][NUM_OF_EXAMPLES] = {{200,90,190}}; //muscle gain (g)
+
+double train_x[NUM_OF_FEATURES][NUM_OF_EXAMPLES];
+double train_y[1][NUM_OF_EXAMPLES];
+
+double synapse0[NUM_HIDDEN_NODES][NUM_OF_FEATURES];  //input layer to hidden layer weights buffer
+double synapse1[NUM_HIDDEN_NODES]; //hidden layer to output layer weights buffer
+
+double train_x_ex1[NUM_OF_FEATURES];
+double train_y_ex1;
+double z1_ex1[NUM_HIDDEN_NODES];
+double a1_ex1[NUM_HIDDEN_NODES];
+double z2_ex1;
+double yhat_ex1;
+
+int main()
+{
+    normalize_data_2d(NUM_OF_FEATURES,NUM_OF_EXAMPLES,raw_x,train_x);
+
+
+    printf("\r\nRaw workout data : \r\n");
+
+    for (int i = 0; i < NUM_OF_FEATURES; i++){
+        for (int j = 0; j < NUM_OF_EXAMPLES; j++){
+            printf("%f  ", raw_x[i][j]);
+        }
+        printf("\r\n");
+    }
+
+    printf("\r\nNormalized workout data : \r\n");
+
+    for (int i = 0; i < NUM_OF_FEATURES; i++){
+        for (int j = 0; j < NUM_OF_EXAMPLES; j++){
+            printf("%f  ", train_x[i][j]);
+        }
+        printf("\r\n");
+    }
+
+    weight_random_initialization(NUM_HIDDEN_NODES,NUM_OF_FEATURES,synapse0);
+    weight_random_initialization_1d(NUM_HIDDEN_NODES,synapse1);
+
+    printf("\r\nSynapse 0 weights:\r\n");
+    for (int i = 0; i < NUM_HIDDEN_NODES; i++){
+        for (int j = 0; j < NUM_OF_FEATURES; j++){
+            printf("%f  ", synapse0[i][j]);
+        }
+        printf("\r\n");
+    }
+
+    printf("\r\nSynapse 1 weights:\r\n");
+    for (int j = 0; j < NUM_HIDDEN_NODES; j++){
+        printf("%f  ", synapse1[j]);
+    }
+
+    printf("\r\n");
+ 
+    //compute values at node layer
+    for (int j = 0; j < NUM_OF_FEATURES; j++){
+        train_x_ex1[j] = train_x[j][0]; 
+    }
+
+    multiple_input_multiple_output_nn(train_x_ex1,NUM_HIDDEN_NODES,z1_ex1,NUM_OF_FEATURES,synapse0);
+
+    printf("\r\nz1_ex1: %f %f %f \r\n", z1_ex1[0],z1_ex1[1],z1_ex1[2]);
+
+    //compute value at node layer using sigmoid function
+    vector_sigmoid(z1_ex1,a1_ex1,NUM_HIDDEN_NODES);
+
+    printf("\r\na1_ex1: %f %f %f \r\n", a1_ex1[0],a1_ex1[1],a1_ex1[2]);
+
+    //compute value at output
+    z2_ex1 = multiple_input_single_output(a1_ex1,synapse1,NUM_HIDDEN_NODES);
+    printf("\r\nz2_ex1:  %f \r\n", z2_ex1);
+    printf("\r\n");
+
+    return 0;
+}
+
+==> hello.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+int main()
+{
+    printf("Hello world!\n");
+    return 0;
+}
+
+==> hidden_layer_nn_main.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "simple_nn.h"
+
+#define Sad 0.9
+#define HAPPY_PREDICTION_IDX 0
+#define HEALTHY_PREDICTION_IDX    1
+#define ACTIVE_PREDICTION_IDX 2
+#define INPUT_LENGTH 3
+#define HIDDEN_LENGTH 3
+#define OUTPUT_LENGTH 3
+
+double temperature[] = { 12,23,50,-10,16 };
+double humidity[] = { 60,67,53,55,58 };
+double air_quality[] = { 60,47,187,194,84 };
+double weight[] = {-2, 2, 1};
+
+double predicted_results[3];
+double i_to_h_weights[HIDDEN_LENGTH][INPUT_LENGTH] = {{-2, 9.5, 4.1},    //hidden[0]
+                                                      {-0.2, 0.5, 0.1},  //hidden[1]
+                                                      {6.2, -3.5, 8.1}}; //hidden[2]
+
+double h_to_o_weights[OUTPUT_LENGTH][HIDDEN_LENGTH] = {{12.8, -7, 3.2},   //happy
+                                                      {10.6, 8.5, -3.1}, //healthy
+                                                      {5.3, -6.5, -9}};  //active
+
+int main()
+{
+    double input_vector[] = {temperature[0],humidity[0],air_quality[0]};
+    hidden_layer_nn(input_vector, INPUT_LENGTH, HIDDEN_LENGTH, predicted_results, OUTPUT_LENGTH, i_to_h_weights, h_to_o_weights);
+    printf("The happy prediction is %f: \r\n", predicted_results[HAPPY_PREDICTION_IDX]);
+    printf("The health prediction is %f: \r\n", predicted_results[HEALTHY_PREDICTION_IDX]);
+    printf("The active prediction is %f: \r\n", predicted_results[ACTIVE_PREDICTION_IDX]);
+    return 0;
+}
+
+==> mimo_nn_main.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "simple_nn.h"
+
+#define Sad 0.9
+#define HAPPY_PREDICTION_IDX 0
+#define HEALTHY_PREDICTION_IDX    1
+#define ACTIVE_PREDICTION_IDX 2
+#define INPUT_LENGTH 3
+#define OUTPUT_LENGTH 3
+
+double temperature[] = { 12,23,50,-10,16 };
+double humidity[] = { 60,67,53,55,58 };
+double air_quality[] = { 60,47,187,194,84 };
+double weight[] = {-2, 2, 1};
+
+double predicted_results[3];
+double weights[INPUT_LENGTH][OUTPUT_LENGTH] = {{-2, 9.5, 4.1},    //happy
+                                               {-0.2, 0.5, 0.1},  //healthy
+                                               {6.2, -3.5, 8.1}}; //active
+
+int main()
+{
+    double input_vector[] = {temperature[0],humidity[0],air_quality[0]};
+    multiple_input_multiple_output_nn(input_vector, INPUT_LENGTH, predicted_results, OUTPUT_LENGTH, weights);
+    printf("The happy prediction is %f: \r\n", predicted_results[HAPPY_PREDICTION_IDX]);
+    printf("The health prediction is %f: \r\n", predicted_results[HEALTHY_PREDICTION_IDX]);
+    printf("The active prediction is %f: \r\n", predicted_results[ACTIVE_PREDICTION_IDX]);
+    return 0;
+}
+
+==> miso_nn_main.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "simple_nn.h"
+
+#define NUM_OF_INPUTS 3
+
+double temperature[] = { 12,23,50,-10,16 };
+double humidity[] = { 60,67,53,55,58 };
+double air_quality[] = { 60,47,187,194,84 };
+double weight[] = {-2, 2, 1};
+
+int main()
+{
+    double training_ex[] = {temperature[0],humidity[0],air_quality[0]};
+    printf("The first predicted value is %f: \r\n", multiple_input_single_output(training_ex,weight,NUM_OF_INPUTS));
+    return 0;
+}
+
+==> neuralnetwork.c <==
+#include "neuralnetwork.h"
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
+
+static float act(float a);
+static float err(const float a, const float b);
+static float toterr(const float * const tg, const float * const o, const int size);
+static float pd_err(const float a, const float b);
+static float frand();
+                                                    //input
+static void fwd_prop(NeuralNetworkType nn, const float* const in){ //forward propagation function
+    //Hidden layer forward propagation
+    for (int i=0;i<nn.nhid;i++){
+        float sum = 0.0f;
+        for (int j=0;j<nn.nips;j++){
+            sum += in[j] * nn.w[i * nn.nips + j]; //nn.w[] = input layer to hidden layer weights           
+        }
+        //nn.h = hidden layer
+        nn.h[i] = act(sum + nn.b[0]);   // act() sigmoid activation function for each hidden neuron, nn.b[0] = bias
+    }
+
+    //Output layer forward propagation
+    for (int i=0;i<nn.nops;i++){
+        float sum = 0.0f;
+        for (int j=0;j<nn.nhid;j++){
+            sum += nn.h[j] * nn.x[i * nn.nhid + j]; //nn.x[] = hidden layer to output layer weights
+        }
+        //nn.o = outer layer
+        nn.o[i] = act(sum + nn.b[1]);   // act() sigmoid activation function for each outer neuron, nn.b[1] = bias
+    }
+}
+
+static float act(float a){
+    return 1.0f/(1.0f + expf(-a));
+}
+
+static float pd_act(float a){ //partial derivative of sigmoid function - needed for back propagation
+    return a*(1.0f -a);
+}
+
+static void bk_prop(NeuralNetworkType nn, const float* const in, const float* const tg, float rate){
+    for (int i = 0; i < nn.nhid; i++){
+        float sum = 0.0f;
+        for (int j = 0; j < nn.nops; j++){
+            const float a = pd_err(nn.o[j], tg[j]);
+            const float b = pd_act(nn.o[j]); 
+
+            sum += a * b * nn.x[j * nn.nhid + i];
+
+            nn.x[j * nn.nhid + i] -= rate * a * b * nn.h[i];
+        }
+
+        for (int j = 0; j < nn.nips; j++){
+            nn.w[i * nn.nips + j] -= rate * sum * pd_act(nn.h[i]) * in[j];
+        }
+    }
+}
+
+static float frand(){
+    return rand()/(float)RAND_MAX;
+}
+
+static void wbrand(const NeuralNetworkType nn){ //weight+bias random initialization
+    for (int i = 0; i < nn.nw; i++){
+        nn.w[i] = frand() - 0.5f;
+    }
+
+    for (int i=0; i < nn.nb; i++){
+        nn.b[i] = frand() - 0.5f;
+    }
+}
+
+static float err(const float a, const float b){
+    return powf(((a-b) * (a-b)),0.5);
+}
+
+static float toterr(const float * const tg, const float * const o, const int size){
+    float sum = 0.0f;
+    for (int i =0; i< size; i++){
+        sum += err(tg[i], o[i]);
+    }
+
+    return sum;
+}
+
+static float pd_err(const float a, const float b){ //partial derivative of error
+    return a - b;
+}
+
+float* NNPredict(const NeuralNetworkType nn, const float *in){
+    fwd_prop(nn, in);
+    return nn.o;
+}
+
+NeuralNetworkType NNBuild(int nips, int nhid, int nops){
+    NeuralNetworkType nn;
+    nn.nb = 2;
+    nn.nw = nhid * (nips + nops);
+    nn.w = (float*)calloc(nn.nw,sizeof(*nn.w));
+    nn.x = nn.w + nhid * nips; //nops
+    nn.b = (float*)calloc(nn.nb,sizeof(*nn.b));
+    nn.h = (float*)calloc(nhid,sizeof(*nn.h));
+    nn.o = (float*)calloc(nops,sizeof(*nn.o));
+    nn.nhid = nhid;
+    nn.nips = nips;
+    nn.nops = nops;
+    wbrand(nn);
+
+    return nn;
+}
+
+float NNTrain(const NeuralNetworkType nn, const float *in, const float *tg, float rate){
+    fwd_prop(nn,in);
+    bk_prop(nn,in,tg,rate);
+
+    return toterr(tg,nn.o,nn.nops);   
+}
+
+void NNSave(const NeuralNetworkType nn, const char *path){
+    FILE* const file = fopen(path,"w");
+    fprintf(file,"%d %d %d\n",nn.nips, nn.nhid, nn.nops);
+
+    for (int i = 0; i < nn.nb; i++){
+        fprintf(file,"%f\n",(double)nn.b[i]);
+    }
+
+    for (int i = 0; i < nn.nw; i++){
+        fprintf(file,"%f\n",(double)nn.w[i]);
+    }
+
+    fclose(file);
+}
+
+NeuralNetworkType NNLoad(const char *path){
+    FILE* const file = fopen(path,"r");
+
+    int nhid = 0;
+    int nips = 0;
+    int nops = 0;
+
+    fscanf(file,"%d %d %d\n",&nips, &nhid, &nops);
+    const NeuralNetworkType nn = NNBuild(nips,nhid,nops);
+
+    for (int i = 0; i < nn.nb; i++){
+        fscanf(file,"%f\n",&nn.b[i]);
+    }
+
+    for (int i = 0; i < nn.nw; i++){
+        fscanf(file,"%f\n",&nn.w[i]);
+    }
+
+    fclose(file);
+    return nn;
+}
+
+void NNPrint(const float *arr, const int size){
+    double max = 0.0f;
+    int idx;
+
+    for (int i =0; i < size; i++){
+        printf("%f ", (double)arr[i]);
+
+        if (arr[i] > max){
+            idx = i;
+            max = arr[i];
+        }
+    }
+
+    printf("\nThe number is :%d\n", idx);
+}
+
+void NNFree(const NeuralNetworkType nn){
+    free(nn.w);
+    free(nn.b);
+    free(nn.h);
+    free(nn.o);
+}
+
+
+==> neuralnetwork.h <==
+#include <stdlib.h>
+#include <stdio.h>
+
+typedef struct
+{
+    float *w; //pointer for all weights
+    float *x; //pointer for hidden layer to output layer weights
+    float *b; //biases
+    float *h; //hidden layer
+    float *o; //outer layer
+    int nb; //number of biases
+    int nw; //number of weights
+    int nips; //number of inputs
+    int nops; //number of outputs
+    int nhid; //number of biases
+}NeuralNetworkType;
+
+float* NNPredict(const NeuralNetworkType nn, const float *in);
+
+NeuralNetworkType NNBuild(int nips, int nhid, int nops);
+
+float NNTrain(const NeuralNetworkType nn, const float *in, const float *tg, float rate);
+
+void NNSave(const NeuralNetworkType nn, const char *path);
+
+NeuralNetworkType NNLoad(const char *path);
+
+void NNPrint(const float *arr, const int size);
+
+void NNFree(const NeuralNetworkType nn);
+
+==> neuralnetworkinference.c <==
+#include "nn.h"
+#include "utils.h"
+
+int main(){
+    const int nips = 256;
+    const int nops =10;
+
+    const Data inference = build("semeion_test.data");
+    const NeuralNetworkType loaded_model = NNLoad("mymodel_2.nn");
+
+    const float * const in = inference.in[1];
+    const float * const pd = NN.Predict(loaded_model,in);
+
+    const NeuralNetworkType my_loaded_model = NNLoad("mymodel_2.nn");
+
+    for (int i = 0; i < 32; i++){
+        const float * const in = test_data.in[i];
+        const float * const tg = test_data.tg[i];
+    
+        const float * const pd = NNPredict(my_loaded_model,in);
+    
+        NNPrint(tg,test_data.nops);
+        NNPrint(pd,test_data.nops);
+        printf("\n");
+    }
+
+    NNFree(my_loaded_model);
+    dfree(data);
+    return 0;
+}
+
+==> neuralnetworkmain.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "neuralnetwork.h"
+#include "nn_utils.h"
+
+int main(){
+    int nips = 256;
+    int nops = 10;
+
+    float rate = 1.0f;
+    const float eta = 0.99f;
+
+    int nhid = 28;
+    const int iterations = 128;
+
+    const Data data = build("semeion_train.data",nips,nops);
+
+    const NeuralNetworkType nn = NNBuild(nips,nhid,nops);
+   
+    for (int i=0; i < iterations;i++){
+        shuffle(data);
+        float error = 0.0f;
+        for (int j=0; j < data.rows; j++){
+            const float* const in = data.in[j]; 
+            const float* const tg = data.tg[j]; 
+
+            error += NNTrain(nn,in,tg,rate);
+        }
+        printf("Error %.12f :: Learning rate %f\n", (double)error/data.rows, (double)rate);
+        rate *= eta;
+    }
+
+    NNSave(nn,"mymodel.nn");
+    NNFree(nn);
+
+    const NeuralNetworkType my_loaded_model = NNLoad("mymodel.nn");
+
+    for (int i = 0; i < 256; i++){
+        const float * const in = data.in[i];
+        const float * const tg = data.tg[i];
+    
+        const float * const pd = NNPredict(my_loaded_model,in);
+    
+        NNPrint(tg,data.nops);
+        NNPrint(pd,data.nops);
+        printf("\n");
+    }
+
+    NNFree(my_loaded_model);
+    dfree(data);
+
+
+    return 0;
+}
+
+==> neuralneworktest.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "neuralnetwork.h"
+#include "nn_utils.h"
+
+int main(){
+    int nips = 256;
+    int nops = 10;
+
+    float rate = 1.0f;
+    const float eta = 0.99f;
+
+    int nhid = 28;
+    const int iterations = 128;
+
+    const Data data = build("semeion_train.data",nips,nops);
+    const Data test_data = build("semeion_test.data",nips,nops);
+
+    const NeuralNetworkType nn = NNBuild(nips,nhid,nops);
+   
+    for (int i=0; i < iterations;i++){
+        shuffle(data);
+        float error = 0.0f;
+        for (int j=0; j < data.rows; j++){
+            const float* const in = data.in[j]; 
+            const float* const tg = data.tg[j]; 
+
+            error += NNTrain(nn,in,tg,rate);
+        }
+        printf("Error %.12f :: Learning rate %f\n", (double)error/data.rows, (double)rate);
+        rate *= eta;
+    }
+
+    NNSave(nn,"mymodel_2.nn");
+    NNFree(nn);
+
+    const NeuralNetworkType my_loaded_model = NNLoad("mymodel_2.nn");
+
+    for (int i = 0; i < 32; i++){
+        const float * const in = test_data.in[i];
+        const float * const tg = test_data.tg[i];
+    
+        const float * const pd = NNPredict(my_loaded_model,in);
+    
+        NNPrint(tg,test_data.nops);
+        NNPrint(pd,test_data.nops);
+        printf("\n");
+    }
+
+    NNFree(my_loaded_model);
+    dfree(data);
+
+    return 0;
+}
+
+==> new.c <==
+#include <stdio.h>
+
+int main(){
+    char newstring[100];
+    //while(1){
+	scanf("%s", newstring);
+	printf("%s\n", newstring);
+    //}
+
+    return 0;
+}
+
+==> nn_utils.c <==
+#include "nn_utils.h"
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+
+int lns(FILE* const file){
+    int ch = EOF;
+    int lines = 0;
+    int pc = '\n';
+    
+    while((ch = getc(file)) != EOF){
+        if (ch == '\n'){
+            lines++;
+        }
+        pc = ch;
+    } 
+    
+    if (pc != '\n'){
+        lines++;
+    }
+    
+    rewind(file);
+    return lines;
+}
+
+char* readln(FILE* const file){
+    int ch = EOF;
+    int reads = 0;
+    int size = 128;
+    char * line = (char*)malloc((size)*sizeof(char));
+
+    while ((ch = getc(file)) != '\n' && ch != EOF){
+        line[reads ++] = ch;
+        if (reads +1 ==  size){
+            line = (char*)realloc((line),(size *=2) * sizeof(char));
+            
+        }
+    }
+    
+    line[reads] = '\0';
+    return line;
+}
+
+float** new2d(const int rows, const int cols){
+    float **row = (float**)malloc((rows) * sizeof(float*));
+
+    for (int r=0; r < rows; r++){
+        row[r] = (float*)malloc((cols) * sizeof(float));    
+    }
+
+    return row;
+}
+
+Data ndata(const int nips, const int nops, const int rows){
+    const Data data = {
+        new2d(rows,nips),
+        new2d(rows,nops),
+        nips,
+        nops,
+        rows
+    };
+
+    return data;
+}
+
+void parse(const Data data, const char *line, const int row){
+    const int cols = data.nips + data.nops;
+
+    for (int col =0; col < cols; col++){
+        //atof() converts ascii to float, strtok(arg,delimiter) string tokenizer seperates sting in deliimiter
+        const float val = atof(strtok(col == 0 ? line :NULL," ")); //if col = 0 is start of line and argument is line or is null
+
+        if (col < data.nips){
+            data.in[row][col] = val; //input
+        }
+        else{
+            data.tg[row][col - data.nips] = val; //target
+        }
+    }
+}
+
+
+void dfree(const Data d){
+    for (int row = 0; row < d.rows; row++){
+        free(d.in[row]);
+        free(d.tg[row]); 
+    }
+
+    free(d.in);
+    free(d.tg);
+}
+
+void shuffle(const Data d){
+    for (int a = 0; a < d.rows; a++){
+        const int b = rand() % d.rows;
+        float *ot = d.tg[a];
+        float *it = d.in[a];
+
+        d.in[a] = d.in[b];
+        d.in[b] = it;
+
+        d.tg[a] = d.tg[b];
+        d.tg[b] = ot;
+    }
+}
+
+Data build(const char *path, const int nips, const int nops){ 
+    FILE *file = fopen(path,"r");
+    if (file == NULL){
+        printf("Could not open %s", path);
+        exit(1);
+    }
+    
+
+    const int rows = lns(file);
+    Data data = ndata(nips,nops,rows);
+    for (int row = 0; row < rows; row++){
+        char *line = readln(file);
+        parse(data,line,row);
+        free(line); 
+    }
+
+    fclose(file);
+    return data;
+}
+
+
+==> nn_utils.h <==
+#include <stdlib.h>
+#include <stdio.h>
+
+typedef struct 
+{
+float **in; //2d array for inputs
+float **tg;    //2d array for targets
+int nips;      //number of inputs
+int nops;      //number of outputs
+int rows;      //number of rows
+
+}Data;
+
+char* readLine(FILE* const file);
+float** new2d(const int rows, const int cols);
+Data ndata(const int nips, const int nops, const int rows);
+void parse(const Data data, const char *line, const int row);
+void dfree(const Data d);
+void shuffle(const Data d);
+Data build(const char *path, const int nips, const int nops); 
+
+==> normalization_nn_main.c <==
+#include "simple_nn.h"
+
+#define NUM_OF_FEATURES 3 //n values
+#define NUM_OF_EXAMPLES 3 //m values
+
+//Hours of workout
+double hours_workout[NUM_OF_EXAMPLES] = {2,5,1};
+double _hours_workout[NUM_OF_EXAMPLES];
+
+//Hours of rest
+double hours_rest[NUM_OF_EXAMPLES] = {8,5,8};
+double _hours_rest[NUM_OF_EXAMPLES];
+
+//Muscle workout
+double muscle_gain[NUM_OF_EXAMPLES] = {200,90,190};
+double _muscle_gain[NUM_OF_EXAMPLES];
+
+int main()
+{
+    normalize_data(hours_workout,_hours_workout,NUM_OF_EXAMPLES);
+    normalize_data(hours_rest,_hours_rest,NUM_OF_EXAMPLES);
+    normalize_data(muscle_gain,_muscle_gain,NUM_OF_EXAMPLES);
+
+    printf("\r\nRaw workout data : \r\n");
+
+    for (int i = 0; i < NUM_OF_EXAMPLES; i++){
+        printf("%f  ", hours_workout[i]);
+    }
+
+    printf("\r\nNormalized workout data : \r\n");
+
+    for (int i = 0; i < NUM_OF_EXAMPLES; i++){
+        printf("%f  ", _hours_workout[i]);
+    }
+
+    printf("\r\nRaw rest data : \r\n");
+
+    for (int i = 0; i < NUM_OF_EXAMPLES; i++){
+        printf("%f  ", hours_rest[i]);
+    }
+
+    printf("\r\nNormalized rest data : \r\n");
+
+    for (int i = 0; i < NUM_OF_EXAMPLES; i++){
+        printf("%f  ", _hours_rest[i]);
+    }
+
+    printf("\r\nRaw gain data : \r\n");
+
+    for (int i = 0; i < NUM_OF_EXAMPLES; i++){
+        printf("%f  ", muscle_gain[i]);
+    }
+
+    printf("\r\nNormalized gain data : \r\n");
+
+    for (int i = 0; i < NUM_OF_EXAMPLES; i++){
+        printf("%f  ", _muscle_gain[i]);
+    }
+    printf("\r\n");
+    return 0;
+}
+
+==> rand_initialization_nn_main.c <==
+#include "simple_nn.h"
+
+#define NUM_OF_FEATURES 2 //n values
+#define NUM_OF_EXAMPLES 3 //m values
+#define NUM_HIDDEN_NODES 3 
+#define NUM_OUTPUT_NODES 1 
+
+//Hours of workout
+double hours_workout[NUM_OF_EXAMPLES] = {2,5,1};
+double _hours_workout[NUM_OF_EXAMPLES];
+
+//Hours of rest
+double hours_rest[NUM_OF_EXAMPLES] = {8,5,8};
+double _hours_rest[NUM_OF_EXAMPLES];
+
+//Muscle workout
+double muscle_gain[NUM_OF_EXAMPLES] = {200,90,190};
+double _muscle_gain[NUM_OF_EXAMPLES];
+
+double synapse0[NUM_HIDDEN_NODES][NUM_OF_FEATURES];  //input layer to hidden layer weights buffer
+double synapse1[NUM_OUTPUT_NODES][NUM_HIDDEN_NODES]; //hidden layer to output layer weights buffer
+
+int main()
+{
+    weight_random_initialization(NUM_HIDDEN_NODES,NUM_OF_FEATURES,synapse0);
+    weight_random_initialization(NUM_OUTPUT_NODES,NUM_HIDDEN_NODES,synapse1);
+
+    printf("\r\nSynapse 0 weights:\r\n");
+    for (int i = 0; i < NUM_HIDDEN_NODES; i++){
+        for (int j = 0; j < NUM_OF_FEATURES; j++){
+            printf("%f  ", synapse0[i][j]);
+        }
+        printf("\r\n");
+    }
+
+    printf("\r\nSynapse 1 weights:\r\n");
+    for (int i = 0; i < NUM_OUTPUT_NODES; i++){
+        for (int j = 0; j < NUM_HIDDEN_NODES; j++){
+            printf("%f  ", synapse1[i][j]);
+        }
+        printf("\r\n");
+    }
+
+    return 0;
+}
+
+==> simo_nn_main.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "simple_nn.h"
+
+#define Sad 0.9
+#define TEMPERATURE_PREDICTION_IDX 0
+#define HUMIDITY_PREDICTION_IDX    1
+#define AIR_QUALITY_PREDICTION_IDX 2
+#define VECTOR_LENGTH 2
+
+double predicted_results[3];
+double weights[3] = {-20, 95, 201}; // temp, humid, air quality
+
+int main()
+{
+    //printf("The first predicted value is %f: \r\n", single_in_single_out(temperature[0],weight));
+    single_in_multiple_out_nn(Sad, weights, predicted_results, VECTOR_LENGTH);
+    printf("The first predicted temp is %f: \r\n", predicted_results[TEMPERATURE_PREDICTION_IDX]);
+    return 0;
+}
+
+==> simple_n.c <==
+#include "simple_n.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+double single_in_single_out(double temperature, double weight){
+    return( temperature * weight);
+}
+
+double weighted_sum(double *input, double *weight, int LEN){
+    double output;
+
+    for (int i=0; i<LEN; i++){
+        output += input[i] * weight[i];
+    }
+    return output;
+}
+
+double multiple_input_single_output(double *input, double *weight, int LEN){
+    double predicted_value = weighted_sum(input, weight, LEN);
+
+    return predicted_value;
+}
+
+void elementwise_multiply(double input_scalar, double *weight_vector, double *output_vector, int LEN){
+    for (int i = 0; i < LEN; i++){
+        output_vector[i] = input_scalar * weight_vector[i];
+    }
+}
+
+void single_in_multiple_out_nn(double input_scalar, double *weight_vector, double *output_vector, int LEN){
+    elementwise_multiply(input_scalar, weight_vector, output_vector, LEN);
+}
+
+void matrix_vector_multiply(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, 
+                            double weight_matrix[OUTPUT_LEN][INPUT_LEN]){
+    for (int i = 0; i < OUTPUT_LEN; i++){
+        for (int j = 0; j < INPUT_LEN; j++){
+            output_vector[i] += input_vector[j] * weight_matrix[i][j];
+        }
+    }
+}
+
+void multiple_input_multiple_output_nn(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, 
+                                       double weight_matrix[OUTPUT_LEN][INPUT_LEN]){
+    matrix_vector_multiply(input_vector, INPUT_LEN, output_vector, OUTPUT_LEN, weight_matrix);
+}
+
+void hidden_layer_nn(double *input_vector, int INPUT_LEN, int HIDDEN_LEN, double *output_vector, int OUTPUT_LEN,
+                     double i_to_h_weight_matrix[HIDDEN_LEN][INPUT_LEN], double h_to_o_weight_matrix[OUTPUT_LEN][HIDDEN_LEN]){
+    double hidden_layer_vector[HIDDEN_LEN];
+    matrix_vector_multiply(input_vector, INPUT_LEN, hidden_layer_vector, HIDDEN_LEN, i_to_h_weight_matrix);
+    matrix_vector_multiply(hidden_layer_vector, HIDDEN_LEN, output_vector, OUTPUT_LEN, h_to_o_weight_matrix);
+}
+
+double power_function(double input, int power){
+    double result = 1;
+    for (int i = 0; i < power; i++){
+        result *= input;
+    }
+    return result;
+}
+
+double find_error(double input, double weight, double expected_value){
+    double x = power_function(((input * weight) - expected_value), 2);
+    return x;
+}
+
+double find_error_simp(double yhat, double y){
+    double x = power_function((yhat - y), 2);
+    return x;
+}
+
+void print_statement(){
+    double x = 5.5;
+    printf("print statement returns %f\r\n", x);
+    printf("%f\r\n", powf(3,2));
+}
+
+void brute_force_learning(double input, double weight, double expected_value, double step_amount, int itr){
+    double prediction, error;
+    double up_prediction, up_error, down_prediction, down_error;
+    
+    for(int i = 0; i < itr; i++){
+        prediction = input * weight;
+        error = power_function((prediction - expected_value), 2);
+        printf("Prediction: %f Error: %f\r\n", prediction, error);
+
+        up_prediction = input * (weight + step_amount);
+        up_error = power_function((up_prediction - expected_value), 2);
+
+        down_prediction = input * (weight - step_amount);
+        down_error = power_function((down_prediction - expected_value), 2);
+        
+        if (down_error < up_error){
+            weight = weight - step_amount;
+        }
+        else if (down_error > up_error){
+            weight = weight + step_amount;
+        }
+    }
+} 
+
+void normalize_data(double *input_vector, double *output_vector, int LEN){
+    int i; //Find max
+    double max = input_vector[0];
+    for(int i = 0; i < LEN; i++){
+        if (max < input_vector[i]){
+            max = input_vector[i];
+        }
+    }
+
+    for(int i = 0; i < LEN; i++){
+        output_vector[i] = input_vector[i] / max;
+    }
+}
+
+void weight_random_initialization(int HIDDEN_LEN, int INPUT_LEN, double weights_matrix[HIDDEN_LEN][INPUT_LEN]){
+    double d_rand;
+
+    srand(2);
+
+    for (int i = 0; i < HIDDEN_LEN; i++){
+        for (int j = 0; j < INPUT_LEN; j++){
+            d_rand = (rand() % 10);
+            d_rand /= 10;
+
+            weights_matrix[i][j] = d_rand;
+        }
+    }
+}
+
+void weight_random_initialization_1d(int LEN, double weights_vector[LEN]){
+    double d_rand;
+
+    srand(2);
+
+    for (int i = 0; i < LEN; i++){
+        d_rand = (rand() % 10);
+        d_rand /= 10;
+
+        weights_vector[i] = d_rand;
+    }
+}
+
+void normalize_data_2d(int ROW, int COL, double input_matrix[ROW][COL], double output_matrix[ROW][COL]){
+    int max = input_matrix[0][0]; // find max
+    for (int i = 0; i < ROW; i++){
+        for (int j = 0; j < COL; j++){
+            if (max < input_matrix[i][j]){
+                max = input_matrix[i][j];
+            }
+        }
+    }
+
+    for (int i = 0; i < ROW; i++){
+        for (int j = 0; j < COL; j++){
+            output_matrix[i][j] = input_matrix[i][j] / max;
+        }
+    }
+}
+
+double sigmoid(double x){
+    double result = 1/ (1 + exp(-x));
+    return result;
+}
+
+void vector_sigmoid(double *input_vector, double *output_vector, int LEN){
+    for (int i = 0; i < LEN; i++){
+        output_vector[i] = sigmoid(input_vector[i]);
+    }
+}
+
+==> simple_n.h <==
+#ifndef SIMPLE_N_H
+#define SIMPLE_N_H
+#include "simple_n.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+double single_in_single_out(double temperature, double weight);
+
+double weighted_sum(double *input, double *weight, int LEN);
+
+double multiple_input_single_output(double *input, double *weight, int LEN);
+
+void elementwise_multiply(double input_scalar, double *weight_vector, double *output_vector, int LEN);
+
+void single_in_multiple_out_nn(double input_scalar, double *weight_vector, double *output_vector, int LEN);
+
+void matrix_vector_multiply(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, 
+                            double weight_matrix[OUTPUT_LEN][INPUT_LEN]);
+
+void multiple_input_multiple_output_nn(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, 
+                                       double weight_matrix[OUTPUT_LEN][INPUT_LEN]);
+
+void hidden_layer_nn(double *input_vector, int INPUT_LEN, int HIDDEN_LEN, double *output_vector, int OUTPUT_LEN,
+                     double i_to_h_weight_matrix[HIDDEN_LEN][INPUT_LEN], double h_to_o_weight_matrix[OUTPUT_LEN][HIDDEN_LEN]);
+
+double power_function(double input, int power);
+
+double find_error(double input, double weight, double expected_value);
+
+double find_error_simp(double yhat, double y);
+
+void print_statement();
+
+void brute_force_learning(double input, double weight, double expected_value, double step_amount, int itr);
+
+void normalize_data(double *input_vector, double *output_vector, int LEN);
+
+void weight_random_initialization(int HIDDEN_LEN, int INPUT_LEN, double weights_matrix[HIDDEN_LEN][INPUT_LEN]);
+
+void weight_random_initialization_1d(int LEN, double weights_vector[LEN]);
+
+void normalize_data_2d(int ROW, int COL, double input_matrix[ROW][COL], double output_matrix[ROW][COL]);
+
+double sigmoid(double x);
+
+void vector_sigmoid(double *input_vector, double *output_vector, int LEN);
+
+#endif
+
+==> simple_nn.h <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+double single_in_single_out(double temperature, double weight){
+    return( temperature * weight);
+}
+
+double weighted_sum(double *input, double *weight, int LEN){
+    double output;
+
+    for (int i=0; i<LEN; i++){
+        output += input[i] * weight[i];
+    }
+    return output;
+}
+
+double multiple_input_single_output(double *input, double *weight, int LEN){
+    double predicted_value = weighted_sum(input, weight, LEN);
+
+    return predicted_value;
+}
+
+void elementwise_multiply(double input_scalar, double *weight_vector, double *output_vector, int LEN){
+    for (int i = 0; i < LEN; i++){
+        output_vector[i] = input_scalar * weight_vector[i];
+    }
+}
+
+void single_in_multiple_out_nn(double input_scalar, double *weight_vector, double *output_vector, int LEN){
+    elementwise_multiply(input_scalar, weight_vector, output_vector, LEN);
+}
+
+void matrix_vector_multiply(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, 
+                            double weight_matrix[OUTPUT_LEN][INPUT_LEN]){
+    for (int i = 0; i < OUTPUT_LEN; i++){
+        for (int j = 0; j < INPUT_LEN; j++){
+            output_vector[i] += input_vector[j] * weight_matrix[i][j];
+        }
+    }
+}
+
+void multiple_input_multiple_output_nn(double *input_vector, int INPUT_LEN, double *output_vector, int OUTPUT_LEN, 
+                                       double weight_matrix[OUTPUT_LEN][INPUT_LEN]){
+    matrix_vector_multiply(input_vector, INPUT_LEN, output_vector, OUTPUT_LEN, weight_matrix);
+}
+
+void hidden_layer_nn(double *input_vector, int INPUT_LEN, int HIDDEN_LEN, double *output_vector, int OUTPUT_LEN,
+                     double i_to_h_weight_matrix[HIDDEN_LEN][INPUT_LEN], double h_to_o_weight_matrix[OUTPUT_LEN][HIDDEN_LEN]){
+    double hidden_layer_vector[HIDDEN_LEN];
+    matrix_vector_multiply(input_vector, INPUT_LEN, hidden_layer_vector, HIDDEN_LEN, i_to_h_weight_matrix);
+    matrix_vector_multiply(hidden_layer_vector, HIDDEN_LEN, output_vector, OUTPUT_LEN, h_to_o_weight_matrix);
+}
+
+double power_function(double input, int power){
+    if (power < 0
+
+    double result = 1;
+    for (int i = 0; i < power; i++){
+        result *= input;
+    }
+    return result;
+}
+
+double find_error(double input, double weight, double expected_value){
+    double x = power_function(((input * weight) - expected_value), 2);
+    return x;
+}
+
+double find_error_simp(double yhat, double y){
+    double x = power_function((yhat - y), 2);
+    return x;
+}
+
+void print_statement(){
+    double x = 5.5;
+    printf("print statement returns %f\r\n", x);
+    printf("%f\r\n", powf(3,2));
+}
+
+void brute_force_learning(double input, double weight, double expected_value, double step_amount, int itr){
+    double prediction, error;
+    double up_prediction, up_error, down_prediction, down_error;
+    
+    for(int i = 0; i < itr; i++){
+        prediction = input * weight;
+        error = power_function((prediction - expected_value), 2);
+        printf("Prediction: %f Error: %f\r\n", prediction, error);
+
+        up_prediction = input * (weight + step_amount);
+        up_error = power_function((up_prediction - expected_value), 2);
+
+        down_prediction = input * (weight - step_amount);
+        down_error = power_function((down_prediction - expected_value), 2);
+        
+        if (down_error < up_error){
+            weight = weight - step_amount;
+        }
+        else if (down_error > up_error){
+            weight = weight + step_amount;
+        }
+    }
+} 
+
+void normalize_data(double *input_vector, double *output_vector, int LEN){
+    int i; //Find max
+    double max = input_vector[0];
+    for(int i = 0; i < LEN; i++){
+        if (max < input_vector[i]){
+            max = input_vector[i];
+        }
+    }
+
+    for(int i = 0; i < LEN; i++){
+        output_vector[i] = input_vector[i] / max;
+    }
+}
+
+void weight_random_initialization(int HIDDEN_LEN, int INPUT_LEN, double weights_matrix[HIDDEN_LEN][INPUT_LEN]){
+    double d_rand;
+
+    srand(2);
+
+    for (int i = 0; i < HIDDEN_LEN; i++){
+        for (int j = 0; j < INPUT_LEN; j++){
+            d_rand = (rand() % 10);
+            d_rand /= 10;
+
+            weights_matrix[i][j] = d_rand;
+        }
+    }
+}
+
+void weight_random_initialization_1d(int LEN, double weights_vector[LEN]){
+    double d_rand;
+
+    srand(2);
+
+    for (int i = 0; i < LEN; i++){
+        d_rand = (rand() % 10);
+        d_rand /= 10;
+
+        weights_vector[i] = d_rand;
+    }
+}
+
+void normalize_data_2d(int ROW, int COL, double input_matrix[ROW][COL], double output_matrix[ROW][COL]){
+    int max = input_matrix[0][0]; // find max
+    for (int i = 0; i < ROW; i++){
+        for (int j = 0; j < COL; j++){
+            if (max < input_matrix[i][j]){
+                max = input_matrix[i][j];
+            }
+        }
+    }
+
+    for (int i = 0; i < ROW; i++){
+        for (int j = 0; j < COL; j++){
+            output_matrix[i][j] = input_matrix[i][j] / max;
+        }
+    }
+}
+
+double sigmoid(double x){
+    double result = 1/ (1 + exp(-x));
+    return result;
+}
+
+void vector_sigmoid(double *input_vector, double *output_vector, int LEN){
+    for (int i = 0; i < LEN; i++){
+        output_vector[i] = sigmoid(input_vector[i]);
+    }
+}
+
+==> simple_nn_main.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include "simple_nn.h"
+
+double temperature[] = { 12,23,50,-10,16 };
+double weight = -2;
+
+int main()
+{
+    printf("The first predicted value is %f: \r\n", single_in_single_out(temperature[0],weight));
+    return 0;
+}
+	
