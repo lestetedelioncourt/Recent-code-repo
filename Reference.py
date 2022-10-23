@@ -1290,5 +1290,4 @@ def new_game():
         window.update()
         time.sleep(.015)
         
-    
 new_game()
