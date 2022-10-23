@@ -1,0 +1,3371 @@
+==> 001_javascript.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+</head>
+<body>
+	<script type="text/javascript">
+		window.onload = function () {
+			// getElementById(String type, EventListener listner, (Boolean useCapture))  
+			document.getElementById("button1").addEventListener("click", clickHandler, false)
+		};
+		
+		function clickHandler() 
+		{
+			alert('jQuery Tutorial');
+		}
+	</script>
+	<input type="button" id="button1" value="Click Me" />
+</body>
+</html>
+==> 001_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+</head>
+<body>
+	<script type="text/javascript">
+		jQuery(document).ready(function(){
+			jQuery('#button1').click(function() {
+				alert('jQuery Tutorial')
+			});
+		});
+	</script>
+	<input type="button" id="button1" value="Click Me" />
+</body>
+</html>
+==> 002_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		$(window).on('load', function() {
+			alert('Window loaded');
+			$('#div1').html("Height = " + $('#img1').height() + "<br/>" + "width = " + $('#img1').width());			
+		});
+		
+		$(document).ready(function(){
+			alert('DOM loaded and ready');
+		});
+	</script>
+</head>
+<body>
+	<div id="div1"></div>
+	<img id="img1" src="Chrysanthemum.jpg"/>
+</body>
+</html>
+==> 003_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function(){
+			$('#button1').css('background-color', 'yellow'); //will select first button with id
+			
+			/* document.getElementById('button2').style.backgroundColor = 'yellow'
+			would cause a failure in the web page, the jQuery element selector wraps
+			the original DOM object, so that this failure doesn't occur*/
+			if ($('#button2').length > 0)
+			{
+				alert('Element found');
+			}
+			else
+			{
+				alert('Element not found');
+			}
+			
+			alert($('#button1')[0]); //will get the underlying DOM object
+		});
+	</script>
+</head>
+<body>
+	<input id="button1" type="button" value="Click Me"/>
+	<input id="button1" type="button" value="Click Me"/>
+</body>
+</html>
+==> 004_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			To select elements by tag name use the jQuery element selector
+			$('td') //Select all td elements
+			$('div a') //select all anchor elements that are descendants of div elements
+			$('div, span, a') // Selects all div, span and anchor elements
+		*/
+		$(document).ready(function(){
+			alert($('td').length);
+			alert($('table').html());
+			$('table tr').each(function(){ 
+				alert($(this).html());
+			});
+			$('div, span, a').css('font-size', '24px');
+			$('div a').css('color', 'green');
+			$('#table2 tr:even').css('background-color', 'red');
+			$('tr:odd').css('background-color', 'yellow');
+		});
+	</script>
+</head>
+<body>
+	<table id="table1" border="1">
+		<tr>
+			<td>C#</td>
+			<td>ASP.NET</td>
+			<td>SQL Server</td>
+		</tr>
+		<tr>
+			<td>ADO.NET</td>
+			<td>jQuery</td>
+			<td>JavaScript</td>
+		</tr>
+		<tr>
+			<td>AJAX</td>
+			<td>CSS</td>
+			<td>HTML</td>
+		</tr>
+		<tr>
+			<td>VB</td>
+			<td>Dot NET</td>
+			<td>Visual C++</td>
+		</tr>
+		<tr>
+			<td>Oracle</td>
+			<td>Java</td>
+			<td>J2EE</td>
+		</tr>
+	</table>
+	<table id="table2" border="1">
+		<tr>
+			<td>Mary</td>
+			<td>Mark</td>
+			<td>Marvin</td>
+		</tr>
+		<tr>
+			<td>Jane</td>
+			<td>John</td>
+			<td>Jack</td>
+		</tr>
+	</table>
+	<br/><br/>
+	<div id="div1">
+		DIV 1
+		<br/>
+		<a href="http://pragimtech.com">Pragimtech</a>
+	</div>
+	<div id="div2">
+		DIV 2
+		<br/>
+	</div>
+	<div>
+		<br/>
+		<a href="http://google.com">Google</a>
+	</div>
+	<span>
+		SPAN 1
+	</span>
+	<div id="div3">
+		DIV 3
+	</div>
+	<img id="img1" src="Chrysanthemum.jpg"/>
+</body>
+</html>
+==> 005_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			To select elements by tag name use the jQuery element selector
+			$('td') //Select all td elements
+			$('div a') //select all anchor elements that are descendants of div elements
+			$('div, span, a') // Selects all div, span and anchor elements
+		*/
+			$(document).ready(function(){
+				$('.small, .big').css('border', '5px solid red')
+				$('.small, span.big').css('font-size', '28px')
+				$('#div2 .small, span.big').css('padding-left', '60px')
+				$('.small .big').css('color', 'yellow')
+		});
+	</script>
+</head>
+<body>	
+	<div class="small" id="div1">
+		DIV 1
+		<a href="http://pragimtech.com">Pragimtech</a>
+	</div>
+	<span class="small">
+		Span 1
+	</span>
+	<br/><br/>
+	<div id="div2">
+		DIV 2
+		<br/>
+		<div class="small">
+			DIV 3
+			<div class="big">
+				DIV 4
+			</div>
+		</div>
+		<br/>	
+		<span class="small">
+			Span 2
+		</span>
+	</div>
+	<div class="small">
+		DIV 5
+		<div class="big">
+			DIV 6
+		</div>
+	</div>	
+	<span class="big">
+		Span 3
+	</span>
+	<br/>
+	<p class="big">
+		This is a paragraph
+	</p>
+</body>
+</html>
+==> 006_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			To select elements by tag name use the jQuery element selector
+			$('td') //Select all td elements
+			$('div a') //select all anchor elements that are descendants of div elements
+			$('div, span, a') // Selects all div, span and anchor elements
+		*/
+		$(document).ready(function(){
+			$('[title="div1Title"]').css('border', '5px solid red')
+			$('div[title="div1Title"]').css('color', 'yellow')
+			$('p[title][style]').css('border', '5px solid black')
+		});
+	</script>
+</head>
+<body>	
+	<div title="div1Title">
+		DIV 1
+	</div>
+	<div title="div2Title">
+		DIV 2
+	</div>
+	<span title="div1Title">
+		SPAN 3
+	</span>
+	<br/>
+	<span title="span1Title">
+		SPAN 1
+	</span>
+	<br/>
+	<span title="span2Title">
+		SPAN 2
+	</span>
+	<br/><br/>
+	<p title="p1Title" style="background-color:red">
+		This is a paragraph
+	</p>
+	<p title="p2Title" style="background-color:green">
+		This is a paragraph
+	</p>
+	<p style="background-color:green">
+		This is a paragraph
+	</p>
+</body>
+</html>
+==> 007_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$('[title="div1Title"]').css('border', '5px solid red')
+			$('[title!="div1Title"]').css('border', '5px solid red') //selects all elements title attribute not equal to string
+			$('[title*="Title"]').css('border', '5px solid red') //selects all elements that have title attribute containing given substring 
+			$('[title~="myTitle"]').css('border', '5px solid red') //select all elements that contain the current attribute delimited by spaces
+			$('[title|="myTitle"]').css('border', '5px solid red') //have title value equal to or starting with myTitle followed by a hyphen
+			$('[title^="div"]').css('border', '5px solid red') //selects a title element with an attribute starting with div
+			$('[title$="Heading"]').css('border', '5px solid red') //selects a title element with an attribute ending with Heading
+		 */
+		$(document).ready(function(){
+			$('[title!="div1Title"]').css('border', '5px solid black') //selects all elements title attribute not equal to string
+			/*$('[title*="Title"]').css('border', '5px solid red') //selects all elements that have title attribute containing given substring 
+			$('[title~="myTitle"]').css('border', '5px solid red') //select all elements that contain the current attribute delimited by spaces
+			$('[title|="myTitle"]').css('border', '5px solid red') //have title value equal to or starting with myTitle followed by a hyphen
+			$('[title^="div"]').css('border', '5px solid red') //selects a title element with an attribute starting with div
+			$('[title$="Heading"]').css('border', '5px solid red') //selects a title element with an attribute ending with Heading*/
+		});
+	</script>
+</head>
+<body>	
+	<div title="div1Title">
+		DIV 1
+	</div>
+	<div title="div2Title">
+		DIV 2
+	</div>
+	<br/><br/>
+	<p title="myTitle-Paragraph" style="background-color:red">
+		This is a paragraph
+	</p>
+	<p title="myTitleHeading" style="background-color:green">
+		This is a paragraph
+	</p>
+	<p style="background-color:green">
+		This is a paragraph
+	</p>
+	<span title="div1Title">
+		SPAN 1
+	</span>
+	<br/>
+	<span title="Heading as mySpan">
+		SPAN 2
+	</span>
+	<br/>
+	<span title="span2Title">
+		SPAN 3
+	</span>
+</body>
+</html>
+==> 008_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$('[title="div1Title"]').css('border', '5px solid red')
+			$('[title!="div1Title"]').css('border', '5px solid red') //selects all elements title attribute not equal to string
+			$('[title*="Title"]').css('border', '5px solid red') //selects all elements that have title attribute containing given substring 
+			$('[title~="myTitle"]').css('border', '5px solid red') //select all elements that contain the current attribute delimited by spaces
+			$('[title|="myTitle"]').css('border', '5px solid red') //have title value equal to or starting with myTitle followed by a hyphen
+			$('[title^="div"]').css('border', '5px solid red') //selects a title element with an attribute starting with div
+			$('[title$="Heading"]').css('border', '5px solid red') //selects a title element with an attribute ending with Heading
+		 */
+		$(document).ready(function(){
+			/* ('/Div/i' contains a /i flag which says that return attribute is case-insenstive
+				return ('/Div/i').test($(this).attr('title'))  //returns the attribute of title
+			*/
+			/*$('div[title]').filter(function() {
+				return ('/Div/i').test($(this).attr('title')); 
+			}).css('border', '5px solid red');*/ //Syntax not recognized by jquery 3.6.1
+			
+			$('div[title]').filter(function() {
+				return RegExp('Div', 'i').test($(this).attr('title')); 
+			}).css('border', '5px solid red'); //'i' flag here serves the same purpose
+			
+			$('p[title]').filter(function() {
+				return $(this).attr('title').toLowerCase() == "ptitle";
+			}).css('border', '5px solid black');
+		});
+	</script>
+</head>
+<body>	
+	<div title="DivTitle">
+		DIV 1
+	</div>
+	<br/>
+	<div title="DIVTITLE">
+		DIV 2
+	</div>
+	<br/>
+	<div title="divtitle">
+		DIV 3
+	</div>
+	<p title="pTitle">
+		Paragraph 1
+	</p>
+	<p title="pTITLE">
+		Paragraph 2
+	</p>
+</body>
+</html>
+==> 009_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('input[type="text"]').each(function() {
+				alert($(this).val() + " -- input tag");
+			});
+			
+			$(':input[type="text"]').each(function() {
+				alert($(this).val()) + " -- form element";
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">	
+	First Name : <input type="text" value="John">		
+	</input>
+	<br/><br/>
+	Last Name : <input type="text" value="Major">		
+	</input>
+	<br/><br/>
+	Gender :
+	<input type="radio" name="skills" checked="checked" value="Male">		
+	</input>
+	Male	
+	<input type="radio" name="skills" value="Female">		
+	</input>
+	Female
+	<br/><br/>
+	<input type="checkbox" name="skills" checked="checked" value="Javascript">		
+	</input>
+	Javascript
+	<input type="checkbox" name="skills" checked="checked" value="jQuery">
+	</input>
+	JQuery
+	<input type="checkbox" name="skills" value="C#">
+	</input>
+	C#
+	<br/><br/>
+	Country: 
+	<select>
+		<option selected="selected" value="USA">
+			USA
+		</option>
+		<option value="India">
+			India
+		</option>
+		<option value="UK">
+			UK
+		</option>
+	</select>
+	<br/><br/>
+	Summary :
+	<br/>
+	<textarea>
+		I am a Senior Dot Net Developer with 10 years experience
+	</textarea>
+	<br/><br/>
+	<input type="submit" value="submit">
+	</input>
+</body>
+</html>
+==> 010_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('#btnSubmit').click(function() {
+				var radioresult = $('input[type="radio"]:checked');
+				var resultString = radioresult.length > 0 ? radioresult.val() + " is checked<br/>" :  "No radio buttton checked<br/>";
+				console.log(resultString);
+				
+				var checkresult = $('input[type="checkbox"]:checked');
+				if (checkresult.length > 1) {
+					resultString += checkresult.length + " checkboxes checked<br/>";
+					console.log(resultString);
+					checkresult.each(function() {
+						resultString += $(this).val() + " is checked<br/>";
+						console.log(resultString);
+					})
+				}
+				else if (checkresult.length > 0) {
+					
+					resultString += checkresult.length + " checkbox checked<br/>" + checkresult.val() + " is checked"; 
+				}
+				else   {
+					resultString += "No checkboxes checked";
+				}
+				$('#divResult').html(resultString);
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<input type="radio" name="skills" value="Male">		
+	</input>
+	Male	
+	<input type="radio" name="skills" value="Female">		
+	</input>
+	Female
+	<br/><br/>
+	<input type="checkbox" name="skills" checked="checked" value="Javascript">		
+	</input>
+	Javascript
+	<input type="checkbox" name="skills" checked="checked" value="jQuery">
+	</input>
+	JQuery
+	<input type="checkbox" name="skills" value="C#">
+	</input>
+	C#
+	<br/><br/>
+	<input id="btnSubmit" type="submit" value="submit">
+	</input>
+	<br/><br/>
+	<div id="divResult">
+	</div>
+</body>
+</html>
+==> 011_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			$('#btnGetSelectedSkills').click(function() {
+				checkCheckBoxes("skills");
+			});
+			
+			$('#btnGetSelectedCities').click(function() {
+				checkCheckBoxes("cities");
+			});
+			
+			var checkCheckBoxes = function(name) {
+				var checkresult = $('input[name="' + name + '"]:checked');
+				var resultString = "";
+				if (checkresult.length > 1) {
+					resultString = checkresult.length + " checkboxes checked<br/>";
+					console.log(resultString);
+					checkresult.each(function() {
+						resultString += $(this).val() + " is checked<br/>";
+						console.log(resultString);
+					})
+				}
+				else if (checkresult.length > 0) {
+					resultString = checkresult.length + " checkbox checked<br/>" + checkresult.val() + " is checked"; 
+				}
+				else   {
+					resultString = "No checkboxes checked";
+				}
+				$('#div' + name).html(resultString);
+			};
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	Skills : 
+	<input type="checkbox" name="skills" checked="checked" value="Javascript">		
+	</input>
+	Javascript
+	<input type="checkbox" name="skills" checked="checked" value="jQuery">
+	</input>
+	JQuery
+	<input type="checkbox" name="skills" value="C#">
+	</input>
+	C#
+	<br/><br/>
+	Preferred Cities : 
+	<input type="checkbox" name="cities" checked="checked" value="New York">		
+	</input>
+	New York
+	<input type="checkbox" name="cities" checked="checked" value="New Delhi">
+	</input>
+	New Delhi
+	<input type="checkbox" name="cities" value="London">
+	</input>
+	London
+	<br/><br/>
+	<input id="btnGetSelectedSkills" type="submit" value="GetSelectedSkills">
+	</input>
+	<input id="btnGetSelectedCities" type="submit" value="GetSelectedCities">
+	</input>
+	<br/><br/>
+	<div id="divcities">
+	</div>
+	<br/>
+	<div id="divskills">
+	</div>
+</body>
+</html>
+==> 012_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			$('input[name="skills"]').click(function() {
+				checkCheckBoxes("skills");
+			});
+			
+			$('input[name="cities"]').click(function() {
+				checkCheckBoxes("cities");
+			});
+			
+			var checkCheckBoxes = function(name) {
+				var checkresult = $('input[name="' + name + '"]:checked');
+				var resultString = "";
+				if (checkresult.length > 1) {
+					resultString = checkresult.length + " checkboxes checked<br/>";
+					console.log(resultString);
+					checkresult.each(function() {
+						resultString += $(this).val() + " is checked<br/>";
+						console.log(resultString);
+					})
+				}
+				else if (checkresult.length > 0) {
+					resultString = checkresult.length + " checkbox checked<br/>" + checkresult.val() + " is checked"; 
+				}
+				else   {
+					resultString = "No checkboxes checked";
+				}
+				$('#div' + name).html(resultString);
+			};
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	Skills : 
+	<input type="checkbox" name="skills" checked="checked" value="Javascript">		
+	</input>
+	Javascript
+	<input type="checkbox" name="skills" checked="checked" value="jQuery">
+	</input>
+	JQuery
+	<input type="checkbox" name="skills" value="C#">
+	</input>
+	C#
+	<br/><br/>
+	Preferred Cities : 
+	<input type="checkbox" name="cities" checked="checked" value="New York">		
+	</input>
+	New York
+	<input type="checkbox" name="cities" checked="checked" value="New Delhi">
+	</input>
+	New Delhi
+	<input type="checkbox" name="cities" value="London">
+	</input>
+	London
+	<br/><br/>
+	<div id="divcities">
+	</div>
+	<br/>
+	<div id="divskills">
+	</div>
+</body>
+</html>
+==> 013_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			$('input[name="skills"]').click(function() {
+				checkCheckBoxes("skills");
+			});
+			
+			$('input[name="cities"]').click(function() {
+				checkCheckBoxes("cities");
+			});
+			
+			var checkCheckBoxes = function(name) {
+				var checkresult = $('input[name="' + name + '"]:checked');
+				var resultString = "";
+				if (checkresult.length > 1) {
+					resultString = checkresult.length + " checkboxes checked<br/>";
+					console.log(resultString);
+					checkresult.each(function() {
+						var selectedValue = $(this).val()
+						resultString += selectedValue + " - " + $('label[for="cb-' + selectedValue + '"]').text() + "<br/>";
+						console.log(resultString);
+					})
+				}
+				else if (checkresult.length > 0) {
+					resultString = checkresult.length + " checkbox checked<br/>" + checkresult.val() +  " - " + $('label[for="cb-' + checkresult.val() + '"]').text(); 
+				}
+				else {
+					resultString = "No checkboxes checked";
+				}
+				$('#div' + name).html(resultString);
+			};
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	Skills : 
+	<input type="checkbox" name="skills" value="js">		
+	</input>
+	<label for="cb-js">	
+	Javascript
+	</label>
+	<input type="checkbox" name="skills" value="jq">
+	</input>
+	<label for="cb-jq">	
+	JQuery
+	</label>
+	<input type="checkbox" name="skills" value="cs">
+	</input>
+	<label for="cb-cs">	
+	C#
+	</label>
+	<br/><br/>
+	Preferred Cities : 
+	<input type="checkbox" name="cities" value="ny">		
+	</input>
+	<label for="cb-ny">	
+	New York
+	</label>
+	<input type="checkbox" name="cities" value="nd">
+	</input>
+	<label for="cb-nd">	
+	New Delhi
+	</label>
+	<input type="checkbox" name="cities" value="ln">
+	</input>
+	<label for="cb-ln">	
+	London
+	</label>
+	<br/><br/>
+	<div id="divcities">
+	</div>
+	<br/>
+	<div id="divskills">
+	</div>
+</body>
+</html>
+==> 014_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			$('#selectCountries').change(function() {
+				var selected = $('#selectCountries option:selected');
+				if (selected.length > 0) {
+					var resultString = '';
+					selected.each(function() {
+						resultString += "Value = " + $(this).val().toUpperCase() + "<br/>Text = " + $(this).text() + "<br/><br/>";
+					});
+					$('#divResult').html(resultString);
+				}
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	Country : 
+	<br/>
+	<br/>
+	<select id="selectCountries" multiple="multiple">
+		<option value="usa">
+		United States
+		</option>
+		<option value="ind">
+		India
+		</option>
+		<option value="uk">
+		United Kingdom
+		</option>
+		<option value="ca">
+		Canada
+		</option>
+		<option value="au">
+		Australia
+		</option>
+	</select>
+	<br/><br/>
+	<div id="divResult">
+	</div>
+	<br/>
+</body>
+</html>
+==> 015_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			$('input[type="text"]:disabled').css('border', '3px solid red');
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<table id="table1" border="1">
+		<tr>
+			<td>
+			First Name 
+			</td>
+			<td>
+			<input type="text" disabled="disabled">
+			</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Last Name 
+			</td>
+			<td>
+			<input type="text" disabled="disabled">
+			</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Email 
+			</td>
+			<td>
+			<input type="text">
+			</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Gender 
+			</td>
+			<td>
+				<select id="selectGender" disabled="disabled">
+					<option value="male">
+					Male
+					</option>
+					<option value="female">
+					Female
+					</option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Comments 
+			</td>
+			<td>
+				<textarea>
+					I am a Senior Dot Net Developer with 10 years experience
+				</textarea>
+			</td>
+		</tr>
+	</table>
+	<br/><br/>
+	<input type="submit" value="submit" disabled="disabled">
+	</input>
+</body>
+</html>
+==> 016_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			/*$('li').each(function(index, element){
+				alert(index + " : " + $(element).text());
+			});*/
+			/*method chaining will execute each of the following steps in order
+			$('li').css('color', 'blue');
+			$('li').slideUp(1000);
+			$('li').slideDown(1000);
+			$('li').attr('title', 'MY TITLE');
+
+			If the previous method does not return an object, i.e. returns a string '.text()', method chaining will not work*/
+
+			$('li').css('color', 'blue').slideUp(1000).slideDown(1000).attr('title', 'MY TITLE');
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<ul>
+		<li>
+			US
+		</li>
+		<li>
+			India
+		</li>
+		<li>
+			UK
+		</li>
+		<li>
+			Canada
+		</li>
+		<li>
+			Australia
+		</li>
+	</ul>
+	<br/><br/>
+	<input type="submit" value="submit" disabled="disabled">
+	</input>
+</body>
+</html>
+==> 017_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			var employeesJSON = [{
+				"firstName" : "Todd",
+				"lastName" : "Turnip",
+				"gender" : "Male",
+				"salary" : 50000,
+			},
+			{
+				"firstName" : "Sara",
+				"lastName" : "Parsnip",
+				"gender" : "Female",
+				"salary" : 50000,
+			}];
+			
+			var alternativeEmployeesJSON = {
+				"Todd": {	
+					"firstName" : "Todd",
+					"lastName" : "Turnip",
+					"gender" : "Male",
+					"salary" : 50000,
+				},
+				"Sara": {
+					"firstName" : "Sara",
+					"lastName" : "Parsnip",
+					"gender" : "Female",
+					"salary" : 50000,
+				}
+			};
+			
+			var result = '';
+			result += 'First Name : ' + employeesJSON[0].firstName + '<br/>';
+			result += 'Last Name : ' + employeesJSON[0].lastName + '<br/>';
+			result += 'Gender : ' + employeesJSON[0].gender + '<br/>';
+			result += 'Salary : ' + employeesJSON[0].salary + '<br/>';
+			
+			$('#divResult').html(result);
+			
+			/*employeesJSON.each(function () {			
+				result += 'First Name : ' + $(this).firstName + '<br/>';
+				result += 'Last Name : ' + $(this).lastName + '<br/>';
+				result += 'Gender : ' + $(this).gender + '<br/>';
+				result += 'Salary : ' + $(this).salary + '<br/>';
+			});*/
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<div id="divResult">
+	</div>
+</body>
+</html>
+==> 018_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			var employeesJSONString = '[{"firstName" : "Todd", "lastName" : "Turnip", "gender" : "Male", "salary" : 50000},';
+			employeesJSONString += '{"firstName" : "Sara", "lastName" : "Parsnip", "gender" : "Female", "salary" : 50000}]';
+			
+			var employeesJSON = JSON.parse(employeesJSONString);
+			
+			var result = '';
+			
+			$.each(employeesJSON, function (i, item) {
+				result += 'First Name : ' + item.firstName + '<br/>';
+				result += 'Last Name : ' + item.lastName + '<br/>';
+				result += 'Gender : ' + item.gender + '<br/>';
+				result += 'Salary : ' + item.salary + '<br/><br/>';
+			});
+			
+			$('#divResult').html(result);
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<div id="divResult">
+	</div>
+</body>
+</html>
+==> 019_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			If you have just one group of checkboxes on your page to get all checked checkboxes use $('input[type="checkbox"]:checked')
+			If you have more than one group of checkboxes on your page $('input[type="checkbox"]:checked') will select all checked checkboxes from both checkbox groups
+		 */
+		$(document).ready(function(){
+			/* Retrieves the title attribute of the first matching element
+			alert($('div').attr('title'));
+			*/
+			
+			//$('div').attr('title', 'New DiV Title'); //Would set div title for all elements
+			
+			var divs = $('div');
+			
+			//Sets a different title attribute for each DIV element
+			divs.each(function(i) {
+				$(this).attr('title', 'div ' + (i + 1) + ' title');
+			});
+			
+			
+			//Retrieves the title attribute of every matching element
+			$('div').each(function() {
+				alert($(this).attr('title'));
+			});
+		
+			//This creates a Json object which can be passed to the attr method
+			var config = {
+				'title' : 'New Paragraph Title',
+				'style' : 'border:3px solid red',
+				'name' : 'My Paragraph'
+			};
+			
+			//will set these attributes for every paragraph element on the page
+			$('p').attr(config);
+			
+			var result = '';
+			$('p').each(function() {				
+				result += 'title = ' + $(this).attr('title') + '<br/>';
+				result += 'style = ' + $(this).attr('style') + '<br/>';
+				result += 'name = ' + $(this).attr('name') + '<br/><br/>';
+			});
+			
+			$('#resultSpan').html(result);
+			
+			//you can remove an attribute using the removeAttr() method, will remove all instances
+			$('p[title="New Paragraph Title"]').removeAttr('title');
+			
+			$('div[title="div 2 title"]').slideUp(2000).slideDown(2000);
+			
+			var divstring = 'Div elements with title attribute = ' + $('div[title]').length + '<br/>';
+			divstring += 'Removing title attribute<br/>';
+			$('div[title="div 2 title"]').removeAttr('title');
+			divstring += 'Div elements with title attribute = ' + $('div[title]').length + '<br/>';
+			
+			$('#div2').html(divstring).css('color', 'blue');
+			
+			$('div[title]').wrap('<div class="containerDiv"></div>');
+			
+			$('<b> Tutorial</b>').appendTo($('div[title]'));
+			//also the .append() method
+			
+			$('p').prepend('<b>New </b>');
+			$('p').append('<br/>');
+			$('p').append($('#resultSpan'));
+			//also the .prependTo() method
+			
+			/*To insert an element before another element there are two methods
+				before
+				insertBefore
+			To insert an element after another element there are also two methods
+				after	
+				insertAfter
+			*/
+			$('#div1').before('<h3>Easy Programming:</h3>');
+			$('<h3>Easy Programming:</h3>').insertBefore('#div3');
+			
+			$('#div1').after('<h3>Fun Programming:</h3>');
+			$('<h3>Fun Programming:</h3>').insertAfter('#div3');
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.containerDiv
+		{
+			background-color:red;
+			color:white;
+			font-weight:bold;
+			margin:3px;
+		}
+	</style>
+	<div id="div1" title="My DIV1">
+		Javascript
+	</div>
+	<div id="div2" title="My DIV2">
+		DIV 2
+	</div>
+	<div id="div3">
+		JQuery
+	</div>
+	<p>
+		Paragraph 1
+	</p>
+	<p>
+		Paragraph 2
+	</p>
+	<span id="resultSpan">
+	</span>
+</body>
+</html>
+==> 020_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			hasClass - 		Returns true if an elemenet has the specified class otherwise false
+			addClass - 		Adds one or more specified classes. To add multiple classes separate them with a space
+			removeClass - 	Removes one or multiple of all classes. To remove multiple classes separate them with a space. to remove a;; classes, 
+							specify any class name
+			toggleClass -	Toggles one or more specified classes. If the element has the specified class then it is removed, if the class
+							is not present it is added
+		*/
+		$(document).ready(function(){
+			$('input[type="button"]').css('width', '250px');
+			
+			$('#addColor').click(function() {
+				$('p').addClass('colorClass');
+			});
+			
+			$('#removeColor').click(function() {
+				$('p').removeClass('colorClass');
+			});
+			
+			$('#addItalicsColor').click(function() {
+				$('p').addClass('colorClass italicsClass');
+			});
+			
+			$('#removeItalicsColor').click(function() {
+				$('p').removeClass('colorClass italicsClass');
+			});
+			
+			$('#addAllClasses').click(function() {
+				$('p').addClass('colorClass italicsClass boldClass');
+			});
+			
+			$('#removeAllClasses').click(function() {
+				$('p').removeClass('colorClass italicsClass boldClass');
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.boldClass {
+			font-weight: bold;
+		}
+	
+		.italicsClass {
+			font-style: italic;
+		}
+	
+		.colorClass {
+			color: green;
+		}
+	</style>
+	<h3>
+		Pragim Technologies
+	</h3>
+	<table>
+		<tr>
+			<td>
+				<input id="addColor" type="button" value="Add Color Class">
+				</input>
+			</td>
+			<td>
+				<input id="removeColor" type="button" value="Remove Color Class">
+				</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<input id="addItalicsColor" type="button" value="Add Color and Italics Classes">
+				</input>
+			</td>
+			<td>
+				<input id="removeItalicsColor" type="button" value="Remove Color and Italics Classes">
+				</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<input id="addAllClasses" type="button" value="Add Color, Italics & Bold Classes">	
+				</input>
+			</td>
+			<td>
+				<input id="removeAllClasses" type="button" value="Remove All Classes">
+				</input>
+			</td>
+		</tr>
+	</table>
+	<table>
+		<tr>
+			<td>
+				First Name :
+			</td>
+			<td>
+				<input type="text" value="John">		
+				</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				Last Name :
+			</td>
+			<td>
+				<input type="text" value="Major">		
+				</input>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				Gender :
+			</td>
+			<td>
+				<select>
+					<option value="male">
+					Male
+					</option>
+					<option value="female">
+					Female
+					</option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				Email :
+			</td>
+			<td>
+				<input type="text">		
+				</input>
+			</td>
+		</tr>
+	</table>
+	<p>
+		Here is some paragraph text
+	</p>
+</body>
+</html>
+==> 021_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			hasClass - 		Returns true if an elemenet has the specified class otherwise false
+			addClass - 		Adds one or more specified classes. To add multiple classes separate them with a space
+			removeClass - 	Removes one or multiple of all classes. To remove multiple classes separate them with a space. to remove a;; classes, 
+							specify any class name
+			toggleClass -	Toggles one or more specified classes. If the element has the specified class then it is removed, if the class
+							is not present it is added
+		*/
+		$(document).ready(function(){
+			$('input[type="text"]').each(function() {
+				$(this).focus(function() {
+					console.log("Adding textbox style");
+					$(this).addClass('textBoxStyle');
+				});
+				
+				$(this).blur(function() {
+					console.log("Removing textboxStyle");
+					$(this).removeClass('textBoxStyle');
+				});
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.textBoxStyle {
+			background-color: green;
+			color: white;
+		}
+	</style>
+	        <ul>
+                <li>
+                        US
+                </li>
+                <li>
+                        India
+                </li>
+                <li>
+                        UK
+                </li>
+                <li>
+                        Canada
+                </li>
+                <li>
+                        Australia
+                </li>
+        </ul>
+
+</body>
+</html>
+==> 022_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			hasClass - 		Returns true if an elemenet has the specified class otherwise false
+			addClass - 		Adds one or more specified classes. To add multiple classes separate them with a space
+			removeClass - 	Removes one or multiple of all classes. To remove multiple classes separate them with a space. to remove a;; classes, 
+							specify any class name
+			toggleClass -	Toggles one or more specified classes. If the element has the specified class then it is removed, if the class
+							is not present it is added
+		*/
+		$(document).ready(function(){
+			var jsObject = {
+			    "firstName" : "Todd",
+                "lastName" : "Turnip",
+                "gender" : "Male",
+			};
+		
+			var intArray = [100, 200, 300, 400, 500];
+			var result = '';
+			
+			result += 'Stepping through unordered list:<br/>';
+			//the .each() function takes as its first argument the callback(args)
+			$('li').each(function(index, element) {
+				result += 'Index = ' + index + ', Value = ' + $(element).text() + '<br/>'; 
+			});
+			
+			//variable arguments are $.each(object, callbackArgs) 
+			result += '<br/>Int Array:<br/>';
+			$.each(intArray, function(index, element) {
+				result += 'Index = ' + index + ', Value = ' + element + '<br/>';
+			});
+			
+			result += '<br/>JSON Object<br/>';
+			$.each(jsObject, function(index, element) {
+				result += 'Index = ' + index + ', Value = ' + element + '<br/>';
+			});
+			
+			$('#divResult').html(result);
+			
+			var newresult = [];
+			$('li').map(function(index, element) {
+				newresult.push($(element).text());
+			});
+			
+			alert(newresult);
+			
+			alert(
+				$('li').map(function(index, element) {
+					return ($(element).text());
+				}).get()
+			);
+			
+			var newresultstring = '';
+			$('li').map(function(index, element) {
+				newresultstring += $(element).text() + '|';
+			});
+			
+			alert(newresultstring);
+			
+			newresultstring = newresultstring.substr(0, newresultstring.length - 5);
+			newresultstring = newresultstring.substr(0, newresultstring.length - 5);
+			
+			alert(newresultstring);
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.textBoxStyle {
+			background-color: green;
+			color: white;
+		}
+	</style>
+    <ul>
+        <li>
+                US
+        </li>
+        <li>
+                India
+        </li>
+        <li>
+                UK
+        </li>
+        <li>
+                Canada
+        </li>
+        <li>
+                Australia
+        </li>
+    </ul>
+	<div id="divResult">
+    </div>
+</body>
+</html>
+==> 023_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			hasClass - 		Returns true if an elemenet has the specified class otherwise false
+			addClass - 		Adds one or more specified classes. To add multiple classes separate them with a space
+			removeClass - 	Removes one or multiple of all classes. To remove multiple classes separate them with a space. to remove a;; classes, 
+							specify any class name
+			toggleClass -	Toggles one or more specified classes. If the element has the specified class then it is removed, if the class
+							is not present it is added
+		*/
+		$(document).ready(function(){
+			var intArray = [100, 200, 300, 400, 500];
+		
+			function functionA(index, element) {
+				return element * 5;
+			}
+			
+			function functionB(element, index) {
+				return element * 5;
+			}
+			
+			/*
+				the each method is an immuitable iterator, 
+				returns the original array,
+				The order of callback arguments - index, element
+				Return false to terminate the iteration
+			*/
+			var result1 = $.each(intArray, functionA); //100, 200, 300, 400, 500 (original immutable array)
+			
+			/*
+				the map method can be used as an iterator		
+				returns a new array,
+				The order of callback arguments - element, index
+				Return false to terminate the iteration
+		
+			*/
+			var result2 = $.map(intArray, functionB); // 500, 1000, 1500, 2000, 2500 (new mutable array)
+			
+			//the document.write function provides the entirety of the response, overwriting any HTML elements on the page
+			document.write('each = ' + result1);
+			document.write('<br/>');
+			document.write('map = ' + result2);
+			
+			document.write('<br/><br/>');
+			$.each(intArray, function (index, element) {
+				if (element == 300)
+					return false;
+					
+				document.write(element + ',');
+			});
+			cp 009//prints 100,200
+			
+			document.write('<br/><br/>');
+			$.map(intArray, function (element, index) {
+				if (element == 300)
+					return false;
+					
+				document.write(element + ',');
+			});
+			//prints 100,200,400,500
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.textBoxStyle {
+			background-color: green;
+			color: white;
+		}
+	</style>
+    <ul>
+        <li>
+                US
+        </li>
+        <li>
+                India
+        </li>
+        <li>
+                UK
+        </li>
+        <li>
+                Canada
+        </li>
+        <li>
+                Australia
+        </li>
+    </ul>
+	<div id="divResult">
+    </div>
+</body>
+</html>
+==> 024_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('#addCity').change(function () {
+				var selected = $(this).val();
+				if (selected == "Select") {
+					selected = "Please select city";
+				}
+				
+				$('#cityResult').html(selected);
+			});
+			
+			var result = '';
+			$('input').change(function () {
+				if (result == '')
+				{
+					result = $(this).val();
+				}
+				else
+				{
+					result += ', ' + $(this).val();
+				}
+				$('#divResult').html(result);
+			});
+			
+			var whichButton;
+			if (event.which) {
+				switch (event.which) {
+					case 1: whichButton = "Left Button Clicked"; break;
+					case 2: whichButton = "Middle Button Clicked"; break;
+					case 3: whichButton = "Right Button Clicked"; break;
+					default: whichButton = "Invalid Button Clicked"; break;
+				}
+			}
+			else {
+				switch (event.button) {
+					case 1: whichButton = "Left Button Clicked"; break;
+					case 4: whichButton = "Middle Button Clicked"; break;
+					case 2: whichButton = "Right Button Clicked"; break;
+					default: whichButton = "Invalid Button Clicked"; break;
+				}
+			}
+			
+			document.getElementById('resultDiv').innerHTML = whichButton;
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<table>
+		<tr>	
+			<td>		
+				First Name :
+			</td>	
+			<td>	
+				<input id="txtFirstName" type="text" class="inputRequired">		
+				</input>
+			</td>
+		</tr>
+		<tr>	
+			<td>		
+				Last Name :
+			</td>	
+			<td>	
+				<input id="txtLastName" type="text" class="inputRequired">		
+				</input>
+			</td>
+		</tr>
+		<tr>	
+			<td>		
+				City :
+			</td>	
+			<td>	
+				<select id="addCity"  class="inputRequired">
+					<option value="Select">
+						Select
+					</option>
+					<option value="New York">
+						New York
+					</option>
+					<option value="New Delhi">
+						New Delhi
+					</option>
+					<option value="London">
+						London
+					</option>
+				</select>
+			</td>
+		</tr>
+		<tr>	
+			<td>		
+				Favourite Color
+			</td>	
+			<td>	
+				<input id="radioRed" type="radio" name="color" value="Red" class="inputRequired">		
+				</input>
+				Red	
+				<input id="radioGreen" type="radio" name="color" value="Green" class="inputRequired">		
+				</input>
+				Green	
+				<input id="radioBlue" type="radio" name="color" value="Blue" class="inputRequired">		
+				</input>
+				Blue
+			</td>
+		</tr>
+		<tr>	
+			<td>		
+				Contact Method
+			</td>	
+			<td>	
+				<input type="checkbox" id="chkEmail" name="skills" value="Email" class="inputRequired">		
+				</input>
+				Email
+				<input type="checkbox" id="chkPhone" name="skills" value="Phone" class="inputRequired">
+				</input>
+				Phone
+				<input type="checkbox" id="chkSocial" name="skills" value="Social Media" class="inputRequired">
+				</input>
+				Social Media
+			</td>
+		</tr>
+		<tr>	
+			<td>		
+				Comments
+			</td>	
+			<td>	
+				<textarea>
+				</textarea>
+			</td>
+		</tr>
+		<tr>	
+			<td>		
+				<input type="submit" value="submit">
+				</input>
+			</td>	
+			<td>	
+				<div id="cityResult">
+				</div>
+			</td>
+		</tr>
+	</table>
+	<br/><br/>
+	<div id="divResult">
+	</div>
+	<div id="resultDiv">
+	</div>
+</body>
+</html>
+==> 025_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('input').css('width', '250px');
+			$('#btn2').mouseup(function(event) {
+				var whichButton;
+					switch (event.which) {
+						case 1: whichButton = "Left Button Clicked"; break;
+						case 2: whichButton = "Middle Button Clicked"; break;
+						case 3: whichButton = "Right Button Clicked"; break;
+						default: whichButton = "Invalid Button Clicked"; break;
+					}
+
+				document.getElementById('divResult').innerHTML = whichButton;
+			});
+		});
+		
+			function whichMouseButtonClicked(event) {
+				var whichButton;
+				if (event.which) {
+					switch (event.which) {
+						case 1: whichButton = "Left Button Clicked"; break;
+						case 2: whichButton = "Middle Button Clicked"; break;
+						case 3: whichButton = "Right Button Clicked"; break;
+						default: whichButton = "Invalid Button Clicked"; break;
+					}
+				}
+				else {
+					switch (event.button) {
+						case 1: whichButton = "Left Button Clicked"; break;
+						case 4: whichButton = "Middle Button Clicked"; break;
+						case 2: whichButton = "Right Button Clicked"; break;
+						default: whichButton = "Invalid Button Clicked"; break;
+					}
+				}
+				
+				document.getElementById('divResult').innerHTML = whichButton;
+			}
+	</script>
+</head>
+<body style="font-family:Arial">
+	<input id="btn1" type="button" value="Click Me" onmouseup="whichMouseButtonClicked(event)">
+	</input>
+	<input id="btn2" type="button" value="No, Click Me">
+	</input>
+	<br/><br/>
+	<div id="divResult">
+	</div>
+</body>
+</html>
+==> 026_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('input').css('width', '250px');
+			
+			var startingcoords = '';
+			var endingcoords = '';
+			var startX = '';
+			var startY = '';
+			var endX = '';
+			var endY = '';
+			
+			/* the bind() function is replace by on() in jQuer 1.7+ but can still be used*/
+			$('img').bind('mousedown mouseup ondragstart', function(event) {
+				if (event.type == 'mousedown') {
+					startingcoords = ('Starting coords at X = ' + event.pageX + ' Y = ' + event.pageY);
+					startX = event.pageX;
+					startY = event.pageY;
+				}
+				else if (event.type == 'mouseup') {
+						endingcoords = ('<br>Mouseup at X = ' + event.pageX + ' Y = ' + event.pageY);
+					endX = event.pageX;
+					endY = event.pageY;
+				}
+				else if (event.type == 'ondragstart') {
+					return false;
+				}
+				
+				$('#divResult').html(startingcoords + endingcoords);
+			});
+			
+			$('#btnEnableMouseOverEffect').click( function() {
+				$('#btnClickMe').bind('mouseover', function() {
+					$(this).addClass('ButtonStyle');
+				});
+			});
+			
+			
+			$('#btnDisableMouseOverEffect').click( function() {
+				$('#btnClickMe').unbind('mouseover');
+			});
+			
+			$('#btn1ClickMe').on('click mouseover mouseout', function(event) {
+				if (event.type == 'click') {
+					$('#div1Result').html('Button Clicked at X = ' + event.pageX + ' Y = ' + event.pageY);
+				}
+				else if (event.type == 'mouseover') {
+					$(this).addClass('ButtonStyle');
+				}
+				else {
+					$(this).removeClass('ButtonStyle');
+				}
+			});
+			
+			$('#btn1EnableMouseOverEffect').click( function() {
+				$('#btn1ClickMe').on('mouseover', function() {
+					$(this).addClass('ButtonStyle');
+				});
+			});
+			
+			
+			$('#btn1DisableMouseOverEffect').click( function() {
+				$('#btn1ClickMe').off('mouseover');
+			});
+			
+			$('#btn2ClickMe').on({
+				click: function(event) {
+					$('#div2Result').html('Button Clicked at X = ' + event.pageX + ' Y = ' + event.pageY);
+				},
+				mouseover: function(event) {
+					$(this).addClass('ButtonStyle');
+				},
+				mouseout: function(event) {
+					$(this).removeClass('ButtonStyle');
+				}
+			});
+			
+			$('#btn2EnableMouseOverEffect').click( function() {
+				$('#btn2ClickMe').on('mouseover', function() {
+					$(this).addClass('ButtonStyle');
+				});
+			});
+				
+			$('#btn2DisableMouseOverEffect').click( function() {
+				$('#btn2ClickMe').off('mouseover');
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.ButtonStyle
+		{
+			background-color: red;
+			cursor: pointer;
+			font-weight: bold;
+			color: white;
+		}	
+	</style>
+	<br/>
+	<img src="Africa005.jpg" class="imgStyle" draggable="false">
+	</img>	
+	<br/><br/>
+	<input id="btnClickMe" type="button" value="Click Me">
+	</input>
+	<input id="btnEnableMouseOverEffect" type="button" value="Enable Mouse Over Effect">
+	</input>
+	<input id="btnDisableMouseOverEffect" type="button" value="Disable Mouse Over Effect">
+	</input>
+	<br/><br/>
+	<div id="divResult">
+	</div>
+	<br/><br/>
+	<input id="btn1ClickMe" type="button" value="Click Me">
+	</input>
+	<input id="btn1EnableMouseOverEffect" type="button" value="Enable Mouse Over Effect">
+	</input>
+	<input id="btn1DisableMouseOverEffect" type="button" value="Disable Mouse Over Effect">
+	</input>
+	<br/><br/>
+	<div id="div1Result">
+	</div>
+	<br/><br/>
+	<input id="btn2ClickMe" type="button" value="Click Me">
+	</input>
+	<input id="btn2EnableMouseOverEffect" type="button" value="Enable Mouse Over Effect">
+	</input>
+	<input id="btn2DisableMouseOverEffect" type="button" value="Disable Mouse Over Effect">
+	</input>
+	<br/><br/>
+	<div id="div2Result">
+	</div>
+</body>
+</html>
+==> 027_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('li').on('click', function() {
+				$(this).fadeOut(2000);
+			});
+		
+			//The following syntax demonstrates how to pass a callback on dynamically created oject 
+			$('#btnAdd1').on('click', function(){
+				var newListItem = $('<li>New List Item</li>').on('click', function() {
+					$(this).fadeOut(2000);
+				});
+				$('#ul1').append(newListItem);
+			});
+			
+			//The following syntax also demmonstrates how to pass an event handler to a dynamically created object
+			//it can even be scoped to specific list items such as li:even
+			//When a user inititially clicks on a list item in this example above, the event gets bubbled up to its parent (ul) as the list item
+			//li does not have its own event handler. The bubbled event is handled by the parent (#ul2) element as it has a click event handler
+			//When a new list item is added dynamically, you don't have to add the click handler explicitly to it. The click event of this new li
+			//item is also bubbled up to its parent and handled by it.
+			$('#ul2').on('click', 'li', function () {
+				$(this).fadeOut(2000);
+			});
+			
+			$('#btnAdd2').on('click', function(){
+				var newListItem = '<li>New List Item</li>';
+				$('#ul2').append(newListItem);
+			});
+			
+			$('#ul3').delegate('click', 'li', function () {
+				$(this).fadeOut(2000);
+			});
+			
+			$('#btnAdd3').on('click', function(){
+				var newListItem = '<li>New List Item</li>';
+				$('#ul3').append(newListItem);
+			});
+			
+			$('#btnUndelegate').on('click', function(){
+				$('ul').undelegate('li', 'click');
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<input id="btnAdd1" type="button" value="Add a new List Item">
+	</input>
+	<ul id="ul1">
+		<li>
+			List Item
+		</li>
+		<li>
+			List Item
+		</li>
+	</ul>
+	<br/><br/>
+	<input id="btnAdd2" type="button" value="Add a new List Item">
+	</input>
+	<ul id="ul2">
+		<li>
+			List Item
+		</li>
+		<li>
+			List Item
+		</li>
+	</ul>	
+	<br/><br/>
+	<input id="btnAdd3" type="button" value="Add a new List Item">
+	</input>
+	<input id="btnUndelegate" type="button" value="Undelegate">
+	</input>
+	<ul id="ul3">
+		<li>
+			List Item
+		</li>
+		<li>
+			List Item
+		</li>
+	</ul>
+</body>
+</html>
+==> 028_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			//single click call back
+			$('#btn').on({
+				click : function() 
+				{
+					alert('Button Clicked');
+					$(this).off('click');
+				},
+				mouseover : function() 
+				{			
+					$(this).css('background-color', 'yellow');
+				},
+				mouseout : function() 
+				{			
+					$(this).css('background-color', 'white');
+				},
+			});
+			
+			//In order to check if an event is already bound to a jQuery object, it is necessary to extract the DOM object from its position
+			//at index [0] within the jQuery object wrapper, and query it directly as to whether are any events bound
+			
+			var jqueryobject = $('#btn');
+			var rawDOMEElement = jqueryobject.get(0);
+			
+			var eventObject = $._data(rawDOMEElement, 'events');
+			if (eventObject != undefined && eventObject.click != undefined)
+			{
+				alert('Click event already exists');
+			}
+			else
+			{
+				$('#btn').on('click', function(){
+					alert('Button Clicked');
+				})
+				alert('Click event does not exists');
+			}
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<input id="btn" type="button" value="Click Me">
+	</input>
+</body>
+</html>
+==> 029_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			var count = 0;
+			//prevents context menu being called (usually with the right-click button)
+			$(this).on('contextmenu', function(e){
+				e.preventDefault();
+				$('#divResult').append('Right Click Disabled<br/>');
+			});
+			
+			$('#myHyperLink').on('click', function(e){
+				e.preventDefault();
+				$('#divResult').append('Hyperlink Disabled<br/>');
+			});
+			
+			$('div').scroll(function() {
+				$('h3').css('display', 'inline').fadeOut(1000);
+				count = count + 1;
+				$('span').text(count);
+				var currentScrollPosition = $(this).scrollTop();
+				$('#last').text(currentScrollPosition);
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<a id="myHyperLink" href="http://pragimtech.com">
+		Clicking here does not take you to PragimTech.com
+	</a>
+	<h4>
+	Right click disabled on this page. Try to right click and see what happens.
+	</h4>
+	<div id="divResult">
+	</div>
+	<br/><br/>
+	<div style="width:600px; height:200px; border:1px solid black; overflow:scroll">
+She thrust both hands forward, one placed atop the other. Then drawing
+them apart, span with such a rapid movement, it was impossible to tell where
+the girl began and the plume of dust that rose in her wake ended. Stopping all at once, she stepped free of the settling dust with slow,
+languorous steps, exposing the bronze shapely dancer’s leg lying beneath the
+hem of her skirt. Her hair moved slightly, revealing snapshots of her eyes and
+her mysterious smile. The teen placed slender arms together again, creating small wave-like
+movements starting from her hands folded atop each other - she progressed
+the waveforms to her entwined arms, then to her supple torso. 
+
+Tanned arms, still entwined together, followed the fluttering movement of
+her hands as they moved like a bird’s delicate wings. Drawing them upwards
+until her hands were vertical, she cut sensual shapes in the air, parting the
+veil which lay over her face. They revealed hazel eyes which shone with religious peace, mysteriously
+blissful. Her arms began to caress her skin as her long straight legs drew arc- circles in the dust. Twirling once more, arms curled around her midriff, she
+paused to scoop more handfuls of sand before drawing herself up again.
+
+She began to effortlessly gyrate with the skillful ease of a belly-dancer, snaking her hips around the strings of the melody. Stretching her arms out
+towards her sides, watchers lost themselves in her motion. Then bursting into frenzy, sand erupted from her outstretched arms, leaving
+trails in air as she spun with ecstatic speed, a whirling dervish - drums rose to
+fever pitch, tapping the energy of invigorated limbs.
+	</div>
+	<br/>
+	<h3 style="display:none; color:red">
+		Scroll event handled
+		<span>
+		0
+		</span>
+	time(s)
+	</h3>
+	<h4>
+	Current scroll position: 
+	<div id="last">
+	</div>
+	</h4>
+</body>
+</html>
+==> 030_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('#divContainer img').on({
+				mouseover: function () {
+					$(this).css({
+						'cursor': 'hand',
+						'border-color': 'red'
+					});
+				},
+				mouseout: function() {
+					$(this).css({
+						'cursor': 'default',
+						'border-color': 'white'
+					}).fade;
+				},
+				click: function() {
+					var imageUrl = $(this).attr('src');
+					var effect = $('#selectImgEffect').val();
+					
+					if (effect == 'Fade') {
+						$('#mainImage').fadeOut(500, function() {
+							$(this).attr('src', imageUrl)
+						}).fadeIn(500);
+					}
+					else {
+						$('#mainImage').slideUp(500, function() {
+							$(this).attr('src', imageUrl)
+						}).slideDown(500);
+					}
+					$('#mainImage').attr('src', imageUrl);
+				}
+			});
+			
+			var height = $('#mainImage').attr('height');
+			var width = $('#mainImage').attr('width');
+			
+			var tbheight = parseInt($('.imgStyle').css('height'), 10);
+			var tbwidth = parseInt($('.imgStyle').css('width'), 10);
+			
+			$('#btnEnlarge').click(function() {
+				height *= 1.1;
+				width *= 1.1;
+				
+				$('#mainImage').animate({
+					'height' : height,
+					'width' : width
+				});
+				
+				tbheight *= 1.1;
+				tbwidth *= 1.1;
+				
+				$('.imgStyle').animate({
+					'height' : tbheight,
+					'width' : tbwidth
+				});
+			});
+			
+			/*$('.imgStyle').on({
+			
+				mouseover: function() {
+					$(this).animate({
+						'height': tbheight * 2,
+						'width': tbwidth * 2,
+				}, 3000);
+				mouseout: function() {
+					$(this).animate({
+						'height': tbheight / 2,
+						'width': tbwidth / 2,
+				}, 3000);
+			});*/
+			
+			$('#btnShrink').click(function() {
+				height /= 1.1;
+				width /= 1.1;
+				
+				$('#mainImage').animate({
+					'height' : height,
+					'width' : width
+				});
+				
+				tbheight /= 1.1;
+				tbwidth /= 1.1;
+				
+				$('.imgStyle').animate({
+					'height' : tbheight,
+					'width' : tbwidth
+				});
+			});
+			
+			var imageURLs = new Array();
+			var intervalId;
+			var btnStart = $('#btnStartSlideShow');
+			var btnStop = $('#btnStopSlideShow');
+			
+			$('#divContainer img').each(function () {
+				imageURLs.push($(this).attr('src'));
+			});
+			
+			function setImage()
+			{
+				var mainImageElement = $('#mainImage');
+				var currentImageURL = mainImageElement.attr('src');
+				var currentImageIndex = $.inArray(currentImageURL, imageURLs);
+				if (currentImageIndex == (imageURLs.length - 1))
+				{
+					currentImageIndex = -1;
+				}
+				
+				mainImageElement.fadeOut(250).fadeIn(250).attr('src', imageURLs[currentImageIndex +1]);
+			}
+			
+			btnStart.click(function() {
+				var duration = $('#selectImgDuration').val() * 1000;
+				intervalId = setInterval(setImage, duration);
+				$(this).attr('disabled', 'disabled');
+				btnStop.removeAttr('disabled');
+			});
+			
+			btnStop.click(function() {
+				clearInterval(intervalId);
+				$(this).attr('disabled', 'disabled');
+				btnStart.removeAttr('disabled');
+			}).attr('disabled', 'disabled');
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.imgStyle
+		{
+			height:102px;
+			width:280px;
+			border:3px solid white;
+		}
+	</style>
+	<select id ="selectImgEffect">
+		<option value="Fade">
+			Fade
+		</option>
+		<option value="Slide">
+			Slide
+		</option>
+	</select>
+	Time in seconds : 
+	<select id ="selectImgDuration">
+		<option value="5">
+			5
+		</option>
+		<option value="10">
+			10
+		</option>
+		<option value="15">
+			15
+		</option>
+		<option value="20">
+			20
+		</option>
+		<option value="25">
+			25
+		</option>
+		<option value="30">
+			30
+		</option><option value="5">
+			35
+		</option>
+		<option value="10">
+			40
+		</option>
+		<option value="15">
+			45
+		</option>
+		<option value="20">
+			50
+		</option>
+		<option value="25">
+			55
+		</option>
+		<option value="30">
+			60
+		</option>
+	</select>
+	<input type="button" id = "btnEnlarge" value="Enlarge">
+	</input>
+	<input type="button" id = "btnShrink" value="Shrink">
+	</input>	
+	<input type="button" id = "newPage" value="new page" href="http://www.example.com">
+	
+	</input>	
+	<input type="button" id="btnStartSlideShow" value="Start Slideshow">
+	</input>
+	<input type="button" id="btnStopSlideShow" value="Stop Slideshow">
+	</input>
+	<br/><br/>
+	<img id="mainImage" height="307" width="844" style="border:21px solid white" src="Africa002.jpg">
+	</img>
+	<div id="divContainer">
+		<br/>
+		<img src="Africa003.jpg" class="imgStyle">
+		</img>
+		<img src="Africa004.jpg" class="imgStyle">
+		</img>
+		<img src="Africa005.jpg" class="imgStyle">
+		</img>	
+		<br/><br/>
+		<img src="Africa006.jpg" class="imgStyle">
+		</img>
+		<img src="Africa007.jpg" class="imgStyle">
+		</img>
+		<img src="Africa008.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa009.jpg" class="imgStyle">
+		</img>
+		<img src="Africa010.jpg" class="imgStyle">
+		</img>
+		<img src="Africa011.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa012.jpg" class="imgStyle">
+		</img>
+		<img src="Africa013.jpg" class="imgStyle">
+		</img>
+		<img src="Africa014.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa015.jpg" class="imgStyle">
+		</img>
+		<img src="Africa016.jpg" class="imgStyle">
+		</img>
+		<img src="Africa017.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa018.jpg" class="imgStyle">
+		</img>
+		<img src="Africa019.jpg" class="imgStyle">
+		</img>
+		<img src="Africa020.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa021.jpg" class="imgStyle">
+		</img>
+		<img src="Africa022.jpg" class="imgStyle">
+		</img>
+		<img src="Africa023.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa024.jpg" class="imgStyle">
+		</img>
+		<img src="Africa025.jpg" class="imgStyle">
+		</img>
+		<img src="Africa026.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa027.jpg" class="imgStyle">
+		</img>
+		<img src="Africa028.jpg" class="imgStyle">
+		</img>
+		<img src="Africa029.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+		<img src="Africa030.jpg" class="imgStyle">
+		</img>
+		<img src="Africa031.jpg" class="imgStyle">
+		</img>
+		<img src="Africa032.jpg" class="imgStyle">
+		</img>
+		<br/><br/>
+	</div>
+</body>
+</html>
+
+==> 031_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('#btnEnlarge').click(function() {
+			/*The syntax of the animate function is:
+			.animate(properties [, duration] [, easing] [, complete])
+			properties - An object of CSS properties and values
+			duration - The duration for animation in milliseconds. Default is 400
+			easing - Easing function to use for the transition. Default is swing. you could also use linear
+			complete - A function to call once the animation is complete*/
+			 
+				$('#myDiv').animate({
+					'font-size' : 50
+				}, 2000);
+			});
+			
+			/*Easing is a technique where the speed and/or direction of animation 
+			are changed while the animation is in progress. Easing can make the
+			animation start off slow and gradually speed up, start up fast and 
+			gradually slow down, nad a whole host of other things. The difference
+			between linear and swing easing is very subtle https://jqueryui.com/easing/
+			*/
+			$('#myImg').click(function() {
+				$('#myImg').animate({'margin-left':300})
+				.animate({'margin-top':300})
+				.animate({'margin-left':10})
+				.animate({'margin-top':10});
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<input type="button" id = "btnEnlarge" value="Enlarge">
+	</input>
+	<br/><br/>
+	<div id="myDiv">
+		jQuery animate function
+	</div>
+	<br/><br/>
+	<img src="Africa003.jpg" class="imgStyle" width="200" id="myImg">
+	</img>
+</body>
+</html>
+
+==> 032_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function(){
+			$('#myButton').click(function() {
+				$('#myDiv1')
+				.animate({'width' : 500}, 1500)
+				.queue(function() {
+					console.log('Queued calls = ' + $(this).queue('fx').length);
+					$(this).dequeue();
+				})
+				.animate({'padding' : 20}, 1500)
+				.animate({'font-size' : 50}, 1500)
+				.animate({'border-width' : 10}, 1500)
+				.animate({'opacity' : 1}, 1500)
+				.queue(function() {
+					console.log('Queued calls = ' + $(this).queue('fx').length);
+					$(this).dequeue();
+				});
+				
+				$('#myDiv2')
+				.animate({'width' : 500}, 1500)
+				.animate({'padding' : 20}, 1500)
+				.animate({'font-size' : 50}, 1500)
+				.animate({'border-width' : 10}, 1500)
+				.animate({'opacity' : 1}, 1500)
+				.queue(function() {
+					console.log('Queued calls = ' + $(this).queue('fx').length);
+					$(this).dequeue();
+				});
+			});
+			
+			$.fx.off = $('#animationOff').is(':checked');
+			
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<style>
+		.myDivClass {
+			width: 150px;
+			padding: 5px;
+			font-size: 18px;
+			border: 1px solid black;
+			opacity: .4;
+			background-color: red;
+			color: white;
+		}
+	</style>
+	<input type="button" id = "myButton" value="Start Animation">
+	</input>
+	<input type="checkbox" id = "animationOff" value="Start Animation">
+	Turn off animations
+	</input>
+	<br/><br/>
+	<div id="myDiv1" class="myDivClass">
+		jQuery animations
+	</div>
+	<br/><br/>
+	<div id="myDiv2" class="myDivClass">
+		Pragim Tech
+	</div>
+	<br/>
+	<form class="form-horizontal" method="post" action=" enctype="multipart/form-data">
+		<div class="form-group">
+			<label for="image">
+			Upload an Image
+			</label>
+			<input id="image" name="image" type="file" class="form-control">
+			</input>
+		</div>
+		<br/>
+		<div class="form-group">
+			<label for="submit_post" class="control-label">
+			</label>
+			<input id="submit_post" value="Submit a New Post" name="submit_post" type="submit" class="btn btn-danger">
+			</input>
+		</div>
+	</form>
+</body>
+</html>
+
+==> 033_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function() {
+			//var previousPercentage = 0;
+			var currentPercentage = 0;
+		
+			$('#myButton').click(function() {
+				//previousPercentage = currentPercentage;
+				currentPercentage = $('#addPercentage').val();
+				console.log("myButton clicked");
+				//animateProgressBar(previousPercentage, currentPercentage);
+				animateProgressBar(currentPercentage);
+			});
+		
+			function animateProgressBar(percentageCompleted)
+			{
+				console.log("animateProgressBar : " + percentageCompleted);
+				$('#innerDiv').animate({
+					'width':  5 * percentageCompleted
+				}, {
+					duration: 3000//,
+					//allows to define a function that gets called after each step of the
+					//animation. The method has 2 parameters - now & tween
+					// now - contains the value being animated
+					// tween - is a complex object cotaining several properies. A few are listed
+					// below. For the complete list set a break point and inspect the object
+					/*step: function(now, tween){
+						console.log(now);
+						$('#innerDiv').text(Math.ceil(now/5) + " %");
+					}*/
+				});
+
+				/*would protect from rounding errors
+				if (previousPercentage > currentPercentage)
+					currentPercentage -= 1;*/
+				
+				$({counter : 1}).animate({counter: percentageCompleted}, {
+					duration: 3000,
+					step: function() {
+						//.ceil() function rounds up to the nearest integer
+						$('#innerDiv').text(Math.ceil(this.counter) + " %");
+					}
+				});
+			};
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	Select Percentage : 
+	<select id="addPercentage">
+		<option value="10">
+		10
+		</option>
+		<option value="20">
+		20
+		</option>
+		<option value="30">
+		30
+		</option>
+		<option value="40">
+		40
+		</option>
+		<option value="50">
+		50
+		</option>
+		<option value="60">
+		60
+		</option>
+		<option value="70">
+		70
+		</option>
+		<option value="80">
+		80
+		</option>
+		<option value="90">
+		90
+		</option>
+		<option value="100">
+		100
+		</option>
+	</select>
+	<input type="button" id="myButton" value="Start Animation">
+	</input>
+	<br/><br/>
+	<div id="outerDiv" style="background-color:#EEEEEE; height:20px; width:500px; padding:5px">
+		<div id="innerDiv" style="background-color:red; height:19px; width:0px; color:white; text-align:center">
+		</div>
+	</div>
+</body>
+</html>
+
+==> 034_jquery_tabs.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		/*
+			$(:input) selects all inputs, textarea, select and button elements where as $(input) just selects elements with an input tag
+		 */
+		$(document).ready(function() {
+			//var previousPercentage = 0;
+			var currentPercentage = 0;
+		
+			$('#myButton').click(function() {
+				//previousPercentage = currentPercentage;
+				currentPercentage = $('#addPercentage').val();
+				console.log("myButton clicked");
+				//animateProgressBar(previousPercentage, currentPercentage);
+				animateProgressBar(currentPercentage);
+			});
+		
+			function animateProgressBar(percentageCompleted)
+			{
+				console.log("animateProgressBar : " + percentageCompleted);
+				$('#innerDiv').animate({
+					'width':  5 * percentageCompleted
+				}, {
+					duration: 3000//,
+					//allows to define a function that gets called after each step of the
+					//animation. The method has 2 parameters - now & tween
+					// now - contains the value being animated
+					// tween - is a complex object cotaining several properies. A few are listed
+					// below. For the complete list set a break point and inspect the object
+					/*step: function(now, tween){
+						console.log(now);
+						$('#innerDiv').text(Math.ceil(now/5) + " %");
+					}*/
+				});
+
+				/*would protect from rounding errors
+				if (previousPercentage > currentPercentage)
+					currentPercentage -= 1;*/
+				
+				$({counter : 1}).animate({counter: percentageCompleted}, {
+					duration: 3000,
+					step: function() {
+						//.ceil() function rounds up to the nearest integer
+						$('#innerDiv').text(Math.ceil(this.counter) + " %");
+					}
+				});
+			};
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<div id="tabs" style="width: 400 px">
+		<ul>
+			<li>
+				<a href="#Edge">
+					Edge
+				</a>
+			</li>
+			<li>
+				<a href="#Hough">
+					Hough
+				</a>
+			</li>
+			<li>
+				<a href="#Auto">
+					Auto hough
+				</a>
+			</li>
+		</ul>
+	</div>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+	<input type="hidden" id="postId" value="34657">
+	</input>
+</body>
+</html>
+
+==> 035_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function(){
+			$('#linkIncrease').click(function () {
+				modifyFontSize('increase');
+			});
+		
+			$('#linkDecrease').click(function () {
+				modifyFontSize('decrease');
+			});
+			
+			$('#linkReset').click(function () {
+				modifyFontSize('reset');
+			});
+			
+			function modifyFontSize(flag)
+			{
+				var divElement = $('#divContent');
+				var currentFontSize = parseInt(divElement.css('font-size'));
+				
+				if(flag == 'increase')
+					currentFontSize += 3;
+				else if (flag == 'decrease')
+					currentFontSize -= 3;
+				else
+					currentFontSize = 16
+					
+				divElement.css('font-size', currentFontSize);
+				
+			}
+		
+			$('#cbShowPassword').click(function() {
+				$('#txtPassword').attr('type', $(this).is(':checked') ? 'text' : 'password')
+			});
+			
+			$('#popup-container').hide();
+		
+			$('#show-popup-btn').click(function() {
+				$('#popup-container').show();
+			})
+			
+			$('#close-btn').click(function() {
+				$('#popup-container').hide();
+			});
+			
+			var floatingDiv1 = $('#popup-container').position();
+			
+			$(window).scroll(function() {
+				var scrollBarPosition = $(window).scrollTop();
+				$('#popup-container').css({
+					'position': 'fixed',
+					'top': 250
+				});
+			});
+			
+			var floatingDiv2 = $('#sidePanel').position();
+			
+			//A 'fixed' position element is position relative to the browser window 
+			$(window).scroll(function() {
+				var scrollBarPosition = $(window).scrollTop();
+				$('#sidePanel').css({
+					'position': 'fixed',
+					'top': 250
+				});
+			});
+		});
+	</script>
+	<style>
+		.divClass
+		{
+			font-size:16px;
+			background-color:#E3E3E3;
+			width: 500px;
+			padding:5px;
+		}
+	</style>
+</head>
+<body style="font-family:Arial">
+	<style>
+		#popup-container {
+			position: absolute;
+			left: 25%;
+			top: 10%
+			z-index: 11111;
+			width: 340px;
+			padding: 20px;
+			border: 1px solid #ccc;
+			box-shadow: 0px 0px 10px #ccc;
+			display: none;
+			background-color: white;
+		}
+		#close-btn {
+			float: right;
+			cursor: pointer;
+		}
+	</style>
+	Password : 
+	<input type="password" id="txtPassword">
+	</input>
+	<input type="checkbox" id="cbShowPassword">
+	</input>
+	Show password
+	<br/><br/>
+	Font-Size : 
+	<a id="linkIncrease" href="#">
+		Increase  
+	</a> 
+	<a id="linkDecrease" href="#">
+		Decrease   
+	</a> 
+	<a id="linkReset" href="#">
+		Reset   
+	</a>
+	<br/><br/>
+	<div id="divContent" class="divClass">
+		<b>
+			jQuery Tutorial
+		</b>
+		<ul>
+			<li>
+			What is jQuery
+			</li>
+			<li>
+			What is $(document).ready(function() in jquery
+			</li>
+			<li>
+			Benefits of using CDN
+			</li>
+			<li>
+			#id selector
+			</li>
+			<li>
+			Element Selector
+			</li>
+			<li>
+			class Selector
+			</li>
+			<li>
+			attribute Selector
+			</li>
+			<li>
+			attribute value Selector
+			</li>
+			<li>
+			case insensitive attribute Selector
+			</li>
+			<li>
+			jQuery input vs :input
+			</li>
+		</ul>
+	</div>
+	<table align="center">
+		<tr>
+			<td style="width:500px">
+				<h4>34-27 Medusa’s Path</h4>
+<h5>Running time: 6:14, Reading speed: ~250 wpm</h5>
+Characters: Imur, Ehud
+(0:00)
+<p>A tall, gracile, brown-eyed girl entered the circle, raven hair shading her face,
+revealing a straight aquiline nose. A wide, tan coloured skirt stretched down
+past her knees, but her feet were bare.
+She dropped to the ground suddenly, beginning to gyrate her bare midriff,
+revealing for a moment a glimpse of her eyes. Leaning forward, she scooped
+2
+large handfuls of loose dry soil, leaking from her fingers as her arms began to
+rise.
+Spirals of dust were left twirling in the midday sun, before an unseen
+movement made both handfuls explode in a greyish-brown cloud, obscuring
+her from view - plumes erupted, girl invisible behind spraying fountains.
+More spirals appeared amidst the smoke as the girl rose to her feet, twisting
+her body with one skillful movement. Her hands moved independently,
+creating shapes in the falling sand as she turned in a graceful arc.
+(0:34)
+She thrust both hands forward, one placed atop the other. Then drawing
+them apart, span with such a rapid movement, it was impossible to tell where
+the girl began and the plume of dust that rose in her wake ended.
+Stopping all at once, she stepped free of the settling dust with slow,
+languorous steps, exposing the bronze shapely dancer’s leg lying beneath the
+hem of her skirt. Her hair moved slightly, revealing snapshots of her eyes and
+her mysterious smile.
+The teen placed slender arms together again, creating small wave-like
+movements starting from her hands folded atop each other - she progressed
+the waveforms to her entwined arms, then to her supple torso.
+(1:01)
+Tanned arms, still entwined together, followed the fluttering movement of
+her hands as they moved like a bird’s delicate wings. Drawing them upwards
+until her hands were vertical, she cut sensual shapes in the air, parting the
+veil which lay over her face.
+They revealed hazel eyes which shone with religious peace, mysteriously
+blissful. Her arms began to caress her skin as her long straight legs drew arccircles
+in the dust. Twirling once more, arms curled around her midriff, she
+paused to scoop more handfuls of sand before drawing herself up again.
+3
+She began to effortlessly gyrate with the skillful ease of a belly-dancer,
+snaking her hips around the strings of the melody. Stretching her arms out
+towards her sides, watchers lost themselves in her motion.
+Then bursting into frenzy, sand erupted from her outstretched arms, leaving
+trails in air as she spun with ecstatic speed, a whirling dervish - drums rose to
+fever pitch, tapping the energy of invigorated limbs.
+(1:45)
+Dust clouded the area enclosed by the circle, sunlight glinting off the bangles
+at her wrists and ankles. Strings’ echoes became harsher, assonant, more
+frequent in her frenzy - watchers couldn’t help being swept away by her
+performance, body flipping with an acrobat’s ease.
+(1:54)
+“She’s good,” a young man commented to another seated at his right hand
+side.
+“Very good,” he added as another plume of dust rose and began to change
+with the breeze generated by her movements.
+One of her long lean legs snapped up from under her dress, stretching to the
+sky as she pirouetted on her toes. The next moment she was springing
+forwards, airborne before rolling through to her feet.
+(2:11)
+The man he spoke to nodded. Possessing a swarthy black beard with a scar
+crossing the eyebrow above his right eye, he tracked the dancing girl’s
+movements.
+“Yes, we could use one like her,” he agreed.
+*
+4
+(2:19)
+“Thank you for sharing your hospitality,” the leader of the Baul collective said
+with a smile.
+(2:24)
+He had a head full of thick silver hair and a short, full beard. Skin darkened by
+the sun, his face was wrinkled with such jovial-cut lines one couldn’t help but
+like him.
+The travelers’ leader bowed his head. Tall, clean-shaven - the lieutenant at his
+side’s barrel chest and piercing eyes said he was not one to mess with.
+“The pleasure was ours,” he replied with grace befitting a man of noble rank.
+“I hope our humble fayre is enough to sustain you, we don’t have much to
+share. You see we are on a very special mission at the moment.”
+The Baul leader smiled graciously.
+(2:47)
+“Lalon,” he said. “No need for formalities. We are a simple people – we’re
+grateful for the repast.”
+He bowed his head in imitation of the traveler. The young man gave a
+charming smile and spoke.
+“We do have some currency to spare however. I notice your dancing girl is of
+age. She’s not a Templar is she?”
+Lalon raised his head.
+“Who, my daughter? Oh no, she’s not for sale,” he said brusquely.
+The young man showed his palms.
+“Think nothing of harm,” he said, shaking his head to alleviate the old man’s
+wariness. “We work in the employ of a very wealthy king - his court has need
+5
+of dancers, not harem dwellers. I swear to you, no disgrace will come to your
+daughter.”
+He opened a pouch at his side, a small bag full of gold coins.
+“Believe me,” the traveler said carefully. “Our king pays a lot of money for
+one with talent.”
+(3:21)
+Lalon looked distrustful at the sight of the offering.
+“We have no need of such wealth.”
+A single red dot was painted in the centre of his forehead, his eyebrows
+raised in an unaccustomed frown. The young man saw the older one’s
+expression, and put his money away.
+“No problem Lalon - it’s your daughter. If you say she’s not for sale, then she
+is not for sale.”
+(3:38)
+He motioned to another man, a quick devious looking fellow with a hooked
+nose.
+“Get some refreshments for our guests,” he said, with a gracious gesture.
+“They regaled us during the evening’s festivities, they are surely deserving of
+a good drink.”
+*
+“Stay in the back,” her father had whispered into her ear at the table.
+She lay hidden under piles of food and water containers thinking about her
+father when she heard the first noises of the commotion. Steel clashed with
+steel amidst the sound of screams.
+6
+Animal noises began to intermingle with the chaos of the disturbance. In an
+effort to escape the mayhem, donkeys rushed past the tents, knocking over
+support poles. Scared by the noises, she pulled the sheets overhead.
+“Whatever happens, do not come out,” he had repeated.
+(4:10)
+She could hear men barking, shouting orders, bellowing at the frightened
+travellers.
+Steel still rang against steel. Somewhere she could hear a horse’s whinny and
+the beginning of galloping hooves throughout the camp. They passed
+worryingly close to the equipment cart she was in.
+Flames had broken out. Her first indication that they had started was the
+smell of burning fabric leaking through the air. She fought against an urge to
+poke her head out from her hiding spot.
+(4:30)
+Was that another scream? What was happening? Was the burning smell
+getting stronger?
+(4:34)
+She reluctantly unearthed her head and caught glimpse of a dull red glow
+beyond the entrance of the supply tent.
+(4:39)
+A sudden explosion rocked the entire camp, sending bright light and heat
+straight through the fabric of the tent. The girl ducked under the covering and
+began cowering. Tears streaked down her face as she shivered.
+(4:47)
+She’d seemed so possessed and self-confident during the dance routine, but
+in reality she was just a 17-year old.
+7
+(4:52)
+The sound of clashing arms continued for a few more moments, and all of a
+sudden ended with an agonizing yell.
+(4:56)
+Then just as soon as it had started, everything was quiet, she could hear
+nothing but the crackle of flames.
+(5:01)
+She slowly raised the covering blanket again, listening for conversation amidst
+the heat of the smouldering fires.
+*
+(5:05)
+“Where is she?” the tall young man demanded, his demeanour revealing his
+impatience.
+(5:09)
+“My daughter has already escaped,” Lalon replied, firm of voice.
+His features betrayed his bare fury.
+(5:14)
+One of the other attackers returned. He eyed the tall man with a degree of
+hesitation.
+(5:18)
+“We.. er… couldn’t find her sir” he said uncertainly, appending the honorific
+as a means of appeasing the young man.
+(5:21)
+Ehud turned his eyes upon the newcomer. The charm in his expression had
+entirely disappeared, his eyes now dark black coals.
+“What do you mean you can’t find her,” he said slowly and carefully.
+8
+The man fidgeted nervously with his sword belt.
+“She’s… er…. not here, sir.”
+Ehud didn’t reply straight away, taking his time formulating the next sentence.
+“We ran reconnaissance before we attacked - not a single pack-animal
+missing, not even a donkey. Her clothes are still in her tent. You’re telling me
+they have sent a teenage girl alone into the wilderness, with no pack animal,
+no clothes?!”
+He motioned to the group of people corralled on the floor.
+“You’re lucky I don’t kill this dog here!” he said, eyeing them.
+“GIRL. YOUR FATHER WILL DIE - UNLESS YOU COME OUT, RIGHT NOW!”
+For a moment there was silence, then shuffling.
+The girl soon appeared, escorted by Captain Ehud’s men.
+Lalon’s eyes filled with tears.
+“No…” he mouthed.
+He started up, as soldiers aimed the points of their blades at his chest.
+Ehud spoke as the girl approached.
+“I keep my oaths,” he said, placing hand on his heart. “No disgrace will come
+to your daughter.”
+“Let’s go,” he said, looking around at his men. “Kill anyone who tries to
+follow.”
+9
+34-28 Donyaye in Roozaye Man
+Running time 4:53 minutes, Reading speed ~237 wpm
+Characters: Imur, Ehud
+(0:05)
+She laid the flowers the same way every night, gathered from fields she
+passed as they journeyed through. She had done this every day since she was
+a child, the smell of petals on her folded cloth pillow reminding her of the
+fragrance of her homeland.
+The men kept their distance, never talked and barely looked, checking only
+that she was present. Escape attempts had ended in misery, so she tried to
+forget; wandering between horses, lost in her thoughts, she picked flowers
+when she could.
+Yeras, a black bearded man, eyed her warily when she came near - like others
+he didn’t say a word.
+Her days were occupied by thoughts of her family, the Bauls, and poor
+Rashmith who she’d last seen lying there, unmoving.
+(0:36)
+Rashmith…
+She made sure to scowl at their leader, Ehud or whatever his name was,
+whenever he walked along the line, checking animals, men and equipment.
+Out of all the soldiers, he was the only one who tried to make conversation
+with her.
+Responding the same way Yeras did when expressing his displeasure, she
+turned her head to spit upon the ground. Men stared in shock, unused to
+seeing Ehud disobeyed or challenged.
+10
+(0:56)
+She’d seen firsthand how cruel their leader could be. On their first night,
+Yeras gave one of his soldiers a choice, either fall on his sword, or be left in
+the wilderness. From what she gathered, the second option involved breaking
+his legs - he chose to fall on his sword.
+As he was the only one who would actually look at her, Imur asked Yeras
+what the soldier’s crime had been. He’d replied to her in his gruff voice.
+“Failure.”
+(1:15)
+By the time night fell on the 9th day, Imur was so far from her homeland she
+was sure she’d never refind the campsite of the travelling Bauls. She held a
+faint hope they’d followed her trail, finding freshly picked petals she scattered
+every night.
+It was only a faint hope. Her people were musicians, singers, entertainers.
+Few amongst them could wield a sword, let alone stand against these soldiers.
+(1:33)
+It had become clear that this was what they were.
+Ehud was their leader, and a discernible military structure flowed down from
+his command through the second in the chain, Yeras.
+(1:42)
+The night was a dark and starless one, sleep not yet approaching when she
+felt the hand snake over her mouth. She let out a shriek, tried to kick against
+her attacker, but he placed his hand around her neck blocking her airways.
+(1:52)
+“Shhh.. ” he whispered.
+11
+His grip loosened as he emitted a strange gurgling noise. With a final buck of
+her hips, Imur threw her assailant aside.
+Struggling for purchase on the dry dirt, he tried in vain to raise himself as a
+dark liquid leaked from his open mouth. He collapsed in a heap, pressed
+down by a heavy boot.
+“Even I am not allowed to touch this delicate little flower - and you think you
+can?”
+Imur recognized the growl, the silhouetted form of the beard on the cloudless
+night.
+(2:12)
+The figure on the floor attempted to make a response, but the bearded form
+knelt over him to twist the knife in deeper. The grounded man let out a yell.
+“Come, see what Ehud makes of this treachery,” Yeras growled, hauling the
+man up with bristling forearms.
+(2:21)
+They disappeared into the night.
+“Hey!” Imur called out, but Yeras merely grunted - vanishing in the darkness,
+he marched her assailant away.
+*
+(2:27)
+In the morning Imur did not have to count to know there was a soldier
+missing. She thought she could remember his face in the darkness. Short,
+wide-eyed and square.
+(2:35)
+Ehud made no mention of the incident. Not to the men, and certainly not to
+12
+her. They simply got on with travelling as if nothing had happened. Death, it
+seemed, was a very real possibility in Ehud’s travelling company.
+(2:44)
+Despite herself, upon noticing this she burst into heavy tears, continuing until
+she felt herself lifted bodily off the ground - before she knew what had
+happened, she’d been placed atop a horse’s saddle. She raised her eyes to
+see Ehud walking into the distance. Trying to dismount, Yeras held her steady.
+“Ehud says you stay,” he said firmly, piercing eyes broaching no further
+disagreement.
+(3:03)
+Imur slowly swung her leg back over the saddle, wiping her eyes once more.
+The tears continued to streak her light tan face as she rode that day. The road
+occasionally blurred before her eyes, hands remaining clenched on the hard
+leather strap of the horse’s reins. Beyond the cloth saddle and the brown
+velvet stallion’s back all else ceased to exist.
+(3:22)
+She came down at midday. Nothing had changed, none of the men looked at
+her. Yeras sat eating a hunk of dry bread and cheese, heavy scowl on his face.
+Imur dipped her own generously rationed flatbread in the milk provided, and
+tore into it with a lump of cheese. She watched Yeras chew as his piercing
+eyes swivelled towards her.
+She took her opportunity,
+“Where are we going?” she said, tearing off a hunk of her own bread and
+handing it to him.
+He accepted her offer with a grunt. Chewing silently for a couple of minutes,
+he finished his meal before returning an answer.
+13
+“For us, home” he said, getting up to turn away.
+She scrambled up following him.
+“And for me?” she asked, stretching her limbs to keep up with his military
+stride.
+He cursed, still walking. Finally after a few seconds he turned to face her.
+“You dance - you make good Fedayin,” he said bluntly, leaving Imur to ponder
+his answer.
+*
+(4:00)
+The wind was bitterly cold the next morning as they sheltered at the side of a
+mountain pass.
+Blanket wrapped around her shoulders, she shivered relentlessly in the
+freezing air. One of the men, a slim cut man with curly hair and a stern face
+that implied he was in his late 40s brought her a cup of steaming broth from
+the fireside. Shivering, she nodded her thanks as she briefly unwrapped her
+blanket to receive the gift.
+(4:19)
+Her limbs ached with the effort of yesterday’s chase; borrowed horse
+galloping full speed for the mountains of the east, for her family and home.
+She’d looked behind her breathlessly. Only one pursuer, one rider – Ehud.
+Letting the heat from the wooden bowl seep into her hands, she blew on the
+steamed contents; feeling the gift of warm air hitting her cold nose, she
+tentatively took a sip.
+Imur remembered rushing into the water, throwing her head underneath,
+and diving for the bottom.
+14
+The next waking up coughing and spluttering warm water in the bright
+sunlight.
+*
+By the time they reached a tall, grey fort on a tabletop mountain, her heart
+was so heavy the sight barely registered.
+Yeras rode out before the front gates, saluting his captain as he approached.
+“Welcome Fedayin,” he said, eyes never leaving her own.
+“Welcome to Alamut.”</p>
+			</td>
+			<td style="width:150px">
+				<div id="sidePanel">
+				Side Panel
+				<br/><br/>	
+				<button id="show-popup-btn">
+					Show Popup
+				</button>
+				</div>				
+				<div id="popup-container">
+					<div id="close-btn-container">
+						<button id="close-btn">
+						Close 
+						</button>
+					</div>
+					<h5>
+						Some content
+					</h5>
+				</div>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>
+==> 036_jquery.html <==
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function(){
+			var textBoxes = $('input[type="text"]');
+				
+			textBoxes.focus(function() {
+				var helpDiv = $(this).attr('id') + 'HelpDiv';
+				$('#' + helpDiv).load('036_jquery_help.php');
+			});
+			
+			textBoxes.blur(function() {
+				var helpDiv = $(this).attr('id') + 'HelpDiv';
+				$('#' + helpDiv).html('');
+			});
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	<table>
+		<tr>
+			<td>
+				First Name
+			</td>
+			<td>
+				<input type="text" id="firstName">
+				</input>
+			</td>
+			<td>
+				<div id="firstNameHelpDiv">
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				Last Name
+			</td>
+			<td>
+				<input type="text" id="lastName">
+				</input>
+			</td>
+			<td>
+				<div id="lastNameHelpDiv">
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				Email
+			</td>
+			<td>
+				<input type="text" id="email">
+				</input>
+			</td>
+			<td>
+				<div id="emailHelpDiv">
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				Income
+			</td>
+			<td>
+				<input type="text" id="income">
+				</input>
+			</td>
+			<td>
+				<div id="incomeHelpDiv">
+				</div>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>
+==> 036_jquery_help.html <==
+<!--<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title></title>
+	<script src="jquery-3.6.1.min.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function(){
+		
+		});
+	</script>
+</head>
+<body style="font-family:Arial">
+	
+</body>
+</html>-->
+
+<div id="firstNameHelpDiv">
+	Your first name as it appears in passport
+</div>
+
+<div id="lastNameHelpDiv">
+	Your last name as it appears in passport
+</div>
+
+<div id="emailHelpDiv">
+	Your email address for communication
+</div>
+
+<div id="incomeHelpDiv">
+	Your annual income
+</div>
