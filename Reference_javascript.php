@@ -7,7 +7,7 @@ echo "Hello World";
 ==> process.php <==
 <?php
 	header("Access-Control-Allow-Origin: *");
-	$conn = mysqli_connect('localhost', 'root', 'P4556!rd', 'world', 3306);
+	$conn = mysqli_connect('localhost', '****', '********', '*****', 3306);
 
 	if (isset($_POST['name'])){
 		$name = mysqli_real_escape_string($conn, $_POST['name']);
