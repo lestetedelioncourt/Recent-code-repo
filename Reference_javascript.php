@@ -1,3 +1,5 @@
+php -S localhost:[0-9]{4}
+
 ==> index.php <==
 <?php
 
