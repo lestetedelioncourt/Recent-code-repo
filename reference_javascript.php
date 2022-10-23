@@ -1,0 +1,41 @@
+==> index.php <==
+<?php
+
+echo "Hello World";
+
+?>
+==> process.php <==
+<?php
+	header("Access-Control-Allow-Origin: *");
+	$conn = mysqli_connect('localhost', 'root', 'P4556!rd', 'world', 3306);
+
+	if (isset($_POST['name'])){
+		$name = mysqli_real_escape_string($conn, $_POST['name']);
+		echo 'POST: Your name is ' . $_POST['name'] . ' ';
+		
+		$query = "INSERT INTO users(name) VALUES('$name')";
+		
+		if (mysqli_query($conn, $query)) {
+			echo 'User Added...';
+		} else {
+			echo 'ERROR: ' . mysqli_error($conn); 
+		}
+	}
+
+	if (isset($_GET['name'])){
+		echo 'GET: Your name is ' . $_GET['name'];
+	}
+?>
+==> users.php <==
+<?php
+	header("Access-Control-Allow-Origin: *");
+	$conn = mysqli_connect('localhost', '****', '*******', '*****', 3306);
+
+	$query = 'SELECT * FROM users';
+	
+	$result = mysqli_query($conn, $query); 
+	
+	$users = mysqli_fetch_all($result, MYSQLI_ASSOC);
+
+	echo json_encode($users);
+?>
