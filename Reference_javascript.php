@@ -1,4 +1,4 @@
-php -S localhost:[0-9]{4}
+php -S localhost:[port]
 
 ==> index.php <==
 <?php
