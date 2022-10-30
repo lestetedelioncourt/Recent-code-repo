@@ -13807,4 +13807,1381 @@ int main()
     printf("The first predicted value is %f: \r\n", single_in_single_out(temperature[0],weight));
     return 0;
 }
+==> DiscreteConvolution.c <==
+#include "cpimgmodules.h"
+
+struct Mask{
+    int Rows;
+    int Cols;
+    unsigned char *Data;
+};
+
+void Convolve(int imgRows, int imgCols, struct Mask *myMask, unsigned char *input_buf, unsigned char *output_buf);
+
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3]);
+
+int main(){
+    const char imgName[] = "TestImages/Images/lena512.bmp";
+    const char newImgName[] = "TestImages/Images/lenardiafil.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+    struct Mask lpMask; //laplacian mask
+    signed char *tmp;
+    int i;
+
+    lpMask.Cols = lpMask.Rows = 5;
+    lpMask.Data = (unsigned char *)malloc(25 * sizeof(unsigned char));
+  
+    tmp = (signed char*)lpMask.Data;
+    //laplacian mask
+   for (i = 0;i < 25; i++){
+	*tmp = (i == 13) ? 24 : -1;
+	++tmp;
+    }
+    
+    int VER[3][3] = {	{-1,2,-1},
+			{-1,2,-1},
+			{-1,2,-1}};
+
+    int HOR[3][3] = {	{-1,-1,-1},
+			{ 2, 2, 2},
+			{-1,-1,-1}};
+
+    int LDIA[3][3]=	{{2,-1,-1},
+			{-1,2,-1},
+		 	{-1,-1,2}};
+
+		
+    int RDIA[3][3]=	{{-1,-1,2},
+                         {-1,2,-1},
+                         {2,-1,-1}};
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+//    Convolve(imgRows, imgCols, &lpMask, imgBuffer, imgBuffer2); 
+
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,RDIA);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+
+    return 0;
+}
+
+//2D discrete convolution algorithm
+void Convolve(int imgRows, int imgCols, struct Mask *myMask, unsigned char *input_buf, unsigned char *output_buf){
+    long i, j, m, n, idx, jdx;
+    int ms, im, val;
+    unsigned char *temp;
+
+    for (i=0; i < imgRows; i++){
+        for (j=0; j < imgCols; j++){
+	    val = 0;
+	    for (m = 0; m < myMask->Rows; m++){
+		for (n=0; n < myMask->Cols; n++){
+		    ms = (signed char)*(myMask->Data + m*myMask->Rows + n);
+		    idx = i-m;
+		    jdx = j-n;
+		    if (idx >= 0 && jdx >= 0){
+			im = *(input_buf + idx *imgRows + jdx);
+		    }
+		    val += ms*im;
+		}
+	    }
+		val = (val > 155) ? 255 : val;
+                val = (val < 0) ? 0 : val;
+		temp = output_buf + i*imgRows+j;
+		*temp = (unsigned char)val;
+        }
+    }
+}
+
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3])
+{
+    int x, y, i, j, sum;
+
+    for (y = 1; y < imgRows -1; y++){
+	for (x=1; x<imgCols -1; x++){
+	    sum=0;
+	    for(i = -1; i <=1; i++){
+		for(j=-1;j <=1; j++){
+		    sum = sum + *(_inputImgData+x+i+(long)(y+j)*imgCols)*MASK[i+1][j+1];
+		}
+	   }
+	   sum = (sum > 255) ? 255 : sum;
+	   sum = (sum < 0) ? 0 : sum;
+           *(_outputImgData + x + (long)(y*imgCols)) = sum;
+	}
+    }
+}
+
+==> ImageBrightnessCorrection.c <==
+#include "cpimgmodules.h"
+
+void correctBrightness(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgRows, int imgCols, int brightness);
+
+int main(){
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+    const char newImgName[] = "TestImages/Images/lenaedgescleanno.bmp";
+
+    imageReader("TestImages/Images/lenaedges.bmp", &imgWidth, &imgHeight, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+    correctBrightness(imgBuffer, imgBuffer2, imgHeight, imgWidth, 100);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgWidth * imgHeight);
+
+    return 0;
+}
+
+void correctBrightness(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgRows, int imgCols, int brightness)
+{
+    int x, y, i;
+
+    for (y =0; y < imgRows; y++)
+    {
+	for (x=0; x < imgCols; x++)
+	{
+	   //
+	     i = *(_inputImgData + x + y * imgCols);// + brightness;
+	    i = (i > 233) ? 255 : 155;
+	    //if (i < 200) i = 0;
+            *(_outputImgData + x + y * imgCols) = i;
+	}
+    } 
+}
+
+==> ImageRotation.c <==
+#include "cpimgmodules.h"
+
+int main(){
+    FILE * fIn = fopen("TestImages/Images/cameraman.bmp", "rb");
+    FILE *fOut = fopen("TestImages/Images/cameraman_rotated.bmp", "wb");
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+
+    for (int i = 0; i < 54; i++){
+        imgHeader[i] = getc(fIn);
+    }     
+
+    imgWidth = *(int*)&imgHeader[18];
+    imgHeight = *(int*)&imgHeader[22];
+    imgBitDepth = *(short int*)&imgHeader[28];
+    int imgSize = imgHeight * imgWidth;
+
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+
+    printf("%d %d %d\n", imgWidth, imgHeight, imgBitDepth);
+
+//    if (imgBitDepth <= 8) {
+	fread(imgColorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(imgColorTable, sizeof(unsigned char), 1024, fOut);
+//    } 
+
+    unsigned char buffer[imgWidth][imgHeight];
+    unsigned char out_buffer[imgWidth][imgHeight];
+
+	/*for (int i = 0; i < imgWidth; i++){
+	    for (int j = 0; j< imgHeight; j++){
+		buffer[i][j] = getc(fIn);
+	}}*/ 
+
+    fread(buffer, sizeof(unsigned char), imgSize, fIn);
+
+    printf("Enter rotation direction : \n");
+    printf("1 : Rotate right \n");
+    printf("2 : Rotate left \n");
+    printf("3 : Rotate 180 \n");
+
+   int selected;
+
+   scanf("%d", &selected);
+  
+   switch(selected){
+	case 1:
+		for (int i = 0; i < imgWidth; i++){
+		    for (int j = 0; j< imgHeight; j++){
+			out_buffer[j][imgHeight-1-i] = buffer[i][j];
+		}} break;
+	case 2: 
+		for (int i = 0; i < imgWidth; i++){
+		    for (int j = 0; j< imgHeight; j++){
+			out_buffer[j][i] = buffer[i][j];
+		}} break;
+	case 3: 
+		for (int i = 0; i < imgWidth; i++){
+		    for (int j = 0; j< imgHeight; j++){
+			out_buffer[imgWidth - 1 - i][j] = buffer[i][j];
+		}} break;
+	default:
+		break;
+	}
+
+    fwrite(out_buffer, sizeof(unsigned char), imgSize, fOut);
+	/*for (int i = 0; i < imgWidth; i++){
+	    for (int j = 0; j< imgHeight; j++){
+		putc(out_buffer[i][j], fOut);
+	}} */
+
+    fclose(fOut);
+    fclose(fIn);  
+ 
+    return 0;
+}
+
+
+
+==> NegativeTransformation.c <==
+#include "cpimgmodules.h"
+#include <malloc.h>
+
+int main(){
+    FILE * fIn = fopen("TestImages/Images/lenardia.bmp", "rb");
+    FILE *fOut = fopen("TestImages/Images/lenardianeg2.bmp", "wb");
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+
+    for (int i = 0; i < 54; i++){
+        imgHeader[i] = getc(fIn);
+    }     
+
+    imgWidth = *(int*)&imgHeader[18];
+    imgHeight = *(int*)&imgHeader[22];
+    imgBitDepth = *(short int*)&imgHeader[28];
+    int imageSize = imgWidth * imgHeight;
+
+    unsigned char* imgData = (unsigned char*)malloc(sizeof(unsigned char) * imageSize);
+    unsigned char* newImgData = (unsigned char*)malloc(sizeof(unsigned char) * imageSize);
+    
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+
+    if (imgBitDepth <= 8) {
+	fread(imgColorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(imgColorTable, sizeof(unsigned char), 1024, fOut);
+    }
+
+    fread(imgData, sizeof(unsigned char), imageSize, fIn);
+
+    for (int i = 0; i < imageSize; i++){
+        *(newImgData + i) = 255 - *(imgData + i);
+        *(newImgData + i) = (*(newImgData + i) > 225) ? 255 : *(newImgData + i);
+    }
+
+    fwrite(newImgData, sizeof(unsigned char), imageSize, fOut);
+
+    fclose(fIn);
+    fclose(fOut);
+
+    return 0;
+}
+
+==> blackandwhite.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+#define WHITE 255
+#define BLACK 0
+#define THRESHOLD 50
+
+int main(){
+    FILE* fIn = fopen("TestImages/Images/lighthouse.bmp", "rb");
+    FILE* fOut = fopen("TestImages/Images/lighthousebw1.bmp", "wb");
+    
+    char imgHeader[54];
+    char colorTable[1024];
+
+    if (fIn == NULL)
+	puts("Unable to open image");
+
+    for (int i = 0; i < 54; i++)
+	imgHeader[i] = getc(fIn);
+
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+
+    int height = *(int*)&imgHeader[22];
+    int width = *(int*)&imgHeader[18];
+    short int bitDepth = *(short int*)&imgHeader[28];
+
+    if(bitDepth <= 8){
+	fread(colorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(colorTable, sizeof(unsigned char), 1024, fOut);
+    }
+
+    char buffer[height*width];
+
+    fread(buffer, sizeof(unsigned char), height*width, fIn);
+    
+    for (int i = 0; i < (height * width); i++){
+       buffer[i] = (buffer[i] > THRESHOLD) ? WHITE : BLACK;
+   }
+
+   fwrite(buffer, sizeof(unsigned char), height * width, fOut);
+
+   printf("Success !!");
+
+   fclose(fIn);
+   fclose(fOut);
+
+    return 0;
+}
+
+
+==> blurbw.c <==
+#include "cpimgmodules.h"
+#include <malloc.h>
+
+//uses blur kernel filter
+int main(){
+    FILE * fIn = fopen("TestImages/Images/girlface_blur1.bmp", "rb");
+    FILE *fOut = fopen("TestImages/Images/girlface_blur2.bmp", "wb");
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+
+    for (int i = 0; i < 54; i++){
+        imgHeader[i] = getc(fIn);
+    }     
+
+    imgCols = *(int*)&imgHeader[18];
+    imgRows = *(int*)&imgHeader[22];
+    imgBitDepth = *(int*)&imgHeader[28];
+    
+    unsigned char buffer[imgCols * imgRows];
+    unsigned char output_buffer[imgCols * imgRows];
+
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+    
+  //  if (imgBitDepth <= 8){
+	fread(imgColorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(imgColorTable, sizeof(unsigned char), 1024, fOut);
+    //}
+
+    //fread(buffer, sizeof(unsigned char), imgCols * imgRows * 3, fIn);
+    for (int x = 0; x < imgRows * imgCols; x++) {
+	buffer[x] = getc(fIn);
+   }
+
+
+    float v = 1.0 /9.0; 
+    float kernel[3][3];
+    for (int i = 0; i< 3; i++){
+	for (int j = 0; j < 3; j++){
+	    kernel[i][j] = v;
+    }}
+
+    for (int x = 1; x < imgRows; x++){
+	for (int y = 1; y < imgCols; y++){
+	    float sum0 = 0.0;
+	    for (int i = -1; i <=1; i++){
+		for (int j = -1; j <= 1; j++){
+		    sum0 = sum0 + (float)kernel[i+1][j+1] * buffer[(i+x)*imgCols+j+y];
+		}
+	   }
+	   output_buffer[(x) * imgCols + (y)] = sum0;
+           //printf("%f %f %f\n", sum0, sum1, sum2); 
+	   //printf("%d %d %d\n", output_buffer[(x) * imgCols + (y)][0], output_buffer[(x) * imgCols + (y)][1], output_buffer[(x) * imgCols + (y)][2]);
+    }}   
+
+    for (int i = 0; i < imgCols * imgRows; i++){
+        putc(output_buffer[i], fOut);
+    }
+
+    fclose(fIn);
+    fclose(fOut);
+    return 0;
+}
+
+==> blurimage.c <==
+#include "cpimgmodules.h"
+#include <malloc.h>
+
+//uses blur kernel filter
+int main(){
+    FILE * fIn = fopen("TestImages/Images/me_.bmp", "rb");
+    FILE *fOut = fopen("TestImages/Images/me_blur.bmp", "wb");
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+
+    for (int i = 0; i < 54; i++){
+        imgHeader[i] = getc(fIn);
+    }     
+
+    imgCols = *(int*)&imgHeader[18];
+    imgRows = *(int*)&imgHeader[22];
+    imgBitDepth = *(int*)&imgHeader[28];
+    
+    unsigned char buffer[imgCols * imgRows][3];
+    unsigned char output_buffer[imgCols * imgRows][3];
+
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+    
+  //  if (imgBitDepth <= 8){
+	fread(imgColorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(imgColorTable, sizeof(unsigned char), 1024, fOut);
+    //}
+
+    //fread(buffer, sizeof(unsigned char), imgCols * imgRows * 3, fIn);
+    for (int x = 0; x < imgRows * imgCols; x++) {
+	buffer[x][0] = getc(fIn);
+	buffer[x][1] = getc(fIn);
+	buffer[x][2] = getc(fIn);
+   }
+
+
+    float v = 1.0 /9.0; 
+    float kernel[3][3];
+    for (int i = 0; i< 3; i++){
+	for (int j = 0; j < 3; j++){
+	    kernel[i][j] = v;
+    }}
+
+    for (int x = 1; x < imgRows; x++){
+	for (int y = 1; y < imgCols; y++){
+	    float sum0 = 0.0;
+	    float sum1 = 0.0;
+	    float sum2 = 0.0;
+	    for (int i = -1; i <=1; i++){
+		for (int j = -1; j <= 1; j++){
+		    sum0 = sum0 + (float)kernel[i+1][j+1] * buffer[(i+x)*imgCols+j+y][0];
+		    sum1 = sum1 + (float)kernel[i+1][j+1] * buffer[(i+x)*imgCols+j+y][1];
+		    sum2 = sum2 + (float)kernel[i+1][j+1] * buffer[(i+x)*imgCols+j+y][2];
+		}
+	   }
+	   output_buffer[(x) * imgCols + (y)][0] = sum0;
+	   output_buffer[(x) * imgCols + (y)][1] = sum1;
+	   output_buffer[(x) * imgCols + (y)][2] = sum2;
+           //printf("%f %f %f\n", sum0, sum1, sum2); 
+	   //printf("%d %d %d\n", output_buffer[(x) * imgCols + (y)][0], output_buffer[(x) * imgCols + (y)][1], output_buffer[(x) * imgCols + (y)][2]);
+    }}   
+
+    for (int i = 0; i < imgCols * imgRows; i++){
+        putc(output_buffer[i][0], fOut);
+        putc(output_buffer[i][1], fOut);
+        putc(output_buffer[i][2], fOut);
+    }
+
+    fclose(fIn);
+    fclose(fOut);
+    return 0;
+}
+
+==> colorbrightness.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+#define BRIGHTNESS_FACTOR 100
+#define MAX_COLOR 255
+
+int main(){
+    FILE* fIn = fopen("new.bmp", "rb");
+    FILE* fOut = fopen("new_bright.bmp", "wb");
+   
+    unsigned char imgHeader[54];
+    unsigned char colorTable[1024];
+
+    if (fIn == NULL)
+	puts("File did not open");
+
+    for (int i = 0; i < 54; i++)
+	imgHeader[i] = getc(fIn);
+
+    int width, height, bitDepth; 
+
+    width = *(int*)&imgHeader[18];
+    height = *(int*)&imgHeader[22];
+    bitDepth = *(short int*)&imgHeader[28];
+
+     fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+     //if (bitDepth <= 8){
+	fread(colorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(colorTable, sizeof(unsigned char), 1024, fOut);
+     //}
+
+    unsigned char buffer[3];
+   
+   // fread(buffer, sizeof(unsigned char), width * height, fIn);
+    
+    int temp = 0;
+    for (int i = 0; i < (width * height); i++){
+        for (int j = 0; j < 3; j++){
+            buffer[j] = getc(fIn);
+            //buffer[1] = getc(fIn);
+            //buffer[2] = getc(fIn);
+            //temp = ((buffer[0]*0.3)+(buffer[1]*0.59)+(buffer[2]*0.11));
+            temp = buffer[j] + BRIGHTNESS_FACTOR;
+            buffer[j] = (temp > MAX_COLOR) ? MAX_COLOR : temp;
+            putc(buffer[j], fOut);
+            //putc(temp, fOut);
+            //putc(temp, fOut);
+            //putc(temp, fOut);
+            //putc(temp, fOut);*/
+            //printf("%d ", buffer[i][j]);
+       }
+       // printf("\n");
+    } 
+   
+    //fwrite(buffer, sizeof(unsigned char), width * height, fOut);
+    
+    fclose(fIn);
+    fclose(fOut);
+
+    puts("Success !!");
+    return 0;
+}
+
+==> computehistogram.c <==
+#include "cpimgmodules.h"
+
+float IMG_HIST[255];
+
+void ImgHistogram(unsigned char *_imgData, int imgRows, int imgCols, float hist[]);
+
+void ImgHistogramEqualization(unsigned char *_inputImgData, unsigned char*_outputImgData, int imgRows, int imgCols);
+
+int main(){
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+    const char imgName[] = "lena512.bmp";
+    const char newImgName[] = "lena_5.bmp";
+
+    imageReader(imgName, &imgWidth, &imgHeight, &imgBitDepth, &imgHeader[0], &imgColorTable[0], &imgBuffer[0]);
+    ImgHistogram(&imgBuffer[0],imgHeight,imgWidth, &IMG_HIST[0]);
+  //  ImgHistogramEqualization(&imgBuffer[0], &imgBuffer2[0], imgHeight, imgWidth);
+  //  ImgHistogramEqualization(&imgBuffer2[0], &imgBuffer2[0], imgHeight, imgWidth);
+   //imageWriterColor(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth,(imgWidth * imgHeight) );
+    //imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth,(imgWidth * imgHeight) );
+    return 0;
+}
+
+void ImgHistogram(unsigned char *_imgData, int imgRows, int imgCols, float hist[])
+{
+    FILE* fptr;
+    fptr = fopen("image_hist.txt", "w");
+    int x, y, i, j;
+    long int ihist[255];
+    long int sum;
+
+    for(i=0; i<=255;i++)
+    {
+        ihist[i] = 0;
+    }
+
+    sum =0;
+    for (y=0; y <= imgRows; y++)
+    {
+	for (x=0; x < imgCols; x++){
+	    j = *(_imgData+x+y*imgCols);
+	    ihist[j] = ihist[j] + 1;
+	    sum = sum + 1;
+	} 
+    }
+
+    for (i = 0; i < 255; i++)
+    {
+        hist[i] = (float)ihist[i]/(float)sum; 
+    }
+
+    for (int i =0; i < 255; i++)
+    {
+        fprintf(fptr, "\n%f",hist[i]);
+    }
+
+    fclose(fptr);
+}
+/*
+void ImgHistogramEqualization(unsigned char *_inputImgData, unsigned char*_outputImgData, int imgRows, int imgCols)
+{
+    FILE* fptr;
+    fptr = fopen("eq_hist.txt", "w");
+    int x, y, i,j;
+    float sum;
+
+   float histeq[256]; 
+   float hist[256]; 
+
+   ImgHistogram(&_inputImgData[0], imgRows, imgCols, &hist[0]);
+
+   for (i = 0; i < 255; i++)
+   {
+	sum = 0.0;
+	for (j = 0; j <= i; j++)
+	{
+	    sum = sum + hist[j];
+	}
+	histeq[i] = (int)(255*sum+0.5);
+   }
+
+    for (int i =0; i < 255; i++)
+    {
+	fprintf(fptr, "\n%f",histeq[i]);
+    }
+
+   fclose(fptr);
+   for  (y = 0; y < imgRows; y++)
+   {
+	for (x = 0; x < imgCols; x++)
+	{
+	    *(_outputImgData+x+y*imgCols) = histeq[*(_inputImgData+x+y*imgCols)];
+	}
+   }
+}*/
+
+
+
+==> copyimagemodular.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+#define BMP_HEADER_SIZE 54
+#define BMP_COLOR_TABLE_SIZE 1024
+#define CUSTOM_IMG_SIZE 1024*1024
+
+void imageReader(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitdepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf);
+
+void imageWriter(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area);
+
+int main(){
+    int imgWidth, imgHeight, imgBitDepth, imgArea;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer[CUSTOM_IMG_SIZE];
+
+
+   const char imgName[] = "TestImages/Images/cameraman.bmp";
+   const char newImgName[] = "TestImages/Images/camraman_new.bmp";
+
+   imageReader(imgName, &imgWidth, &imgHeight, &imgBitDepth, &imgHeader[0], &imgColorTable[0], &imgBuffer[0]);
+
+   imgArea = imgWidth * imgHeight;
+   imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth, imgArea);  
+
+   printf("Success!");
+
+
+
+   return 0;
+}
+
+void imageReader(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitDepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf)
+{
+    int i;
+    FILE* streamIn;
+   streamIn = fopen(imgName, "rb");
+
+    if (streamIn == (FILE*)0)
+	printf("Unable to open image\n");
+
+    for (i = 0; i <  54; i++)
+	_header[i] = getc(streamIn);
+   
+    *_width  = *(int*)&_header[18];
+    *_height  = *(int*)&_header[22];
+    *_bitDepth = *(short int*)&_header[28];
+    
+    if (*_bitDepth <= 8)
+	fread(_colorTable, sizeof(unsigned char), 1024, streamIn);
+
+    fread(_buf, sizeof(unsigned char), *_width * *_height, streamIn);
+
+    fclose(streamIn);
+}
+
+void imageWriter(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area)
+{
+    FILE *fo  = fopen(imgName, "wb");
+    fwrite(header, sizeof(unsigned char), 108, fo);
+
+    if (bitDepth <= 8)
+	fwrite(colorTable, sizeof(unsigned char), 1024, fo);
+
+    fwrite(buf, sizeof(unsigned char), area, fo);
+
+    fclose(fo);
+}
+
+==> cpimgmod.c <==
+#include "cpimgmodules.h"
+
+/*void imageReader(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitDepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf)
+{
+    int i;
+    FILE* streamIn;
+   streamIn = fopen(imgName, "rb");
+
+    if (streamIn == (FILE*)0)
+	printf("Unable to open image\n");
+
+    for (i = 0; i <  54; i++)
+	_header[i] = getc(streamIn);
+   
+    *_width  = *(int*)&_header[18];
+    *_height  = *(int*)&_header[22];
+    *_bitDepth = *(short int*)&_header[28];
+    
+    if (*_bitDepth <= 8)
+	fread(_colorTable, sizeof(unsigned char), 1024, streamIn);
+
+    fread(_buf, sizeof(unsigned char), *_width * *_height, streamIn);
+
+    fclose(streamIn);
+}*/
+
+
+void  imageReader(const char *imgName,
+                  int *_height,
+                  int *_width,
+                  int *_bitDepth,
+                  unsigned char *_header,
+                  unsigned char *_colorTable,
+                  unsigned char *_buf
+                  )
+{
+    int i;
+    FILE *streamIn;
+    streamIn = fopen(imgName,"rb");
+
+    if(streamIn ==(FILE *)0)
+    {
+
+        printf("Unable to read image \n");
+    }
+
+    for(i =0;i<54;i++)
+    {
+        _header[i] = getc(streamIn);
+    }
+
+    *_width = *(int *)&_header[18];
+    *_height = *(int *)&_header[22];
+    *_bitDepth = *(int *)&_header[28];
+
+    if(*_bitDepth <=8)
+    {
+        fread(_colorTable,sizeof(unsigned char),1024,streamIn);
+    }
+
+    fread(_buf,sizeof(unsigned char),CUSTOM_IMG_SIZE,streamIn);
+
+    fclose(streamIn);
+}
+
+
+
+
+/*void imageWriter(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area)
+{
+    FILE *fo  = fopen(imgName, "wb");
+    fwrite(header, sizeof(unsigned char), 54, fo);
+
+    if (bitDepth <= 8)
+	fwrite(colorTable, sizeof(unsigned char), 1024, fo);
+
+    fwrite(buf, sizeof(unsigned char), area, fo);
+
+    fclose(fo);
+}*/
+
+
+void imageWriter(const char *imgName,
+                 unsigned char *header,
+                 unsigned char *colorTable,
+                 unsigned char *buf,
+                 int bitDepth,
+                 int area)
+   {
+     FILE *fo = fopen(imgName,"wb");
+     fwrite(header,sizeof(unsigned char),54,fo);
+     if(bitDepth <=8)
+     {
+         fwrite(colorTable,sizeof(unsigned char),1024,fo);
+     }
+     fwrite(buf,sizeof(unsigned char),CUSTOM_IMG_SIZE, fo);
+     fclose(fo);
+
+   }
+
+
+void imageReaderColor(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitDepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf)
+{
+    int i;
+    FILE* streamIn;
+    streamIn = fopen(imgName, "rb");
+
+    if (streamIn == (FILE*)0)
+	printf("Unable to open image\n");
+
+    for (i = 0; i <  54; i++)
+	_header[i] = getc(streamIn);
+   
+    *_width  = *(int*)&_header[18];
+    *_height  = *(int*)&_header[22];
+    *_bitDepth = *(short int*)&_header[28];
+    
+    fread(_colorTable, sizeof(unsigned char), 1024, streamIn);
+
+    int temp = 0;
+    for (int i = 0; i < (*_width * *_height); i++){
+        for (int j = 0; j < 3; j++){
+            _buf[j] = getc(streamIn);
+	}
+    }
+
+  //  fread(_buf, sizeof(unsigned char), *_width * *_height * 3, streamIn);
+
+    fclose(streamIn);
+}
+
+void imageWriterColor(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area)
+{
+    FILE *fo  = fopen(imgName, "wb");
+    fwrite(header, sizeof(unsigned char), 54, fo);
+
+    fwrite(colorTable, sizeof(unsigned char), 1024, fo);
+
+    for (int i = 0; i < area; i++){
+        for (int j = 0; j < 3; j++){
+            putc(buf[j], fo);
+	}
+    }
+
+    fclose(fo);
+}
+
+==> cpimgmodules.c <==
+#include "cpimgmodules.h"
+
+void imageReader(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitDepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf)
+{
+    int i;
+    FILE* streamIn;
+   streamIn = fopen(imgName, "rb");
+
+    if (streamIn == (FILE*)0)
+	printf("Unable to open image\n");
+
+    for (i = 0; i <  54; i++)
+	_header[i] = getc(streamIn);
+   
+    *_width  = *(int*)&_header[18];
+    *_height  = *(int*)&_header[22];
+    *_bitDepth = *(short int*)&_header[28];
+    
+    if (*_bitDepth <= 8)
+	fread(_colorTable, sizeof(unsigned char), 1024, streamIn);
+
+    fread(_buf, sizeof(unsigned char), *_width * *_height, streamIn);
+
+    fclose(streamIn);
+}
+
+void imageWriter(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area)
+{
+    FILE *fo  = fopen(imgName, "wb");
+    fwrite(header, sizeof(unsigned char), 54, fo);
+
+    if (bitDepth <= 8)
+	fwrite(colorTable, sizeof(unsigned char), 1024, fo);
+
+    fwrite(buf, sizeof(unsigned char), area, fo);
+
+    fclose(fo);
+}
+
+void imageReaderColor(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitDepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf)
+{
+    int i;
+    FILE* streamIn;
+    streamIn = fopen(imgName, "rb");
+
+    if (streamIn == (FILE*)0)
+	printf("Unable to open image\n");
+
+    for (i = 0; i <  54; i++)
+	_header[i] = getc(streamIn);
+   
+    *_width  = *(int*)&_header[18];
+    *_height  = *(int*)&_header[22];
+    *_bitDepth = *(short int*)&_header[28];
+    
+    fread(_colorTable, sizeof(unsigned char), 1024, streamIn);
+
+    int temp = 0;
+    for (int i = 0; i < (*_width * *_height); i++){
+        for (int j = 0; j < 3; j++){
+            _buf[j] = getc(streamIn);
+	}
+    }
+
+  //  fread(_buf, sizeof(unsigned char), *_width * *_height * 3, streamIn);
+
+    fclose(streamIn);
+}
+
+void imageWriterColor(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area)
+{
+    FILE *fo  = fopen(imgName, "wb");
+    fwrite(header, sizeof(unsigned char), 54, fo);
+
+    fwrite(colorTable, sizeof(unsigned char), 1024, fo);
+
+    for (int i = 0; i < area; i++){
+        for (int j = 0; j < 3; j++){
+            putc(buf[j], fo);
+	}
+    }
+
+    fclose(fo);
+}
+
+==> cpimgmodules.h <==
+#ifndef COPY_IMAGE_H
+#define COPY_IMAGE_H
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define BMP_HEADER_SIZE 54
+#define BMP_COLOR_TABLE_SIZE 1024
+#define CUSTOM_IMG_SIZE 512*512
+
+void imageReader(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitdepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf);
+
+void imageWriter(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area);
+
+void imageReaderColor(const char *imgName, 
+		int* _height, 
+		int* _width, 
+		int* _bitDepth, 
+		unsigned char* _header,
+		unsigned char* _colorTable,
+		unsigned char* _buf);
+
+void imageWriterColor(const char *imgName,
+		unsigned char* header,
+		unsigned char* colorTable,
+		unsigned char* buf,
+		int bitDepth,
+		int area);
+
+#endif
+
+==> edgebuilding.c <==
+#include "cpimgmodules.h"
+
+void correctBrightness(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgRows, int imgCols, int brightness);
+
+int main(){
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader1[BMP_HEADER_SIZE];
+    unsigned char imgHeader2[BMP_HEADER_SIZE];
+    unsigned char imgHeader3[BMP_HEADER_SIZE];
+    unsigned char imgHeader4[BMP_HEADER_SIZE];
+    unsigned char imgColorTable1[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgColorTable2[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgColorTable3[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgColorTable4[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer1[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer3[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer4[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer5[CUSTOM_IMG_SIZE];
+    const char newImgName1[] = "TestImages/Images/lenahorneg.bmp";
+    const char newImgName2[] = "TestImages/Images/lenaverneg.bmp";
+    const char newImgName3[] = "TestImages/Images/lenardianeg.bmp";
+    const char newImgName4[] = "TestImages/Images/lenaldianeg.bmp";
+    const char newImgName5[] = "TestImages/Images/lenaedges.bmp";
+
+    imageReader(newImgName1, &imgWidth, &imgHeight, &imgBitDepth, imgHeader1, imgColorTable1, imgBuffer1);
+    imageReader(newImgName2, &imgWidth, &imgHeight, &imgBitDepth, imgHeader2, imgColorTable2, imgBuffer2);
+    imageReader(newImgName3, &imgWidth, &imgHeight, &imgBitDepth, imgHeader3, imgColorTable3, imgBuffer3);
+    imageReader(newImgName4, &imgWidth, &imgHeight, &imgBitDepth, imgHeader4, imgColorTable4, imgBuffer4);
+//    correctBrightness(imgBuffer, imgBuffer2, imgHeight, imgWidth, 100);
+    int lowest;
+    for (int i = 0; i < CUSTOM_IMG_SIZE; i++){
+	lowest = 255;
+        lowest = (lowest < imgBuffer1[i]) ? lowest : imgBuffer1[i];
+        lowest = (lowest < imgBuffer2[i]) ? lowest : imgBuffer2[i];
+        lowest = (lowest < imgBuffer3[i]) ? lowest : imgBuffer3[i];
+        lowest = (lowest < imgBuffer4[i]) ? lowest : imgBuffer4[i];
+        imgBuffer5[i] = lowest;
+    }
+
+    imageWriter(newImgName5, imgHeader1, imgColorTable1, imgBuffer5, imgBitDepth, imgWidth * imgHeight);
+
+    return 0;
+}
+
+void correctBrightness(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgRows, int imgCols, int brightness)
+{
+    int x, y, i;
+
+    for (y =0; y < imgRows; y++)
+    {
+	for (x=0; x < imgCols; x++)
+	{
+	    i = *(_inputImgData + x + y * imgCols) + brightness;
+	    if (i > 255) i = 255;
+	    if (i < 0) i = 0;
+            *(_outputImgData + x + y * imgCols) = i;
+	}
+    } 
+}
+
+==> firstimage.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(){
+    FILE *streamIn = fopen("TestImages/Images/pp2.bmp", "rb");
+    FILE *fo = fopen("TestImages/Images/pp2copy.bmp", "wb");
+
+    if (streamIn == (FILE*)0)
+    {
+        printf("unaboe to open file\n");
+    }   
+
+    //image header for bitmap is 54 bytes long
+    unsigned char header[54];
+    //color table for bitmap is 1024 bytes long
+    unsigned char colorTable[1024];
+
+    for (int i = 0; i < 54; i++)
+    {
+        header[i] = getc(streamIn);
+    }
+
+    //reads the width of the image from the image header (4 bytes long)
+    int width  = *(int*)&header[18];
+    //reads the height of the image from the image header (4 bytes long)
+    int height  = *(int*)&header[22];
+    //reads the depth of the image from the image header (2 bytes long)
+    int bitDepth = *(int*)&header[28];
+
+   //if colorTable existsread  ir in (not all bitmap images have colour tables
+   if (bitDepth <= 8)
+   {
+       fread(colorTable, sizeof(unsigned char), 1024, streamIn);
+   }
+
+    //write header data to fo
+    fwrite(header, sizeof(unsigned char), 54, fo);
+    unsigned char buf[height * width];
+
+   fread(buf, sizeof(unsigned char), (height * width), streamIn);
+
+   if (bitDepth <= 8)
+   {
+       fwrite(colorTable, sizeof(unsigned char), 1024, fo);
+   }
+
+   fwrite(buf, sizeof(unsigned char), (height * width), fo);
+   fclose(fo);
+   fclose(streamIn);
+
+   printf("Success !\n");
+   printf("Width : %d\n", width);
+   printf("Height : %d\n", height);
+    return 0;
+}
+
+==> gray.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(){
+    FILE *fIn = fopen("TestImages/Images/lena_color.bmp", "rb");
+    FILE *fOut = fopen("TestImages/Images/lena_gray_green.bmp", "wb");
+
+    unsigned char imgHeader[54];
+    unsigned char colorTable[1024];
+
+    if(fIn == NULL)
+        printf("Unable to open image\n");
+
+    fread(imgHeader,sizeof(unsigned char),54,fIn);
+    fwrite(imgHeader,sizeof(unsigned char),54,fOut);
+    
+    int height = *(int*)&imgHeader[22];
+   int width = *(int*)&imgHeader[18];
+   int bitDepth = *(int*)&imgHeader[28];
+
+   int imgSize = height * width;
+   unsigned char buffer[imgSize][3]; //stores RGB colour values for each pixel
+
+   if (bitDepth <= 8)
+	fread(colorTable, sizeof(unsigned char), 1024, fIn);
+
+   if (bitDepth <= 8)
+	fwrite(colorTable, sizeof(unsigned char), 1024, fOut);
+
+   for(int i = 0; i < imgSize; i++){
+	buffer[i][0] = getc(fIn);
+	buffer[i][1] = getc(fIn);
+	buffer[i][2] = getc(fIn);
+
+       //printf("%d %d %d\n", buffer[i][0], buffer[i][1], buffer[i][2]);
+       int temp = 0;
+       temp = ((buffer[i][0]*0.3)+(buffer[i][1]*0.59)+(buffer[i][2]*0.11));
+       //printf("%d %d %d\n\n", temp, temp, temp);
+	putc(buffer[i][1], fOut);
+	putc(buffer[i][1], fOut);
+	putc(buffer[i][1], fOut);
+    }
+
+    printf("Succes !!\n");
+  
+    fclose(fIn);
+    fclose(fOut);
+
+    return 0;
+}
+
+==> imagebrightness.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+#define BRIGHTNESS_FACTOR 50
+#define MAX_COLOR 255
+
+int main(){
+    FILE* fIn = fopen("TestImages/Images/lena_color.bmp", "rb");
+    FILE* fOut = fopen("TestImages/Images/lena_color_bright.bmp", "wb");
+   
+    unsigned char imgHeader[54];
+    unsigned char colorTable[1024];
+
+    if (fIn == NULL)
+	puts("File did not open");
+
+    for (int i = 0; i < 54; i++)
+	imgHeader[i] = getc(fIn);
+
+    int width, height, bitDepth; 
+
+    width = *(int*)&imgHeader[18];
+    height = *(int*)&imgHeader[22];
+    bitDepth = *(short int*)&imgHeader[28];
+
+     fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+     if (bitDepth <= 8){
+	fread(colorTable, sizeof(unsigned char), 1024, fIn);
+	fwrite(colorTable, sizeof(unsigned char), 1024, fOut);
+     }
+
+    unsigned char buffer[width * height];
+   
+    fread(buffer, sizeof(unsigned char), width * height, fIn);
+    
+    int temp;
+    for (int i = 0; i < (width * height); i++){
+        temp = buffer[i] + BRIGHTNESS_FACTOR;
+        buffer[i] = (temp > MAX_COLOR) ? MAX_COLOR : temp;
+    } 
+   
+    fwrite(buffer, sizeof(unsigned char), width * height, fOut);
+    
+    fclose(fIn);
+    fclose(fOut);
+
+    puts("Success !!");
+    return 0;
+}
+
+==> rgb_to_sepia.c <==
+#include "cpimgmodules.h"
+
+#define MAXPIXEL 255
+
+int main(){
+    FILE* fIn = fopen("TestImages/Images/lena_color.bmp", "rb");
+    FILE* fOut = fopen("TestImages/Images/lena_filter3.bmp", "wb");
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+
+    if (fIn == NULL){
+	puts("Unable to open file");
+    }
+
+    for (int i = 0; i < 54; i++){
+        imgHeader[i] = getc(fIn);
+    }     
+
+    imgCols = *(int*)&imgHeader[18];
+    imgRows = *(int*)&imgHeader[22];
+    imgBitDepth = *(int*)&imgHeader[28];
+
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+
+    if (imgBitDepth <= 8){
+        fread(imgColorTable, sizeof(unsigned char), 1024, fIn);
+        fwrite(imgColorTable, sizeof(unsigned char), 1024, fOut);
+    }
+
+    int imgSize = imgRows * imgCols;
+
+    int r, g, b;
+
+    unsigned char buffer[imgSize][3];
+
+    for (int i = 0; i < imgSize; i++){
+ 	r = g = b = 0;
+	buffer[i][0] = getc(fIn);
+	buffer[i][1] = getc(fIn);
+	buffer[i][2] = getc(fIn);
+
+	g = (buffer[i][0]*0.272) + (buffer[i][1] * 0.534) + (buffer[i][2] *0.131);
+	r = (buffer[i][0]*0.349) + (buffer[i][1] * 0.686) + (buffer[i][2] *0.168);
+	b = (buffer[i][0]*0.393) + (buffer[i][1] * 0.769) + (buffer[i][2] *0.189);
+
+	r = (r > MAXPIXEL) ? MAXPIXEL : r;
+	g = (g > MAXPIXEL) ? MAXPIXEL : g;
+	b = (b > MAXPIXEL) ? MAXPIXEL : b;
+
+        putc(r, fOut);
+        putc(g, fOut);
+        putc(b, fOut);
+    }
+
+    fclose(fIn);
+    fclose(fOut);
+
+    return 0;
+}
+
+==> rgbtograyscale.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(){
+    FILE *fIn = fopen("TestImages/Images/pp2.bmp", "rb");
+    FILE *fOut = fopen("TestImages/Images/pp2_gray.bmp", "wb");
+
+    unsigned char imgHeader[54];
+    unsigned char colorTable[1024];
+
+    if(fIn == NULL)
+        printf("Unable to open image\n");
+
+    fread(imgHeader,sizeof(unsigned char),54,fIn);
+    fwrite(imgHeader,sizeof(unsigned char),54,fOut);
+    
+    int height = *(int*)&imgHeader[22];
+   int width = *(int*)&imgHeader[18];
+   int bitDepth = *(int*)&imgHeader[28];
+
+   int imgSize = height * width;
+   unsigned char buffer[imgSize][3]; //stores RGB colour values for each pixel
+
+   if (bitDepth <= 8)
+	fread(colorTable, sizeof(unsigned char), 1024, fIn);
+
+   if (bitDepth <= 8)
+	fwrite(colorTable, sizeof(unsigned char), 1024, fOut);
+
+   for(int i = 0; i < imgSize; i++){
+	buffer[i][0] = getc(fIn);
+	buffer[i][1] = getc(fIn);
+	buffer[i][2] = getc(fIn);
+
+       int temp = 0;
+       temp = ((buffer[i][0]*0.3)+(buffer[i][1]*0.59)+(buffer[i][2]*0.11));
+	putc(temp, fOut);
+	putc(temp, fOut);
+	putc(temp, fOut);
+    }
+
+    printf("Succes !!\n");
+  
+    fclose(fIn);
+    fclose(fOut);
+
+    return 0;
+}
 	
