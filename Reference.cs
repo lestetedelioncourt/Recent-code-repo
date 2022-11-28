@@ -3774,3 +3774,702 @@ namespace WpfAppBinding
         }
     }
 }
+
+==> learnwpfexercises/BikeShop/BikeShop/App.xaml <==
+﻿<Application x:Class="BikeShop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:BikeShop"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <LinearGradientBrush x:Key="background">
+            <GradientStop Color="#FFDBFFE7"
+                          Offset="0" />
+            <GradientStop Color="#FF03882D"
+                          Offset="1" />
+        </LinearGradientBrush>
+    </Application.Resources>
+</Application>
+
+==> learnwpfexercises/BikeShop/BikeShop/Contact.xaml <==
+﻿<Page x:Class="BikeShop.Contact"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d" 
+      d:DesignHeight="300" d:DesignWidth="300"
+      Title="Contact"
+      Background="{StaticResource background}">
+
+    <Grid>
+        <TextBlock x:Name="textBlock"
+                   HorizontalAlignment="Left"
+                   Margin="10,11,0,0"
+                   TextWrapping="Wrap"
+                   Text="Sender"
+                   VerticalAlignment="Top" />
+        <TextBlock x:Name="textBlock1"
+                   HorizontalAlignment="Left"
+                   Margin="10,39,0,0"
+                   TextWrapping="Wrap"
+                   Text="Message"
+                   VerticalAlignment="Top" />
+        <TextBox x:Name="textBox"
+                 HorizontalAlignment="Left"
+                 Height="23"
+                 Margin="71,10,0,0"
+                 TextWrapping="Wrap"
+                 VerticalAlignment="Top"
+                 Width="439" />
+        <TextBox x:Name="textBox1"
+                 HorizontalAlignment="Left"
+                 Height="275"
+                 Margin="71,38,0,0"
+                 TextWrapping="Wrap"
+                 VerticalAlignment="Top"
+                 Width="439" />
+    </Grid>
+</Page>
+
+==> learnwpfexercises/BikeShop/BikeShop/Discussion.xaml <==
+﻿<Page x:Class="BikeShop.Discussion"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:BikeShop"
+      xmlns:data="clr-namespace:BikeShop"
+      mc:Ignorable="d"
+      d:DesignHeight="300"
+      d:DesignWidth="300"
+      Title="Discussion"
+      Background="{StaticResource background}">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="100" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="50" />
+        </Grid.RowDefinitions>
+        <ListBox Grid.ColumnSpan="2"
+                 Margin="5">
+            <ListBox.ItemsSource>
+                <data:Talk />
+            </ListBox.ItemsSource>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Width="300">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="chat.png" Width="20" />
+                            <TextBlock Text="{Binding Sender}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding Content}"
+                                   Margin="20,0,0,0"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <Button Grid.Row="1"
+                Grid.Column="1"
+                Margin="5"
+                Background="Orange"
+                Content="Send">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Ellipse Fill="#AA000000" Margin="10, 10, 0, 0" />
+                        <Ellipse Fill="{TemplateBinding Background}" Margin="0, 0, 10, 10" />
+                        <Viewbox Margin="5, 5, 15, 15">
+                            <ContentPresenter />
+                        </Viewbox>
+                    </Grid>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+        <TextBox Grid.Row="1"
+                 Margin="5"
+                 Text="Type your message here" />
+    </Grid>
+</Page>
+
+==> learnwpfexercises/BikeShop/BikeShop/MainWindow.xaml <==
+﻿<Window x:Class="BikeShop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BikeShop"
+        mc:Ignorable="d"
+        Title="MainWindow"
+        Height="350"
+        Width="525">
+    <Grid>
+        <Frame Source="/Menu.xaml" />
+    </Grid>
+</Window>
+
+==> learnwpfexercises/BikeShop/BikeShop/Menu.xaml <==
+﻿<Page x:Class="BikeShop.Menu"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d"
+      d:DesignHeight="300"
+      d:DesignWidth="300"
+      Title="Menu"
+      Background="{StaticResource background}">
+    <Page.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Ellipse Fill="#AA000000"
+                                     Margin="10, 10, 0, 0" />
+                            <Ellipse Fill="{TemplateBinding Background}"
+                                     Margin="0, 0, 10, 10" />
+                            <Viewbox Margin="5, 5, 15, 15">
+                                <ContentPresenter />
+                            </Viewbox>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+    <Grid HorizontalAlignment="Center"
+          VerticalAlignment="Center">
+        <Button x:Name="button"
+                Content="Products"
+                HorizontalAlignment="Left"
+                Margin="10,9,0,0"
+                VerticalAlignment="Top"
+                Width="80"
+                Height="80"
+                Click="button_Click"
+                Background="#FF7161E1"
+                Foreground="White" />
+        <Button x:Name="button1"
+                Content="Live support"
+                HorizontalAlignment="Left"
+                Margin="109,9,0,0"
+                VerticalAlignment="Top"
+                Width="80"
+                Height="80"
+                Click="button1_Click"
+                Background="#FFDD6F31"
+                Foreground="White" />
+        <Button x:Name="button2"
+                Content="Email support"
+                HorizontalAlignment="Left"
+                Margin="206,9,0,0"
+                VerticalAlignment="Top"
+                Width="80"
+                Height="80"
+                Click="button2_Click"
+                Background="#FF9F0043"
+                Foreground="White" />
+        <TextBlock x:Name="textBlock"
+                   HorizontalAlignment="Left"
+                   Margin="53,118,0,0"
+                   TextWrapping="Wrap"
+                   Text="Adventure Works"
+                   VerticalAlignment="Top"
+                   FontWeight="Bold"
+                   FontStyle="Italic"
+                   FontSize="24" />
+
+    </Grid>
+</Page>
+
+==> learnwpfexercises/BikeShop/BikeShop/ProductsManagement.xaml <==
+﻿<Page x:Class="BikeShop.ProductsManagement"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d"
+      d:DesignHeight="328.286"
+      d:DesignWidth="454.286"
+      Background="{StaticResource background}"
+      Title="ProductsManagement">
+
+    <Grid>
+        <TextBox x:Name="textBox"
+                 Height="23"
+                 Margin="59,10,113.222,0"
+                 TextWrapping="Wrap"
+                 VerticalAlignment="Top"
+                 Background="#99FFFFFF"
+                 TextChanged="textBox_TextChanged" />
+        <TextBlock x:Name="textBlock"
+                   HorizontalAlignment="Left"
+                   Margin="10,11,0,0"
+                   TextWrapping="Wrap"
+                   Text="Search:"
+                   VerticalAlignment="Top" />
+        <DataGrid x:Name="dataGrid"
+                  Margin="10,60,191.222,10.444" />
+        <Border Margin="0,60,10.222,10.444"
+                DataContext="{Binding SelectedItem, ElementName=dataGrid}"
+                HorizontalAlignment="Right"
+                Width="162"
+                Background="#66FFFFFF">
+            <StackPanel Margin="10">
+                <TextBlock Text="Product details"
+                           FontWeight="Bold"
+                           FontSize="16"
+                           HorizontalAlignment="Center"
+                           Margin="10" />
+                <TextBlock Text="Title" />
+                <TextBox Text="{Binding Title, Mode=TwoWay}" />
+                <TextBlock Text="Price" />
+                <TextBox Text="{Binding Price, Mode=TwoWay}" />
+                <TextBlock Text="Color" />
+                <TextBox Text="{Binding Color, Mode=TwoWay}" />
+                <Border Background="{Binding Color}"
+                        Height="10" />
+                <TextBlock Text="Reference" />
+                <TextBox Text="{Binding Reference, Mode=TwoWay}" />
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</Page>
+
+==> learnwpfexercises/BikeShop/BikeShop/ProductsManagementMVVM.xaml <==
+﻿<Page x:Class="BikeShop.ProductsManagementMVVM"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:BikeShop"
+      xmlns:vm="clr-namespace:BikeShop"
+      mc:Ignorable="d" 
+      d:DesignHeight="300" d:DesignWidth="300"
+      Background="{StaticResource background}"
+      Title="ProductsManagementMVVM">
+    <Page.DataContext>
+        <vm:ProductsManagementMVVMViewModel />
+    </Page.DataContext>
+
+    <Grid>
+        <TextBox Text="{Binding SearchInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Height="23"
+                 Margin="59,10,113.222,0"
+                 TextWrapping="Wrap"
+                 VerticalAlignment="Top"
+                 Background="#99FFFFFF" />
+        <TextBlock x:Name="textBlock"
+                   HorizontalAlignment="Left"
+                   Margin="10,11,0,0"
+                   TextWrapping="Wrap"
+                   Text="Search:"
+                   VerticalAlignment="Top" />
+        <DataGrid ItemsSource="{Binding FoundProducts}"
+                  SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+                  Margin="10,60,191.222,10.444" />
+        <Border DataContext="{Binding SelectedProduct}"
+                Margin="0,60,10.222,10.444"
+                HorizontalAlignment="Right"
+                Width="162"
+                Background="#66FFFFFF">
+            <StackPanel Margin="10">
+                <TextBlock Text="Product details"
+                        FontWeight="Bold"
+                        FontSize="16"
+                        HorizontalAlignment="Center"
+                        Margin="10" />
+                <TextBlock Text="Title" />
+                <TextBox Text="{Binding Title, Mode=TwoWay}" />
+                <TextBlock Text="Price" />
+                <TextBox Text="{Binding Price, Mode=TwoWay}" />
+                <TextBlock Text="Color" />
+                <TextBox Text="{Binding Color, Mode=TwoWay}" />
+                <Border Background="{Binding Color}"
+                        Height="10" />
+                <TextBlock Text="Reference" />
+                <TextBox Text="{Binding Reference, Mode=TwoWay}" />
+            </StackPanel>
+        </Border>
+
+
+    </Grid>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/App.xaml <==
+﻿<Application x:Class="WpfDemos.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:WpfDemos"
+             StartupUri="CurrencyConverter2.xaml">
+    <Application.Resources>
+         
+    </Application.Resources>
+</Application>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/CollectionOfCars.xaml <==
+﻿<Page x:Class="WpfDemos.CollectionOfCars"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:WpfDemos"
+
+      mc:Ignorable="d" 
+      d:DesignHeight="300" d:DesignWidth="300"
+      Title="CollectionOfCars">
+    <Page.Resources>
+        <Style TargetType="ListBox">
+            <Setter Property="Margin"
+                    Value="10" />
+        </Style>
+    </Page.Resources>
+    <WrapPanel>
+        <ListBox ItemsSource="{Binding}" Margin="10">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Speed}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <ListBox ItemsSource="{Binding}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel>
+                        <TextBlock Text="Speed" />
+                        <TextBox Text="{Binding Speed}" />
+                        <Slider Value="{Binding Speed}" Maximum="100" />
+                        <TextBlock Text="Color" />
+                        <Border Height="10">
+                            <Border.Background>
+                                <SolidColorBrush Color="{Binding Color}" />
+                            </Border.Background>
+                        </Border>
+                        <TextBox Text="{Binding Color}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </WrapPanel>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/CurrencyConverter.xaml <==
+﻿<Page x:Class="WpfDemos.CurrencyConverter"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfDemos"
+        mc:Ignorable="d"
+        xmlns:vm="clr-namespace:WpfDemos"
+        Title="CurrencyConverter"
+        Height="93"
+        Width="234.857">
+    <Page.DataContext>
+        <vm:CurrencyConverterViewModel />
+    </Page.DataContext>
+    <Grid>
+        <TextBox x:Name="textBox"
+                 HorizontalAlignment="Left"
+                 Height="23"
+                 Margin="98,10,0,0"
+                 TextWrapping="Wrap"
+                 Text="{Binding Euros, UpdateSourceTrigger=PropertyChanged}"
+                 VerticalAlignment="Top"
+                 Width="120" />
+        <TextBlock x:Name="textBlock"
+                   HorizontalAlignment="Left"
+                   Margin="98,38,0,0"
+                   TextWrapping="Wrap"
+                   Text="{Binding Dollars}"
+                   VerticalAlignment="Top" />
+        <TextBlock x:Name="textBlock1"
+                   HorizontalAlignment="Left"
+                   Margin="10,11,0,0"
+                   TextWrapping="Wrap"
+                   Text="Amount in €"
+                   VerticalAlignment="Top" />
+        <TextBlock x:Name="textBlock1_Copy"
+                   HorizontalAlignment="Left"
+                   Margin="10,38,0,0"
+                   TextWrapping="Wrap"
+                   Text="Amount in US $"
+                   VerticalAlignment="Top" />
+
+    </Grid>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/CurrencyConverter2.xaml <==
+﻿<Page x:Class="WpfDemos.CurrencyConverter2"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:WpfDemos"
+      xmlns:vm="clr-namespace:WpfDemos"
+      mc:Ignorable="d"
+      d:DesignHeight="96.429"
+      d:DesignWidth="275.143"
+      Title="CurrencyConverter2">
+    <Page.DataContext>
+        <vm:CurrencyConverterViewModel2 />
+    </Page.DataContext>
+    <Grid>
+        <TextBox x:Name="textBox"
+                 HorizontalAlignment="Left"
+                 Height="23"
+                 Margin="141,39,0,0"
+                 TextWrapping="Wrap"
+                 Text="{Binding Euros, UpdateSourceTrigger=PropertyChanged}"
+                 VerticalAlignment="Top"
+                 Width="120" />
+        <TextBlock x:Name="textBlock"
+                   HorizontalAlignment="Left"
+                   Margin="141,66,0,0"
+                   TextWrapping="Wrap"
+                   Text="{Binding Converted}"
+                   VerticalAlignment="Top" />
+        <TextBlock x:Name="textBlock1"
+                   HorizontalAlignment="Left"
+                   Margin="10,40,0,0"
+                   TextWrapping="Wrap"
+                   Text="Amount in €"
+                   VerticalAlignment="Top" />
+        <TextBlock x:Name="textBlock1_Copy"
+                   HorizontalAlignment="Left"
+                   Margin="10,67,0,0"
+                   TextWrapping="Wrap"
+                   Text="{Binding ResultText}"
+        VerticalAlignment="Top" />
+        <TextBlock x:Name="textBlock2"
+                   HorizontalAlignment="Left"
+                   Margin="10,10,0,0"
+                   TextWrapping="Wrap"
+                   Text="Currency"
+                   VerticalAlignment="Top" />
+        <ComboBox x:Name="comboBox"
+                  SelectedItem="{Binding SelectedCurrency}"
+                  ItemsSource="{Binding Currencies}"
+                  HorizontalAlignment="Left"
+                  Margin="141,10,0,0"
+                  VerticalAlignment="Top"
+                  Width="120">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Title}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+    </Grid>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/LayoutVsRender.xaml <==
+﻿<Page x:Class="WpfDemos.LayoutVsRender"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:WpfDemos"
+      mc:Ignorable="d"
+      d:DesignHeight="284.571"
+      d:DesignWidth="466.714"
+      Title="LayoutVsRender">
+    <Page.Resources>
+        <Style TargetType="ListBox">
+            <Setter Property="Margin"
+                    Value="10" />
+            <Setter Property="VerticalAlignment"
+                    Value="Center" />
+        </Style>
+    </Page.Resources>
+
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+        <ListBox>
+            <TextBlock Text="First element" />
+            <TextBlock Text="Second element" />
+            <GroupBox Header="Third element">
+                Using some content is funnier
+                <GroupBox.RenderTransform>
+                    <RotateTransform Angle="-20" />
+                </GroupBox.RenderTransform>
+            </GroupBox>
+        </ListBox>
+        <ListBox>
+            <TextBlock Text="First element" />
+            <TextBlock Text="Second element" />
+            <GroupBox Header="Third element">
+                Using some content is funnier
+                <GroupBox.LayoutTransform>
+                    <RotateTransform Angle="-20" />
+                </GroupBox.LayoutTransform>
+            </GroupBox>
+        </ListBox>
+    </StackPanel>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/MainWindow.xaml <==
+﻿<Window x:Class="WpfDemos.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfDemos"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="350" Width="525">
+    <Grid>
+        <Frame Source="/LayoutVsRender.xaml" />
+    </Grid>
+</Window>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/SelectionControls.xaml <==
+﻿<Page x:Class="WpfDemos.SelectionControls"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:WpfDemos"
+      mc:Ignorable="d" 
+      d:DesignHeight="300" d:DesignWidth="300"
+      Title="SelectionControls">
+
+    <Grid>
+        <WrapPanel Margin="10">
+            <ComboBox Margin="100">
+                <Label>Element 1</Label>
+                <Label>Element 2</Label>
+                <GroupBox Header="Element 3">
+                    With some content it's funnier
+                </GroupBox>
+            </ComboBox>
+
+        </WrapPanel>
+    </Grid>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/Sizing.xaml <==
+﻿<Window x:Class="WpfDemos.Sizing"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfDemos"
+        mc:Ignorable="d"
+        Title="Sizing" Height="300" Width="300">
+    <Border BorderBrush="Gray" BorderThickness="1"
+            Padding="4"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+
+        <Grid Width="200" Height="100">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <Button Grid.Row="0"
+                    Grid.Column="0">Button A</Button>
+            <Button Grid.Row="1"
+                    Grid.Column="0">Button B</Button>
+            <Button Grid.Row="1"
+                    Grid.Column="1">Button C</Button>
+            <Button Grid.Row="0"
+                    Grid.Column="1">Button D</Button>
+        </Grid>
+
+
+    </Border>
+</Window>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/Styling.xaml <==
+﻿<Page x:Class="WpfDemos.Styling"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:WpfDemos"
+      mc:Ignorable="d" 
+      d:DesignHeight="300" d:DesignWidth="300"
+      Title="Styling">
+    <Page.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Width"
+                    Value="50" />
+            <Setter Property="Height"
+                    Value="50" />
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush>
+                        <GradientStop Color="Red" />
+                        <GradientStop Color="Yellow" Offset="1" />
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Page.Resources>
+    <Grid>
+        <StackPanel Orientation="Horizontal" Margin="50">
+            <Button>A</Button>
+            <Button>B</Button>
+            <Button>C</Button>
+            <Button>D</Button>
+        </StackPanel>
+    </Grid>
+</Page>
+
+==> learnwpfexercises/WpfDemos/WpfDemos/Templating.xaml <==
+﻿<Page x:Class="WpfDemos.Templating"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="clr-namespace:WpfDemos"
+      mc:Ignorable="d"
+      d:DesignHeight="300"
+      d:DesignWidth="300"
+      Title="Templating">
+
+    <WrapPanel Margin="10">
+        <Button Content="Press me">
+            <Button.Template>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Ellipse Fill="GreenYellow"
+                             Width="100"
+                             Height="100" />
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+        <Border Width="10" />
+        <Button Content="Press me">
+            <Button.Template>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Grid>
+                        <Ellipse Fill="{TemplateBinding Background}"
+                                 Width="100"
+                                 Height="100" />
+                        <Label Content="{TemplateBinding Content}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </WrapPanel>
+</Page>
+
