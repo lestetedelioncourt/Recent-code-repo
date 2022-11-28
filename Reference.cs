@@ -3774,7 +3774,6 @@ namespace WpfAppBinding
         }
     }
 }
-
 ==> learnwpfexercises/BikeShop/BikeShop/App.xaml <==
 ﻿<Application x:Class="BikeShop.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -4472,4 +4471,710 @@ namespace WpfAppBinding
         </Button>
     </WrapPanel>
 </Page>
+==> source/repos/BikeShop/BikeShop/App.xaml <==
+﻿<Application x:Class="BikeShop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:BikeShop"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <LinearGradientBrush x:Key="background">
+            <GradientStop Color="Aquamarine" Offset="0"/>
+            <GradientStop Color="Violet" Offset="1"/>
+        </LinearGradientBrush>
+    </Application.Resources>
+</Application>
 
+==> source/repos/BikeShop/BikeShop/Contact.xaml <==
+﻿<Page x:Class="BikeShop.Contact"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="Contact" Background="{StaticResource background}">
+
+    <Grid>
+        <TextBlock HorizontalAlignment="Left" Margin="40,46,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="18" Width="39"><Run Language="en-gb" Text="Sender"/></TextBlock>
+        <TextBlock HorizontalAlignment="Left" Margin="40,87,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Height="20" Width="50"><Run Language="en-gb" Text="Message"/></TextBlock>
+        <TextBox HorizontalAlignment="Left" Margin="108,46,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="634" Height="20"/>
+        <TextBox HorizontalAlignment="Left" Margin="108,87,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="634" Height="270"/>
+
+    </Grid>
+</Page>
+
+==> source/repos/BikeShop/BikeShop/Discussion.xaml <==
+﻿<Page x:Class="BikeShop.Discussion"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="Discussion" Background="{StaticResource background}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="100" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="50" />
+        </Grid.RowDefinitions>
+        <ListBox Grid.ColumnSpan="2" Margin="5">
+            <ListBox.ItemsSource>
+                <local:Talk/>
+            </ListBox.ItemsSource>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Width="300">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="chat.png" Width="20"/>
+                            <TextBlock Text="{Binding Sender}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Content}" Margin="20,0,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <Button Grid.Column="1" Grid.Row="1" Margin="5" Content="Send">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Ellipse Fill="#AA000000" Margin="10, 10, 0, 0"/>
+                        <Ellipse Fill="{TemplateBinding Background}" Margin="0, 0, 10, 10"/>
+                        <Viewbox Margin="5, 5, 15, 15">
+                            <ContentPresenter/>
+                        </Viewbox>
+                    </Grid>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+        <TextBox Grid.Row="1" Margin="5" Text="Type Your Message Here" />
+    </Grid>
+</Page>
+
+==> source/repos/BikeShop/BikeShop/MainWindow.xaml <==
+﻿<Window x:Class="BikeShop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BikeShop"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Frame Source="/Menu.xaml"/>
+    </Grid>
+</Window>
+
+==> source/repos/BikeShop/BikeShop/Menu.xaml <==
+﻿<Page x:Class="BikeShop.Menu"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="Menu"  Background="{StaticResource background}">
+    <Page.Resources>
+        <Style x:Key="menuButton" TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Grid>
+                            <Ellipse Width="233" Height="233" Fill="#AA000000" Margin="10, 10, 0, 0"/>
+                            <Ellipse Width="233" Height="233" Fill="LightGray" Margin="0, 0, 10, 10"/>
+                            <Viewbox Width="144" Height="144" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Viewbox>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+    <Grid>
+        <Button Style="{StaticResource menuButton}" Content="Products" HorizontalAlignment="Left" Margin="284,42,0,0" VerticalAlignment="Top" Click="Button_Click_2" FontSize="12"/>
+        <Button Style="{StaticResource menuButton}" Content="Live support" HorizontalAlignment="Left" Margin="10,42,0,0" VerticalAlignment="Top" Click="Button_Click_1" FontSize="12"/>
+        <Button Style="{StaticResource menuButton}" Content="Email support" HorizontalAlignment="Left" Margin="547,42,0,0" VerticalAlignment="Top" FontSize="12" RenderTransformOrigin="4.22,-6.532" Click="Button_Click"/>
+        <TextBlock HorizontalAlignment="Left" Height="77" Margin="208,316,0,0" Text="Adventure Works" TextWrapping="Wrap" VerticalAlignment="Top" Width="396" TextAlignment="Center" FontStyle="Italic" FontSize="48" FontWeight="Bold"/>
+    </Grid>
+</Page>
+
+==> source/repos/BikeShop/BikeShop/ProductsManagement.xaml <==
+﻿<Page x:Class="BikeShop.ProductsManagement"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:BikeShop"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="ProductsManagement"  Background="{StaticResource background}">
+
+    <Grid>
+        <TextBox x:Name="textBox" HorizontalAlignment="Left" Margin="50,27,0,0" Text="" Background="white" TextWrapping="Wrap" VerticalAlignment="Top" Width="556" TextChanged="TextBox_TextChanged"/>
+        <DataGrid Name="dataGrid" Margin="50,74,251,102"/>
+        <Border DataContext="{Binding SelectedItem, ElementName=dataGrid}" Background="Lavender" BorderThickness="1" BorderBrush="Black" Margin="594,74,31,102">
+            <StackPanel Margin="10">
+                <TextBlock Text="Product details" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" Margin="10"/>
+                <TextBlock Text="Title"/>
+                <TextBox Text="{Binding Title, Mode=TwoWay}"/>
+                <TextBlock Text="Price"/>
+                <TextBox Text="{Binding Price, Mode=TwoWay}"/>
+                <TextBlock Text="Color"/>
+                <TextBox Text="{Binding Color, Mode=TwoWay}"/>
+                <Border Background="{Binding Color}" Height="10"/>
+                <TextBlock Text="Reference"/>
+                <TextBox Text="{Binding Reference, Mode=TwoWay}"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>
+
+==> source/repos/CurrencyConverter/CurrencyConverter/App.xaml <==
+﻿<Application x:Class="CurrencyConverter.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:CurrencyConverter"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+         
+    </Application.Resources>
+</Application>
+
+==> source/repos/CurrencyConverter/CurrencyConverter/MainWindow.xaml <==
+﻿<Window x:Class="CurrencyConverter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CurrencyConverter"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="250" Width="600" FontSize="18">
+    <Window.DataContext>
+        <local:CurrencyConverterViewModel/>
+    </Window.DataContext>
+    <Grid>
+        <TextBlock HorizontalAlignment="Left" Margin="29,34,0,0" Text="Amount in €" TextWrapping="Wrap" VerticalAlignment="Top" FontSize="24"/>
+        <TextBlock HorizontalAlignment="Left" Margin="29,0,0,0" Text="Amount in US $" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="24"/>
+        <TextBlock Text="{Binding _Dollars}" HorizontalAlignment="Left" Margin="209,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" RenderTransformOrigin="-0.12,0.526" FontSize="24" Width="353"/>
+        <TextBox Text="{Binding _Euros}" HorizontalAlignment="Left" Margin="209,34,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="353" TextBlock.FontSize="24"/>
+
+    </Grid>
+</Window>
+
+==> source/repos/CurrencyConverter2/CurrencyConverter2/App.xaml <==
+﻿<Application x:Class="CurrencyConverter2.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:CurrencyConverter2"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+         
+    </Application.Resources>
+</Application>
+
+==> source/repos/CurrencyConverter2/CurrencyConverter2/MainWindow.xaml <==
+﻿<Window x:Class="CurrencyConverter2.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CurrencyConverter2"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Window.DataContext>
+        <local:CurrencyConverterViewModel/>
+    </Window.DataContext>
+    <Grid>
+        <TextBlock HorizontalAlignment="Left" Margin="40,90,0,0" Text="Currency" TextWrapping="Wrap" VerticalAlignment="Top" Height="74" Width="163" FontSize="36"/>
+        <TextBlock HorizontalAlignment="Left" Height="71" Margin="40,178,0,0" Text="Amount in €" TextWrapping="Wrap" VerticalAlignment="Top" Width="311" FontSize="36"/>
+        <TextBlock HorizontalAlignment="Left" Height="63" Margin="40,284,0,0" Text="Amount in" TextWrapping="Wrap" VerticalAlignment="Top" Width="366" FontSize="36" RenderTransformOrigin="0.5,0.5">
+            <TextBlock.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform AngleY="0.265"/>
+                    <RotateTransform/>
+                    <TranslateTransform Y="0.626"/>
+                </TransformGroup>
+            </TextBlock.RenderTransform>
+        </TextBlock>
+        <ComboBox HorizontalAlignment="Left" Margin="443,90,0,0" VerticalAlignment="Top" Width="319" Height="59" FontSize="36" SelectedItem="{Binding _SelectedCurrency}" ItemsSource="{Binding _Currencies}">
+            <ComboBox.ItemTemplate>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                <DataTemplate>
+                    <TextBlock Text="{Binding _Title}"/>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBox HorizontalAlignment="Left" Margin="443,178,0,0" Text="{Binding _Euros}" TextWrapping="Wrap" VerticalAlignment="Top" Width="319" Height="59" FontSize="36"/>
+        <TextBlock HorizontalAlignment="Left" Margin="443,285,0,0" Text="{Binding _ResultText}" TextWrapping="Wrap" VerticalAlignment="Top" FontSize="36" Width="319"/>
+    </Grid>
+</Window>
+
+==> source/repos/HelloWPF/HelloWPF/App.xaml <==
+﻿<Application x:Class="HelloWPF.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:HelloWPF"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+         
+    </Application.Resources>
+</Application>
+
+==> source/repos/HelloWPF/HelloWPF/MainWindow.xaml <==
+﻿<Window x:Class="HelloWPF.MainWindow"
+        xmlns="http://schemas.microsoft.c         2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:HelloWPF"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Button Content="Say Hello" HorizontalAlignment="Left" Margin="338,163,0,0" VerticalAlignment="Top" Click="Button_Click"/>
+        <TextBox x:Name="textBoxNew" HorizontalAlignment="Left" Margin="305,120,0,0" Text="TextBox" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+
+    </Grid>
+</Window>
+
+==> source/repos/Training_Videos/Training_Videos/App.xaml <==
+﻿<Application x:Class="Training_Videos.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Training_Videos"
+             xmlns:converters="clr-namespace:Training_Videos.Converters"
+             xmlns:componentModel="clr-namespace:System.ComponentModel;assembly=System.ComponentModel.TypeConverter"
+             xmlns:model="clr-namespace:Training_Videos.Model"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <DataTemplate x:Key="vehicleTemplate" DataType="model:IVehicle">
+            <StackPanel Orientation="Horizontal">
+                <Label Content="Make: "/>
+                <Label Content="{Binding Make}" FontWeight="Bold"/>
+                <Label Content="Model: "/>
+                <Label Content="{Binding Model}" FontWeight="Bold"/>
+                <Label Content="Wheels: "/>
+                <Label Content="{Binding NumberOfWheels}" FontWeight="Bold"/>
+                <Button Content="See Info"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="planeTemplate" DataType="model:IPlane">
+            <StackPanel Orientation="Horizontal">
+                <Label Content="Make: "/>
+                <Label Content="{Binding Make}" FontWeight="Bold"/>
+                <Label Content="Model: "/>
+                <Label Content="{Binding Model}" FontWeight="Bold"/>
+                <Label Content="Wheels: "/>
+                <Label Content="{Binding NumberOfWheels}" FontWeight="Bold"/>
+                <Label Content="Wings: "/>
+                <Label Content="{Binding numberOfWings}" FontWeight="Bold"/>
+                <Button Content="See Info"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="boatTemplate" DataType="model:IBoat">
+            <StackPanel Orientation="Horizontal">
+                <Label Content="Make: "/>
+                <Label Content="{Binding Make}" FontWeight="Bold"/>
+                <Label Content="Model: "/>
+                <Label Content="{Binding Model}" FontWeight="Bold"/>
+                <Label Content="Wheels: "/>
+                <Label Content="{Binding NumberOfWheels}" FontWeight="Bold"/>
+                <Label Content="Mast: "/>
+                <Label Content="{Binding HasMast}" FontWeight="Bold"/>
+                <Button Content="See Info"/>
+            </StackPanel>
+        </DataTemplate>
+        <converters:DoubleRoundingConverter x:Key="DoubleRoundingConverter"/>
+        <converters:DoubleToPostfixedStringConverter x:Key="DoubleToPostfixedStringConverter"/>
+        <converters:MultipleBooleanToSingleBooleanAndConverter x:Key="MultipleBooleanToSingleBooleanAndConverter"></converters:MultipleBooleanToSingleBooleanAndConverter>
+    </Application.Resources>
+</Application>
+
+==> source/repos/Training_Videos/Training_Videos/MainWindow.xaml <==
+﻿<Window x:Class="Training_Videos.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Training_Videos"
+        xmlns:views="clr-namespace:Training_Videos.Views"
+        xmlns:viewModels="clr-namespace:Training_Videos.ViewModels"
+        mc:Ignorable="d"
+        Title="MainWindow" Name="TestWindow" Height="900" Width="1150" 
+        DataContext="{Binding RelativeSource={RelativeSource Self}}">
+        <!--<Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <RoutedCommand x:Key="SayHelloCommand"/>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="Blue"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style x:Key="ButtonStyle" TargetType="Button">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Red">
+            </Setter>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="FontSize" Value="35"/>
+                    <Setter Property="FontStyle" Value="Italic"/>
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsPressed" Value="True"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                    </MultiTrigger.Conditions>
+                    <MultiTrigger.Setters>
+                        <Setter Property="FontSize" Value="40"/>
+                    </MultiTrigger.Setters>
+                </MultiTrigger>
+                <DataTrigger Binding="{Binding ElementName=newButton, Path=Content, UpdateSourceTrigger=PropertyChanged}" Value="Stan">
+                    <Setter Property="FontSize" Value="50"></Setter>
+                </DataTrigger>
+                <Trigger Property="Content" Value="Fonz">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <Storyboard.Children>
+                                    <DoubleAnimation 
+                                        Storyboard.TargetProperty="FontSize" 
+                                        From="18" To="50" 
+                                        Duration="0:0:10"
+                                        BeginTime="0:0:1"
+                                        AutoReverse="True">
+                                        <DoubleAnimation.EasingFunction>
+                                            <ElasticEase Oscillations="5" Springiness="5"/>
+                                        </DoubleAnimation.EasingFunction>
+                                    </DoubleAnimation>
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" 
+                                                     To="0" BeginTime="0:0:1" Duration="0:0:2.5"
+                                                     AutoReverse="True"
+                                                     RepeatBehavior="Forever"/>
+                                    <ColorAnimation 
+                                        Storyboard.TargetProperty="Background.Color" 
+                                        To="Blue" BeginTime="0:0:0"
+                                        Duration="0:0:0.5"
+                                        AutoReverse="True"
+                                        RepeatBehavior="Forever"/>
+                                </Storyboard.Children>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                </Trigger>-->
+                <!-- Overwhelms the former Databinding trigger -->
+                <!--<EventTrigger RoutedEvent="MouseLeave">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <Storyboard.Children>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                To="0" BeginTime="0:0:0"
+                                                Duration="0:0:1" AutoReverse="True"></DoubleAnimation>
+                                <DoubleAnimationUsingKeyFrames Storyboard.TargetProperty="FontSize" 
+                                                                   BeginTime="0:0:0" Duration="0:0:10">
+                                        <DoubleAnimationUsingKeyFrames.KeyFrames>
+                                            <DiscreteDoubleKeyFrame KeyTime="0:0:2" Value="31"/>
+                                            <DiscreteDoubleKeyFrame KeyTime="0:0:4" Value="27" />
+                                            <DiscreteDoubleKeyFrame KeyTime="0:0:6" Value="23"/>
+                                            <DiscreteDoubleKeyFrame KeyTime="0:0:8" Value="19"/>
+                                            <DiscreteDoubleKeyFrame KeyTime="0:0:10" Value="15"/>
+                                        </DoubleAnimationUsingKeyFrames.KeyFrames>
+                                    </DoubleAnimationUsingKeyFrames>
+                            </Storyboard.Children>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="DerivedButtonStyle" TargetType="Button" BasedOn="{StaticResource ButtonStyle}">
+            <Setter Property="Background" Value="Blue"/>
+        </Style>
+    </Window.Resources>
+    <Window.CommandBindings>
+        <CommandBinding x:Name="SayHelloCommandBinding" Command="{StaticResource SayHelloCommand}" CanExecute="SayHelloCommandBinding_OnCanExecute" Executed="SayHelloCommandBinding_OnExecuted"/>
+    </Window.CommandBindings>
+    <Window.InputBindings>
+        <KeyBinding Command="{StaticResource SayHelloCommand}" Key="H" Modifiers="Control"/>
+        <KeyBinding Command="{StaticResource SayHelloCommand}" Gesture="Alt+Shift+H"/>
+    </Window.InputBindings>
+    <StackPanel Orientation="Vertical">
+        <Canvas Width="500" Height="300" Background="AliceBlue">
+            <Rectangle Width="50" Height="50" Fill="Black" Name="newRect"></Rectangle>
+        </Canvas>-->
+        <!--Below: Attached property is bound using round braces i.e. Rectangle inherits Canvas.Left, from Canvas as an attached property -->
+        <!--<Slider Margin ="0,10,0,10" Minimum="0" Maximum ="450" Value="{Binding ElementName=newRect, Path=(Canvas.Left), Mode=TwoWay}"></Slider>
+        <TextBox Grid.Column="0" Text="{Binding ElementName=TestWindow, Path=Width, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+        <Slider x:Name="newSlider" Grid.Column="1" Value="{Binding ElementName=TestWindow, Path=Width, Mode=TwoWay, UpdateSourceTrigger=Explicit}" Minimum="100" Maximum="1500"/>
+
+        <TextBox Text="{Binding ElementName=TestWindow, Path=Height, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+        <Slider SmallChange="1" LargeChange="10"  Value="{Binding ElementName=TestWindow, Path=Height, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Minimum="100" Maximum="1500"/>
+        <CheckBox/>
+        <Slider Foreground="Black" Minimum="1" Maximum="50" TickFrequency="1" TickPlacement="BottomRight" >
+            <Slider.Value>
+                <Binding RelativeSource="{RelativeSource Self}" Path="TickFrequency" Mode="TwoWay"/>
+            </Slider.Value>
+        </Slider>
+        <Button Style="{StaticResource DerivedButtonStyle}" Content="Update" Margin="10,30,10,0" Click="Button_Click"/>
+        <TextBox Name="textBox1" Text="{Binding ElementName=Slider1, Path=Value, Converter={StaticResource DoubleRoundingConverter}}" Margin="0,30,0,0"></TextBox>
+        <Slider Name="Slider1" SmallChange="0.001" LargeChange="0.2"  Margin="0,5,0,0" Minimum="0" Maximum="1" IsSnapToTickEnabled="True" TickFrequency="0.1" TickPlacement="BottomRight"></Slider>
+        <TextBox Text="{Binding ElementName=textBox1, Path=Text, Converter={StaticResource DoubleToPostfixedStringConverter}, ConverterParameter=s}" Margin="0,5,0,0"></TextBox>
+        <StackPanel Orientation="Horizontal" Margin="0,15,0,0">
+            <CheckBox Content="Checkbox A" Foreground="Blue"  Name="A" Margin="15,0,0,0"/>
+            <CheckBox Content="Checkbox B" Background="LightBlue" Name="B" Margin="15,0,0,0"/>
+            <CheckBox Content="Checkbox C" VerticalContentAlignment="Center" Name="C" 
+                      IsEnabled="False" Margin="15,0,0,0" Foreground="Red">
+                <CheckBox.IsChecked>
+                    <MultiBinding Converter="{StaticResource MultipleBooleanToSingleBooleanAndConverter}">
+                        <MultiBinding.Bindings>
+                            <Binding ElementName="A" Path="IsChecked" Mode="OneWay"></Binding>
+                            <Binding ElementName="B" Path="IsChecked" Mode="OneWay"></Binding>
+                        </MultiBinding.Bindings>
+                    </MultiBinding>
+                </CheckBox.IsChecked>
+                <CheckBox.Template>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border BorderThickness="2" Focusable="True"  
+                                    BorderBrush="{TemplateBinding Foreground}" Width="50" Height="50">
+                                <Path Data="M8,25 l12,12 l22,-32" Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="8" Name="NewTick" Visibility="Hidden"/>
+                            </Border>
+                            <Label Content="{TemplateBinding Content}"
+                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                   Grid.Column="1" Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Value="True" 
+                                         Binding="{Binding ElementName=C, Path=IsChecked}">
+                                <Setter TargetName="NewTick" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                            <DataTrigger Value="False" 
+                                         Binding="{Binding ElementName=C, Path=IsChecked}">
+                                <Setter TargetName="NewTick" Property="Visibility" Value="Hidden"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </CheckBox.Template>
+            </CheckBox>
+            <CheckBox Content="Checkbox D" VerticalContentAlignment="Center"
+                      Margin="15,0,0,0" Foreground="Blue">
+                <CheckBox.Template>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Path Data="M8,25 l12,12 l22,-32" Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="8" Name="ThisTick" Focusable="True"
+                                      Visibility="{TemplateBinding IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            <Label Content="{TemplateBinding Content}"
+                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                   Grid.Column="1" Foreground="{TemplateBinding Foreground}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </CheckBox.Template>
+            </CheckBox>
+        </StackPanel>
+        <Button Content="newButton" Command="{StaticResource SayHelloCommand}" CommandParameter="world!"/>
+        <Label Name="newLabel" Margin="0,15,0,0">
+
+        </Label>
+        <TextBox x:Name="Newtext" Margin="0,10,0,0">
+            <TextBox.CommandBindings>
+                <CommandBinding Command="Paste" x:Name="PasteIntoLabelCommandBindingExecuted" Executed="PasteIntoLabelCommandBindingExecuted_OnExecuted"></CommandBinding>
+            </TextBox.CommandBindings>
+            <TextBox.InputBindings>
+                <KeyBinding Command="Paste" Key="L" Modifiers="Control"></KeyBinding>
+            </TextBox.InputBindings>
+        </TextBox>
+        <Button Content="Switch message" Margin="0,10,0,0"
+                DataContext="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=local:MainWindow}}"  
+                Command="{Binding NewHelloCommand}"
+                CommandParameter="{Binding}"
+                />
+        <Button x:Name="newButton" Content="{Binding Text, ElementName=Newtext, UpdateSourceTrigger=PropertyChanged}" 
+                Margin="0,10,0,0" 
+                Command="{Binding NewHelloCommand}"
+                CommandParameter="{Binding Text, ElementName=Newtext, UpdateSourceTrigger=PropertyChanged}"
+                Style="{StaticResource ButtonStyle}"
+                />
+    </StackPanel>-->
+    <!-- Syntax for a control
+    <views:MainView>
+        <views:MainView.ViewModel>
+            <viewModels:MainViewModel/>
+        </views:MainView.ViewModel>
+    </views:MainView>-->
+    <Grid>
+        <Frame Source="/Views//MainView.xaml"/>
+    </Grid>
+</Window>
+    
+    
+
+==> source/repos/Training_Videos/Training_Videos/Views/MainView.xaml <==
+﻿<Page x:Class="Training_Videos.Views.MainView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:Training_Videos.Views"
+      xmlns:designViewModels="clr-namespace:Training_Videos.DesignViewModels"
+      xmlns:model="clr-namespace:Training_Videos.Model"
+      xmlns:templateSelector="clr-namespace:Training_Videos.TemplateSelector"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="MainView" d:DataContext="{d:DesignInstance d:IsDesignTimeCreatable=True, Type={x:Type designViewModels:MainDesignViewModel}}">
+    <Page.Resources>
+        <templateSelector:VehicleTemplateSelector x:Key="VehicleTemplateSelector"></templateSelector:VehicleTemplateSelector>
+    </Page.Resources>
+    <Grid>
+        <!--<Label DataContext="" Content="{Binding Path=Map.Name, Mode=OneWay}"></L abel>-->
+        <ListBox ItemsSource="{Binding vehicles}" ItemTemplateSelector="{StaticResource VehicleTemplateSelector}"/>
+    </Grid>
+</Page>
+
+==> source/repos/WpfAppBinding/WpfAppBinding/App.xaml <==
+﻿<Application x:Class="WpfAppBinding.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:WpfAppBinding"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+    </Application.Resources>
+</Application>
+
+==> source/repos/WpfAppBinding/WpfAppBinding/MainWindow.xaml <==
+﻿<Window x:Class="WpfAppBinding.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WpfAppBinding"
+        xmlns:new="clr-namespace:System;assembly=mscorlib" xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="600" Width="1080"
+        Background="{Binding Text, ElementName=color}">
+    <Window.Resources>
+        <sys:String x:Key="emailRegex">
+            ^[a-zA-Z][\w\.-]*[a-zA-Z0-9]@[a-zA-Z0-9][\w\.-]*a-zA-Z0-9]\.[a-zA-Z][a-zA-Z\.]*[a-zA-Z]$
+        </sys:String>
+        <local:BoolToStringConverter x:Key="bool2String"/>
+        <local:Classroom x:Key="Students"/>           
+        <ObjectDataProvider x:Key="alignments" MethodName="GetNames" ObjectType="{x:Type new:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="VerticalAlignment" />
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+        <Style x:Key="myStyle" TargetType="Button">
+            <Setter Property="Background" Value="Orange"/>
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Padding" Value="3,4"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+        <Style x:Key="boldStyle" TargetType="Button" BasedOn="{StaticResource myStyle}">
+            <Setter Property="FontWeight" Value="ExtraBold"/>
+        </Style>
+        <Style x:Key="DialogButtonStyle" TargetType="Button">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="LightGreen"/>
+                </Trigger>
+            </Style.Triggers>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Grid>
+                            <Ellipse Fill="{TemplateBinding Background}"
+                                     Stroke="{TemplateBinding BorderBrush}"/>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                        </Grid> 
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="EmailError" TargetType="TextBox">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=Validation.HasError}" Value="True">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate x:Name="EmailBoxError" TargetType="Control">
+                                <Grid ClipToBounds="False">
+                                    <Image HorizontalAlignment="Right" VerticalAlignment="Top" Width="16" Height="16"
+                    Margin="0,-8,-8,0" 
+                    ToolTip="{Binding ElementName=adornedElement, 
+                            Path=AdornedElement.(Validation.Errors),
+                            Converter={local:ValidationErrorsToStringConverter}}"/>
+                                    <Border BorderBrush="Red" BorderThickness="1" Margin="-1">
+                                        <AdornedElementPlaceholder Name="adornedElement" />
+                                    </Border>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="styleWithTrigger" TargetType="Rectangle">
+            <Setter Property="Fill" Value="LightGray" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Fill" Value="Green"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="niceButton" TargetType="Button">
+            <Setter Property="Width" Value="50"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush>
+                        <GradientStop Color="Red" Offset="0"/>
+                        <GradientStop Color="Yellow" Offset="1"/>
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid RenderTransformOrigin="0.392,0.436">
+        <TextBox x:Name="txtInput" HorizontalAlignment="Left" Margin="654,309,0,0" Text="'ello&#xD;&#xA;" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <Label Content="{Binding Text, ElementName=txtInput, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" Height="42" Margin="664,343,0,0" VerticalAlignment="Top" Width="72" RenderTransformOrigin="0.229,-0.293"/>
+        <StackPanel Margin="58,41,10,165">
+            <StackPanel.Resources>
+                <BooleanToVisibilityConverter x:Key="bool2Vis"/>
+            </StackPanel.Resources>
+            <CheckBox x:Name="chkShowDetails" Content="Show details"/>
+            <StackPanel x:Name="detailsPanel"  Visibility="{Binding IsChecked, Converter={StaticResource bool2Vis}, ElementName=chkShowDetails}" HorizontalAlignment="Left" Height="42" Margin="536,120,0,0" VerticalAlignment="Top" Width="72" RenderTransformOrigin="0.229,-0.293">
+                <Label Content="Hey yo" RenderTransformOrigin="-3.622,-3.467"/>
+            </StackPanel>
+        </StackPanel>
+        <Label Content="{Binding IsChecked, Converter={StaticResource bool2String}, ElementName=chkShowDetails}" HorizontalAlignment="Left" Margin="87,248,0,0" VerticalAlignment="Top" Height="42" Width="138"/>
+        <ComboBox ItemsSource="{Binding Source={StaticResource alignments}}" HorizontalAlignment="Left" Margin="87,274,0,0" VerticalAlignment="Top" Width="120"/>
+        <Button Content="Unstyled Button" HorizontalAlignment="Left" Margin="89,358,0,0" VerticalAlignment="Top"/>
+        <Button Style="{StaticResource myStyle}" Content="Styled Button 1" HorizontalAlignment="Left" Margin="184,355,0,0" VerticalAlignment="Top"/>
+        <Button Style="{StaticResource boldStyle}" Content="Styled Button 2" HorizontalAlignment="Left" Margin="281,355,0,0" VerticalAlignment="Top"/>
+        <Rectangle Style="{StaticResource styleWithTrigger}" HorizontalAlignment="Left" Height="23" Margin="400,355,0,0" Stroke="Black" VerticalAlignment="Top" Width="100"/>
+        <Button Style="{StaticResource DialogButtonStyle}" Content="Button" HorizontalAlignment="Left" Margin="515,355,0,0" VerticalAlignment="Top" Height="23" Width="54"/>
+        <TextBox x:Name="txtEMail" Style="{StaticResource EmailError}" HorizontalAlignment="Left" Margin="398,309,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="142" Height="34" xml:space="preserve">knkn  n;kn</TextBox>
+        <TextBox x:Name="color" Background="{Binding Text}" HorizontalAlignment="Left" Margin="89,401,0,0" Text="White" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <ListBox ItemsSource="{Binding Students}" Margin="74,438,168,10">
+            <TextBlock Text="{Binding _names}" />
+        </ListBox>
+        <Button Style="{StaticResource niceButton}" Content="Button" HorizontalAlignment="Left" Margin="969,438,0,0" VerticalAlignment="Top"/>
+    </Grid>
+</Window>
