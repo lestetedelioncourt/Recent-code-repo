@@ -15185,3 +15185,1554 @@ int main(){
     return 0;
 }
 	
+==> newDiscreteConvolution.c <==
+#include "cpimgmodules.h"
+
+struct Mask{
+    int Rows;
+    int Cols;
+    unsigned char *Data;
+};
+
+void Convolve(int imgRows, int imgCols, struct Mask *myMask, unsigned char *input_buf, unsigned char *output_buf);
+
+int main(){
+    const char imgName[] = "ecoli.bmp";
+    const char newImgName[] = "ecoli-laplace.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+    struct Mask lpMask; //laplacian mask
+    signed char *tmp;
+    int i;
+
+    lpMask.Cols = lpMask.Rows = 5;
+    lpMask.Data = (unsigned char *)malloc(25 * sizeof(unsigned char));
+
+    tmp = (signed char*)lpMask.Data;
+    //laplacian mask
+    for (i = 0; i < 25; i++){
+                *tmp = (i == 12) ? 24 : -1;
+                ++tmp;
+    }
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+    Convolve(imgRows, imgCols, &lpMask, imgBuffer, imgBuffer2);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+        printf("Success!\n");
+
+    return 0;
+}
+
+//2D discrete convolution algorithm
+void Convolve(int imgRows, int imgCols, struct Mask *myMask, unsigned char *input_buf, unsigned char *output_buf){
+    long i, j, m, n, idx, jdx;
+    int ms, im, val;
+    unsigned char *temp;
+
+    for (i=0; i < imgRows; i++){
+        for (j=0; j < imgCols; j++){
+                    val = 0;
+                    for (m = 0; m < myMask->Rows; m++){
+                                for (n=0; n < myMask->Cols; n++){
+                                    ms = (signed char)*(myMask->Data + m*myMask->Rows + n);
+                                    idx = i-m;
+                                    jdx = j-n;
+                                    if (idx >= 0 && jdx >= 0){
+                                                im = *(input_buf + (idx *imgRows) + jdx);
+                                    }
+                                    val += ms*im;
+                                }
+                    }
+                        val = (val > 255) ? 255 : val;
+                val = (val < 0) ? 0 : val;
+                        temp = output_buf + (i*imgRows) + j;
+                        *temp = (unsigned char)val;
+        }
+    }
+}
+
+==> blur2bw.c <==
+#include "cpimgmodules.h"
+#include <malloc.h>
+
+//uses blur kernel filter
+int main(){
+    FILE * fIn = fopen("bsub_disk013_8bitgrayscale.bmp", "rb");
+    FILE *fOut = fopen("bsub_disk013_8bitgrayscaleblur.bmp", "wb");
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+
+    for (int i = 0; i < 54; i++){
+        imgHeader[i] = getc(fIn);
+    }
+
+    imgCols = *(int*)&imgHeader[18];
+    imgRows = *(int*)&imgHeader[22];
+    imgBitDepth = *(int*)&imgHeader[28];
+
+    unsigned char* buffer = (unsigned char*)malloc(imgCols * imgRows + 54 + 1024);
+    unsigned char* output_buffer = (unsigned char*)malloc(imgCols * imgRows + 54 + 1024);
+    //unsigned char output_buffer[imgCols * imgRows];
+
+    fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+
+  //  if (imgBitDepth <= 8){
+        fread(imgColorTable, sizeof(unsigned char), 1024, fIn);
+        fwrite(imgColorTable, sizeof(unsigned char), 1024, fOut);
+    //}
+
+    //fread(buffer, sizeof(unsigned char), imgCols * imgRows * 3, fIn);
+    for (int x = 0; x < imgRows * imgCols; x++) {
+                buffer[x] = getc(fIn);
+    }
+
+
+    float v = 1.0 /25.0;
+    float kernel[5][5];
+    for (int i = 0; i< 5; i++){
+                for (int j = 0; j < 5; j++){
+                    kernel[i][j] = v;
+            }
+        }
+
+    for (int x = 1; x < imgRows; x++){
+                for (int y = 1; y < imgCols; y++){
+                    float sum0 = 0.0;
+                    for (int i = -1; i <= 4; i++){
+                                for (int j = -1; j <= 4; j++){
+                                    sum0 = sum0 + (float)kernel[i+1][j+1] * (float)(*(buffer + (i+x)*imgCols+j+y));
+                                }
+                        }
+                    *(output_buffer + (x) * imgCols + (y)) = (unsigned char)((int)sum0);
+                   //printf("%f %f %f\n", sum0, sum1, sum2);
+                   //printf("%d %d %d\n", output_buffer[(x) * imgCols + (y)][0], output_buffer[(x) * imgCols + (y)][1], output_buffer[(x) * imgCols + (y)][2]);
+            }
+        }
+
+    for (int i = 0; i < imgCols * imgRows; i++){
+        putc(*(output_buffer + i), fOut);
+    }
+
+    fclose(fIn);
+    fclose(fOut);
+    return 0;
+}
+
+==> RobertsCrossEdgeDetector.c <==
+#include "cpimgmodules.h"
+
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3]);
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows);
+
+int main(){
+    const char imgName[] = "lena512.bmp";
+    const char newImgName[] = "lena_conv.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+        //unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+        unsigned char rbMask_gx[2][2] = {{1,0},
+                                                                 {0,-1}};
+
+        unsigned char rbMask_gy[2][2] = {{0,1},
+                                                                        {-1,0}};
+
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows, rbMask_gx);
+    //contrast(imgBuffer2,imgCols,imgRows);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+        printf("Success!\n");
+
+    return 0;
+}
+
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][2])
+{
+    int x, y, i, j, sum;
+
+    for (y = 0; y < imgRows; y++){
+                for (x=0; x < imgCols; x++){
+                    sum=0;
+                    for(i = -1; i <= 0; i++){
+                                for(j=-1;j <= 0; j++){
+                                    sum = sum + *(_inputImgData+x+i+(long)((y+j)*imgCols))*MASK[i+1][j+1];
+                                }
+                    }
+                    sum = (sum > 255) ? 255 : sum;
+                    sum = (sum < 0) ? 0 : sum;
+                        if ((_outputImgData + x + (long)(y*imgCols)) != NULL) {
+                                if (sum > *(_outputImgData + x + (long)(y*imgCols))) {
+                                *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                                }
+                        }
+                        else {
+                        *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                        }
+                }
+    }
+}
+
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows)
+{
+    int x, y, i, j, sum;
+
+    for (y = 1; y < imgRows -1; y++){
+                for (x=1; x < imgCols -1; x++){
+                        if (*(_outputImgData + x + (long)(y*imgCols)) > 89) {
+                        *(_outputImgData + x + (long)(y*imgCols)) = 255;
+                        }
+                        else {
+                        *(_outputImgData + x + (long)(y*imgCols)) = 0;
+                        }
+                }
+    }
+}
+
+==> SaltAndPepper.c <==
+#include "cpimgmodules.h"
+
+void salt_pepper(unsigned char* _inputImgData, int imgCols, int imgRows, float prob);
+
+int main(){
+    const char imgName[] = "lena512.bmp";
+    const char newImgName[] = "lena_saltnp3.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+        salt_pepper(imgBuffer, imgCols, imgRows, 0.6);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth, imgCols * imgRows);
+
+        printf("Succcess!");
+        return 0;
+}
+
+void salt_pepper(unsigned char* _inputImgData, int imgCols, int imgRows, float prob)
+{
+        int x, y, data, data1, data2;
+        data = (float)(16384 * prob);
+        data1 = data + 16384;
+        data2 = 16384 - data;
+
+        for (y = 0; y < imgRows; y++)
+        {
+                for (x = 0; x < imgCols; x++)
+                {
+                        data = rand() % 32768;
+                        if (data >= 16384 && data < data1)
+                        {
+                                *(_inputImgData + x +(long)(y*imgRows)) = 0;
+                        }
+                        if (data >= data2 && data < 16384)
+                        {
+                                *(_inputImgData + x +(long)(y*imgRows)) = 255;
+                        }
+                }
+        }
+}
+
+==> AccidentalBrighten.c <==
+#include "cpimgmodules.h"
+
+void convolve(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3]);
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows);
+
+int main(){
+    const char imgName[] = "zelda.bmp";
+    const char newImgName[] = "zelda_highpass.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+        //unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+        int highpassMask[3][3] = {{-1,-1,-1},
+                                                         {-1,5,-1},
+                                                         {-1,-1,-1}};
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+    convolve(imgBuffer,imgBuffer2,imgCols,imgRows, highpassMask);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, CUSTOM_IMG_SIZE);
+        printf("Success!\n");
+
+    return 0;
+}
+
+void convolve(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3])
+{
+    int x, y, i, j, sum;
+
+    for (y = 0; y < imgRows; y++){
+                for (x=0; x < imgCols; x++){
+                    sum=0;
+                    for(i = -1; i <= 1; i++){
+                                for(j=-1;j <= 1; j++){
+                                    sum += *(_inputImgData+x+i+(long)((y+j)*imgCols))*MASK[i+1][j+1];
+                                }
+                    }
+                    sum = (sum > 255) ? 255 : sum;
+                    sum = (sum < 0) ? 0 : sum;
+                *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                }
+    }
+}
+
+==> HighPassFilter.c <==
+#include "cpimgmodules.h"
+
+void convolve(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3]);
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows);
+
+int main(){
+    const char imgName[] = "cropped001_8bitgrayscale.bmp";
+    const char newImgName[] = "cropped001_highpass.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+        //unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+        int highpassMask[3][3] = {{-1,-1,-1},
+                                                         {-1,9,-1},
+                                                         {-1,-1,-1}};
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+    convolve(imgBuffer,imgBuffer2,imgCols,imgRows, highpassMask);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, CUSTOM_IMG_SIZE);
+        printf("Success!\n");
+
+    return 0;
+}
+
+void convolve(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3])
+{
+    int x, y, i, j, sum;
+
+    for (y = 0; y < imgRows; y++){
+                for (x=0; x < imgCols; x++){
+                    sum=0;
+                    for(i = -1; i <= 1; i++){
+                                for(j=-1;j <= 1; j++){
+                                    sum += *(_inputImgData+x+i+(long)((y+j)*imgCols))*MASK[i+1][j+1];
+                                }
+                    }
+                        if (y == 5)
+                                printf("sum: %d\n", sum);
+                    sum = (sum > 255) ? 255 : sum;
+                    sum = (sum < 0) ? 0 : sum;
+                *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                }
+    }
+}
+
+==> Maximum_Filter.c <==
+#include "cpimgmodules.h"
+
+void maxFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf);
+
+int main() {
+    const char imgName[] = "lena512.bmp";
+    const char newImgName[] = "lena_maxfilter1.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+        maxFilter(imgRows, imgCols, imgBuffer, imgBuffer2);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+
+        return 0;
+}
+
+void maxFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf)
+{
+        int x, y, imax, i, j, n, a[11][11];
+        n = 5;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        imax = 0;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = n/2; i <= n/2; i++)
+                                {
+                                        a[i + n/2][j + n/2] = *(input_buf + x + i + (long)((y+j) * imgRows));
+                                }
+                        }
+                        for (j=0; j < n; j++)
+                        {
+                                for(i = 0; i < n; i++)
+                                {
+                                        imax = (a[i][j] > imax) ? a[i][j] : imax;
+                                }
+                        }
+                        imax = (imax > 255) ? 255: imax;
+                        imax = (imax < 0) ? 0 : imax;
+                        *(output_buf + x + (long)(y * imgCols)) = imax;
+                }
+        }
+}
+
+
+==> DiscreteConvolution.c <==
+#include "cpimgmodules.h"
+
+struct Mask{
+    int Rows;
+    int Cols;
+    unsigned char *Data;
+};
+
+void Convolve(int imgRows, int imgCols, struct Mask *myMask, unsigned char *input_buf, unsigned char *output_buf);
+
+int main(){
+    const char imgName[] = "ecoli_8bitgrayscale.bmp";
+    const char newImgName[] = "ecoli_laplace.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+    struct Mask lpMask; //laplacian mask
+    signed char *tmp;
+    int i;
+
+    lpMask.Cols = lpMask.Rows = 5;
+    lpMask.Data = (unsigned char *)malloc(25 * sizeof(unsigned char));
+
+    tmp = (signed char*)lpMask.Data;
+    //laplacian mask
+    for (i = 0; i < 25; i++){
+                *tmp = (i == 12) ? 24 : -1;
+                ++tmp;
+    }
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+    Convolve(imgRows, imgCols, &lpMask, imgBuffer, imgBuffer2);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+        printf("Success!\n");
+
+    return 0;
+}
+
+//2D discrete convolution algorithm
+void Convolve(int imgRows, int imgCols, struct Mask *myMask, unsigned char *input_buf, unsigned char *output_buf){
+    long i, j, m, n, idx, jdx;
+    int ms, im, val;
+    unsigned char *temp;
+
+    for (i=0; i < imgRows; i++){
+        for (j=0; j < imgCols; j++){
+                    val = 0;
+                    for (m = 0; m < myMask->Rows; m++){
+                                for (n=0; n < myMask->Cols; n++){
+                                    ms = (unsigned char)*(myMask->Data + m*myMask->Rows + n);
+                                    idx = i-m;
+                                    jdx = j-n;
+                                    if (idx >= 0 && jdx >= 0){
+                                                im = *(input_buf + (idx *imgRows) + jdx);
+                                    }
+                                    val += ms*im;
+                                }
+                    }
+                        val = (val > 255) ? 255 : val;
+                val = (val < 0) ? 0 : val;
+                        *(output_buf + (long)(i*imgRows) + j) = (unsigned char)val;
+        }
+    }
+}
+
+==> Median_Filter.c <==
+#include "cpimgmodules.h"
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf);
+
+int main() {
+    const char imgName[] = "cropped002_lines2.bmp";
+    const char newImgName[] = "cropped002_lines_median2.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+        medianFilter(imgRows, imgCols, imgBuffer, imgBuffer2);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+
+        return 0;
+}
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf)
+{
+        int x, y, current, i, j, n, pos, ar[121];
+        n = 5;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        pos = 0;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = -n/2; i <= n/2; i++)
+                                {
+                                        ar[pos] = *(input_buf + x + i + (long)((y + j) * imgRows));
+                                        pos++;
+                                }
+                        }
+                        for (j=1; j < (n * n) - 1; j++)
+                        {
+                                current = ar[j];
+                                i = j - 1;
+                                while (i >= 0 && ar[i] > current)
+                                {
+                                        ar[i+1] = ar[i];
+                                        i = i - 1;
+                                }
+                                ar[i+1] = current;
+                        }
+                        *(output_buf + x + (long)(y * imgCols)) = ar[(n * n/2) + n/2];
+                }
+        }
+}
+
+
+==> Minimum_Filter.c <==
+#include "cpimgmodules.h"
+
+void minFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf);
+
+int main(int argc, char* argv[]) {
+            const char* imgName = argv[1];
+            const char* newImgName = argv[2];
+            int imgCols, imgRows, imgBitDepth;
+            unsigned char imgHeader[BMP_HEADER_SIZE];
+            unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+            unsigned char* imgBuffer = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+            unsigned char* imgBuffer2 = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+            imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+                minFilter(imgRows, imgCols, imgBuffer, imgBuffer2);
+            imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+        return 0;
+}
+
+void minFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf)
+{
+        int x, y, imin, i, j, n, a[11][11];
+        n = 5;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        imin = 255;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = -n/2; i <= n/2; i++)
+                                {
+                                        a[i + n/2][j + n/2] = *(input_buf + x + i + (long)((y+j) * imgRows));
+                                }
+                        }
+                        for (j=0; j < n; j++)
+                        {
+                                for(i = 0; i < n; i++)
+                                {
+                                        imin = (a[i][j] < imin) ? a[i][j] : imin;
+                                }
+                        }
+                        if (y == 5) {
+                                printf("%4d", imin);
+                        }
+                        *(output_buf + x + (long)(y * imgCols)) = imin;
+                }
+        }
+}
+
+
+==> Posterise.c <==
+#include "cpimgmodules.h"
+
+void posterize(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows);
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows);
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf);
+void minFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf);
+void maxFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf);
+
+int main(int argc, char** argv){
+    const char* imgName = argv[1];
+    const char* newImgName = argv[2];
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer3 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer4 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+        //unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+    posterize(imgBuffer,imgBuffer2,imgCols,imgRows);
+        //medianFilter(imgRows, imgCols, imgBuffer3, imgBuffer4);
+        minFilter(imgRows, imgCols, imgBuffer2, imgBuffer3);
+        //maxFilter(imgRows, imgCols, imgBuffer, imgBuffer2);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer3, imgBitDepth, imgCols * imgRows);
+        printf("Success!\n");
+
+    return 0;
+}
+
+void posterize(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows)
+{
+    int x, y, i, j, sum;
+
+    for (y = 0; y < imgRows; y++){
+                for (x=0; x< imgCols; x++){
+                        if ((*(_inputImgData + x + (long)(y*imgRows)) > 111) && (*(_inputImgData + x + (long)(y*imgRows)) < 160)) {
+                                *(_outputImgData + x + (long)(y*imgRows)) = 128;
+                        }
+                        /*else if  (*(_inputImgData + x + (long)(y*imgCols)) < 120) {
+                                *(_outputImgData + x + (long)(y*imgCols)) = 100;
+                        }*/
+                        /*if ((*(_inputImgData + x + (long)(y*imgCols)) > 35) && (*(_inputImgData + x + (long)(y*imgCols)) < 80)) {
+                                *(_outputImgData + x + (long)(y*imgCols)) = 82;
+                        }*/
+                        else {
+                                *(_outputImgData + x + (long)(y*imgRows)) = 255;
+                        }
+                }
+    }
+}
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf)
+{
+        int x, y, current, i, j, n, pos, ar[121];
+        n = 11;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        pos = 0;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = -n/2; i <= n/2; i++)
+                                {
+                                        ar[pos] = *(input_buf + x + i + (long)((y + j) * imgRows));
+                                        pos++;
+                                }
+                        }
+                        for (j=1; j < (n * n) - 1; j++)
+                        {
+                                current = ar[j];
+                                i = j - 1;
+                                while (i >= 0 && ar[i] > current)
+                                {
+                                        ar[i+1] = ar[i];
+                                        i = i - 1;
+                                }
+                                ar[i+1] = current;
+                        }
+                        *(output_buf + x + (long)(y * imgRows)) = ar[(n * n/2) + n/2];
+                }
+        }
+}
+
+
+void minFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf)
+{
+        int x, y, imin, i, j, n, a[11][11];
+        n = 11;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        imin = 255;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = -n/2; i <= n/2; i++)
+                                {
+                                        a[i + n/2][j + n/2] = *(input_buf + x + i + (long)((y+j) * imgRows));
+                                }
+                        }
+                        for (j=0; j < n; j++)
+                        {
+                                for(i = 0; i < n; i++)
+                                {
+                                        imin = (a[i][j] < imin) ? a[i][j] : imin;
+                                }
+                        }
+                        *(output_buf + x + (long)(y * imgRows)) = imin;
+                }
+        }
+}
+
+void maxFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf)
+{
+        int x, y, imax, i, j, n, a[11][11];
+        n = 5;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        imax = 0;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = n/2; i <= n/2; i++)
+                                {
+                                        a[i + n/2][j + n/2] = *(input_buf + x + i + (long)((y+j) * imgRows));
+                                }
+                        }
+                        for (j=0; j < n; j++)
+                        {
+                                for(i = 0; i < n; i++)
+                                {
+                                        imax = (a[i][j] > imax) ? a[i][j] : imax;
+                                }
+                        }
+                        imax = (imax > 255) ? 255: imax;
+                        imax = (imax < 0) ? 0 : imax;
+                        *(output_buf + x + (long)(y * imgRows)) = imax;
+                }
+        }
+}
+
+
+==> computehistogram2.c <==
+#include "cpimgmodules.h"
+
+float IMG_HIST[255];
+
+void ImgHistogram(unsigned char *_imgData, int imgRows, int imgCols, float hist[]);
+
+void ImgHistogramEqualization(unsigned char *_inputImgData, unsigned char*_outputImgData, int imgRows, int imgCols);
+
+int main(){
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+   // unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+    const char imgName[] = "bsub_disk006_8bitgrayscale.bmp";
+    //const char newImgName[] = "ecoli004.bmp";
+
+    imageReader(imgName, &imgWidth, &imgHeight, &imgBitDepth, &imgHeader[0], &imgColorTable[0], &imgBuffer[0]);
+    ImgHistogram(imgBuffer,imgHeight,imgWidth, &IMG_HIST[0]);
+  //  ImgHistogramEqualization(&imgBuffer[0], &imgBuffer2[0], imgHeight, imgWidth);
+  //  ImgHistogramEqualization(&imgBuffer2[0], &imgBuffer2[0], imgHeight, imgWidth);
+   //imageWriterColor(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth,(imgWidth * imgHeight) );
+    //imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth,(imgWidth * imgHeight) );
+    return 0;
+}
+
+void ImgHistogram(unsigned char *_imgData, int imgRows, int imgCols, float hist[])
+{
+    FILE* fptr;
+    fptr = fopen("image_hist1.csv", "w");
+    int x, y, i, j;
+    long int ihist[255];
+    long int sum;
+
+    for(i=0; i<=255;i++)
+    {
+        ihist[i] = 0;
+    }
+
+    sum =0;
+    for (y=0; y <= imgRows; y++)
+    {
+                for (x=0; x < imgCols; x++){
+                    j = *(_imgData+x+y*imgCols);
+                    ihist[j] = ihist[j] + 1;
+                    sum = sum + 1;
+                }
+    }
+
+    for (i = 0; i < 255; i++)
+    {
+        hist[i] = (float)ihist[i]/(float)sum;
+    }
+
+    for (int i =0; i < 255; i++)
+    {
+        fprintf(fptr, "%f,",hist[i]);
+    }
+
+        fprintf(fptr, "\n");
+
+    for (int i =1; i <+ 255; i++)
+    {
+        fprintf(fptr, "%d,",i);
+        }
+
+    fclose(fptr);
+}
+/*
+void ImgHistogramEqualization(unsigned char *_inputImgData, unsigned char*_outputImgData, int imgRows, int imgCols)
+{
+    FILE* fptr;
+    fptr = fopen("eq_hist.txt", "w");
+    int x, y, i,j;
+    float sum;
+
+   float histeq[256];
+   float hist[256];
+
+   ImgHistogram(&_inputImgData[0], imgRows, imgCols, &hist[0]);
+
+   for (i = 0; i < 255; i++)
+   {
+        sum = 0.0;
+        for (j = 0; j <= i; j++)
+        {
+            sum = sum + hist[j];
+        }
+        histeq[i] = (int)(255*sum+0.5);
+   }
+
+    for (int i =0; i < 255; i++)
+    {
+        fprintf(fptr, "\n%f",histeq[i]);
+    }
+
+   fclose(fptr);
+   for  (y = 0; y < imgRows; y++)
+   {
+        for (x = 0; x < imgCols; x++)
+        {
+            *(_outputImgData+x+y*imgCols) = histeq[*(_inputImgData+x+y*imgCols)];
+        }
+   }
+}*/
+
+
+
+==> LineDetectorMask2.c <==
+#include "cpimgmodules.h"
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf, int size);
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3]);
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows);
+
+int main(int argc, char** argv){
+    const char* imgName = argv[1];
+    const char* newImgName = argv[2];
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer3 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer4 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+        //Linear line detector masks
+    int VER[3][3] = {{-1,2,-1},
+                                        {-1,2,-1},
+                                        {-1,2,-1}};
+
+    int HOR[3][3] = {{-1,-1,-1},
+                                        { 2, 2, 2},
+                                        {-1,-1,-1}};
+
+    int LDIA[3][3]=     {{2,-1,-1},
+                                        {-1,2,-1},
+                                        {-1,-1,2}};
+
+    int RDIA[3][3]=     {{-1,-1,2},
+                    {-1,2,-1},
+                    {2,-1,-1}};
+
+        //Prewitt operator masks
+
+    int PREVER[3][3] =  {{-1,0,1},
+                                                {-1,0,1},
+                                                {-1,0,1}};
+
+    int PREHOR[3][3]=   {{-1,-1,-1},
+                        {0,0,0},
+                        {1,1,1}};
+
+        //Sobel operator mask
+
+    int SOBVER[3][3] =  {{-1,0,1},
+                                                {-2,0,2},
+                                                {-1,0,1}};
+
+    int SOBHOR[3][3]=   {{-1,-2,-1},
+                        {0,0,0},
+                        {1,2,1}};
+
+        //Robinson operator direction mask
+    int ROBNO[3][3] = {{-1,0,1},
+                                                {-2,0,2},
+                                                {-1,0,1}};
+
+    int ROBNE[3][3] = {{-2,-1,0},
+                        {-1,0,1},
+                        {0,1,2}};
+
+    int ROBEA[3][3]=    {{-1,-2,-1},
+                                                {0,0,0},
+                                                {1,2,1}};
+
+    int ROBSE[3][3]=    {{0,-1,-2},
+                                {1,0,-1},
+                                {2,1,0}};
+
+    int ROBSO[3][3] = {{1,0,-1},
+                                          {2,0,-2},
+                                          {1,0,-1}};
+
+    int ROBSW[3][3] = {{2,1,0},
+                                          {1,0,-1},
+                                          {0,-1,-2}};
+
+    int ROBWE[3][3]=    {{1,2,1},
+                                                {0,0,0},
+                                                {-1,-2,-1}};
+
+    int ROBNW[3][3]=    {{0,1,2},
+                        {-1,0,1},
+                        {-2,-1,0}};
+
+        //Kirsch operator direction mask
+    int KIRNO[3][3] = {{-5,-5,-5},
+                                                {-3,0,-3},
+                                                {-3,-3,-3}};
+
+    int KIRNE[3][3] = {{-3,5,5},
+                        {-3,0,5},
+                        {-3,-3,-3}};
+
+    int KIREA[3][3]=    {{-3,-3,5},
+                                                {-3,0,5},
+                                                {-3,-3,5}};
+
+    int KIRSE[3][3]=    {{-3,-3,-3},
+                                {-3,0,5},
+                                {-3,5,5}};
+
+    int KIRSO[3][3] = {{-3,-3,-3},
+                                          {-3,0,-3},
+                                          {5,5,5}};
+
+    int KIRSW[3][3] = {{-3,-3,-3},
+                                          {5,0,-3},
+                                          {5,5,-3}};
+
+    int KIRWE[3][3]=    {{5,-3,-3},
+                                                {5,0,-3},
+                                                {5,-3,-3}};
+
+    int KIRNW[3][3]=    {{5,5,-3},
+                        {5,0,-3},
+                        {-3,-3,-3}};
+
+        //Laplacian operator 2nd order derivative mask
+    int LAPPOS[3][3] = {{0,1,0},
+                                                {1,-4,1},
+                                                {0,1,0}};
+
+    int LAPNEG[3][3] = {{0,-1,0},
+                        {-1,4,-1},
+                        {0,-1,0}};
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+        medianFilter(imgRows, imgCols, imgBuffer, imgBuffer2, 9);
+    line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows,VER);
+        line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows, HOR);
+    line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows,LDIA);
+    line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows,RDIA);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,PREHOR);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,PREVER);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,SOBHOR);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,SOBVER);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBNO);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBNE);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBNW);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBSO);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBSE);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBSW);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBEA);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBWE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRNO);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRNE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRNW);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRSO);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRSE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRSW);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIREA);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRWE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,LAPPOS);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,LAPNEG);
+    contrast(imgBuffer3,imgCols,imgRows);
+        //medianFilter(imgRows, imgCols, imgBuffer3, imgBuffer4, 7);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer3, imgBitDepth, imgCols * imgRows);
+        printf("Success!\n");
+
+    return 0;
+}
+
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3])
+{
+    int x, y, i, j, sum;
+
+    for (y = 0; y < imgRows; y++){
+                for (x=0; x < imgCols; x++){
+                    sum=0;
+                    for(i = -1; i <=1; i++){
+                                for(j=-1;j <=1; j++){
+                                    sum = sum + *(_inputImgData+x+i+(long)((y+j)*imgCols))*MASK[i+1][j+1];
+                                }
+                    }
+                    sum = (sum > 255) ? 255 : sum;
+                    sum = (sum < 0) ? 0 : sum;
+                        if ((_outputImgData + x + (long)(y*imgCols)) != NULL) {
+                                if (sum > *(_outputImgData + x + (long)(y*imgCols))) {
+                                *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                                }
+                        }
+                        else {
+                        *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                        }
+                }
+    }
+}
+
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows)
+{
+    int x, y, i, j, sum;
+
+    for (y = 1; y < imgRows -1; y++){
+                for (x=1; x < imgCols -1; x++){
+                        if (*(_outputImgData + x + (long)(y*imgCols)) > 5) {
+                        *(_outputImgData + x + (long)(y*imgCols)) = 0;
+                        }
+                        else {
+                        *(_outputImgData + x + (long)(y*imgCols)) = 255;
+                        }
+                }
+    }
+}
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf, int size)
+{
+        int x, y, current, i, j, n, pos, ar[121];
+        n = size;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        pos = 0;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = -n/2; i <= n/2; i++)
+                                {
+                                        ar[pos] = *(input_buf + x + i + (long)((y + j) * imgRows));
+                                        pos++;
+                                }
+                        }
+                        for (j=1; j < (n * n) - 1; j++)
+                        {
+                                current = ar[j];
+                                i = j - 1;
+                                while (i >= 0 && ar[i] > current)
+                                {
+                                        ar[i+1] = ar[i];
+                                        i = i - 1;
+                                }
+                                ar[i+1] = current;
+                        }
+                        *(output_buf + x + (long)(y * imgCols)) = ar[(n * n/2) + n/2];
+                }
+        }
+}
+
+==> GaussianNoise.c <==
+#include "cpimgmodules.h"
+#include <math.h>
+
+void gaussian(unsigned char * _inputImgData, int imgCols, int imgRows, float var, float mean);
+
+int main() {
+    const char imgName[] = "lena512.bmp";
+    const char newImgName[] = "lena_gaussian1.bmp";
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char *)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+        gaussian(imgBuffer, imgCols, imgRows, 90, 80);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth, imgCols * imgRows);
+
+        return 0;
+}
+
+void gaussian(unsigned char * _inputImgData, int imgCols, int imgRows, float var, float mean){
+        int x, y;
+        float noise, theta;
+        int temp = 0;
+        for (y = 0; y < imgRows; y++) {
+                for (x = 0; x < imgCols; x++) {
+                        noise = sqrt(-2*var*log(1.0 - (float)((rand() % 32678)/32767.1)));
+                        theta = (rand() % 32768) * 1.9175345e-4 - 3.14159265;;
+                        noise *= cos(theta);
+                        noise += mean;
+                        noise = (noise > 255) ? 255 : noise;
+                        noise = (noise < 0) ? 0 : noise;
+                        //temp = rand() % 90 + 80;
+                        *(_inputImgData + x + (long)(y * imgCols)) = (unsigned char)(noise + 0.5);
+                        *(_inputImgData + x + (long)(y * imgCols)) = temp;
+                }
+        }
+}
+
+==> LineDetectorMask.c <==
+#include "cpimgmodules.h"
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf, int size);
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3]);
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows);
+
+int main(int argc, char** argv){
+    const char* imgName = argv[1];
+    const char* newImgName = argv[2];
+    int imgCols, imgRows, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char* imgBuffer = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer2 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer3 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+    unsigned char* imgBuffer4 = (unsigned char*)malloc(CUSTOM_IMG_SIZE + 1024 + 54);
+
+        //Linear line detector masks
+    int VER[3][3] = {{-1,2,-1},
+                                        {-1,2,-1},
+                                        {-1,2,-1}};
+
+    int HOR[3][3] = {{-1,-1,-1},
+                                        { 2, 2, 2},
+                                        {-1,-1,-1}};
+
+    int LDIA[3][3]=     {{2,-1,-1},
+                                        {-1,2,-1},
+                                        {-1,-1,2}};
+
+    int RDIA[3][3]=     {{-1,-1,2},
+                    {-1,2,-1},
+                    {2,-1,-1}};
+
+        //Prewitt operator masks
+
+    int PREVER[3][3] =  {{-1,0,1},
+                                                {-1,0,1},
+                                                {-1,0,1}};
+
+    int PREHOR[3][3]=   {{-1,-1,-1},
+                        {0,0,0},
+                        {1,1,1}};
+
+        //Sobel operator mask
+
+    int SOBVER[3][3] =  {{-1,0,1},
+                                                {-2,0,2},
+                                                {-1,0,1}};
+
+    int SOBHOR[3][3]=   {{-1,-2,-1},
+                        {0,0,0},
+                        {1,2,1}};
+
+        //Robinson operator direction mask
+    int ROBNO[3][3] = {{-1,0,1},
+                                                {-2,0,2},
+                                                {-1,0,1}};
+
+    int ROBNE[3][3] = {{-2,-1,0},
+                        {-1,0,1},
+                        {0,1,2}};
+
+    int ROBEA[3][3]=    {{-1,-2,-1},
+                                                {0,0,0},
+                                                {1,2,1}};
+
+    int ROBSE[3][3]=    {{0,-1,-2},
+                                {1,0,-1},
+                                {2,1,0}};
+
+    int ROBSO[3][3] = {{1,0,-1},
+                                          {2,0,-2},
+                                          {1,0,-1}};
+
+    int ROBSW[3][3] = {{2,1,0},
+                                          {1,0,-1},
+                                          {0,-1,-2}};
+
+    int ROBWE[3][3]=    {{1,2,1},
+                                                {0,0,0},
+                                                {-1,-2,-1}};
+
+    int ROBNW[3][3]=    {{0,1,2},
+                        {-1,0,1},
+                        {-2,-1,0}};
+
+        //Kirsch operator direction mask
+    int KIRNO[3][3] = {{-5,-5,-5},
+                                                {-3,0,-3},
+                                                {-3,-3,-3}};
+
+    int KIRNE[3][3] = {{-3,5,5},
+                        {-3,0,5},
+                        {-3,-3,-3}};
+
+    int KIREA[3][3]=    {{-3,-3,5},
+                                                {-3,0,5},
+                                                {-3,-3,5}};
+
+    int KIRSE[3][3]=    {{-3,-3,-3},
+                                {-3,0,5},
+                                {-3,5,5}};
+
+    int KIRSO[3][3] = {{-3,-3,-3},
+                                          {-3,0,-3},
+                                          {5,5,5}};
+
+    int KIRSW[3][3] = {{-3,-3,-3},
+                                          {5,0,-3},
+                                          {5,5,-3}};
+
+    int KIRWE[3][3]=    {{5,-3,-3},
+                                                {5,0,-3},
+                                                {5,-3,-3}};
+
+    int KIRNW[3][3]=    {{5,5,-3},
+                        {5,0,-3},
+                        {-3,-3,-3}};
+
+        //Laplacian operator 2nd order derivative mask
+    int LAPPOS[3][3] = {{0,1,0},
+                                                {1,-4,1},
+                                                {0,1,0}};
+
+    int LAPNEG[3][3] = {{0,-1,0},
+                        {-1,4,-1},
+                        {0,-1,0}};
+
+    int GDMASK[3][3] = {{-1,-1,-1},
+                        {-1,8,-1},
+                        {-1,-1,-1}};
+
+    imageReader(imgName, &imgCols, &imgRows, &imgBitDepth, imgHeader, imgColorTable, imgBuffer);
+//      medianFilter(imgRows, imgCols, imgBuffer, imgBuffer2, 9);
+//    line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows,VER);
+//      line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows, HOR);
+//    line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows,LDIA);
+//    line_detector(imgBuffer2,imgBuffer3,imgCols,imgRows,RDIA);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,PREHOR);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,PREVER);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,SOBHOR);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,SOBVER);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBNO);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBNE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBNW);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBSO);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBSE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBSW);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBEA);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,ROBWE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRNO);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRNE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRNW);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRSO);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRSE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRSW);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIREA);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,KIRWE);
+//    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,LAPPOS);
+    line_detector(imgBuffer,imgBuffer2,imgCols,imgRows,GDMASK);
+    contrast(imgBuffer3,imgCols,imgRows);
+        //medianFilter(imgRows, imgCols, imgBuffer3, imgBuffer4, 7);
+    imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer2, imgBitDepth, imgCols * imgRows);
+        printf("Success!\n");
+
+    return 0;
+}
+
+void line_detector(unsigned char *_inputImgData, unsigned char *_outputImgData, int imgCols, int imgRows, int MASK[][3])
+{
+    int x, y, i, j, sum;
+
+    for (y = 0; y < imgRows; y++){
+                for (x=0; x < imgCols; x++){
+                    sum=0;
+                    for(i = -1; i <=1; i++){
+                                for(j=-1;j <=1; j++){
+                                    sum = sum + *(_inputImgData+x+i+(long)((y+j)*imgCols))*MASK[i+1][j+1];
+                                }
+                    }
+                    sum = (sum > 255) ? 255 : sum;
+                    sum = (sum < 0) ? 0 : sum;
+                        if ((_outputImgData + x + (long)(y*imgCols)) != NULL) {
+                                if (sum > *(_outputImgData + x + (long)(y*imgCols))) {
+                                *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                                }
+                        }
+                        else {
+                        *(_outputImgData + x + (long)(y*imgCols)) = sum;
+                        }
+                }
+    }
+}
+
+void contrast(unsigned char *_outputImgData, int imgCols, int imgRows)
+{
+    int x, y, i, j, sum;
+
+    for (y = 1; y < imgRows -1; y++){
+                for (x=1; x < imgCols -1; x++){
+                        if (*(_outputImgData + x + (long)(y*imgCols)) > 5) {
+                        *(_outputImgData + x + (long)(y*imgCols)) = 0;
+                        }
+                        else {
+                        *(_outputImgData + x + (long)(y*imgCols)) = 255;
+                        }
+                }
+    }
+}
+
+void medianFilter(int imgRows, int imgCols, unsigned char *input_buf, unsigned char *output_buf, int size)
+{
+        int x, y, current, i, j, n, pos, ar[121];
+        n = size;
+        for (y = n/2; y < imgRows - n/2; y++)
+        {
+                for (x = n/2; x < imgCols - n/2; x++)
+                {
+                        pos = 0;
+                        for (j = -n/2; j <= n/2; j++)
+                        {
+                                for (i = -n/2; i <= n/2; i++)
+                                {
+                                        ar[pos] = *(input_buf + x + i + (long)((y + j) * imgRows));
+                                        pos++;
+                                }
+                        }
+                        for (j=1; j < (n * n) - 1; j++)
+                        {
+                                current = ar[j];
+                                i = j - 1;
+                                while (i >= 0 && ar[i] > current)
+                                {
+                                        ar[i+1] = ar[i];
+                                        i = i - 1;
+                                }
+                                ar[i+1] = current;
+                        }
+                        *(output_buf + x + (long)(y * imgCols)) = ar[(n * n/2) + n/2];
+                }
+        }
+}
+
+==> computehistogram.c <==
+#include "cpimgmodules.h"
+
+float IMG_HIST[255];
+
+void ImgHistogram(unsigned char *_imgData, int imgRows, int imgCols, float hist[]);
+
+void ImgHistogramEqualization(unsigned char *_inputImgData, unsigned char*_outputImgData, int imgRows, int imgCols);
+
+int main(){
+    int imgWidth, imgHeight, imgBitDepth;
+    unsigned char imgHeader[BMP_HEADER_SIZE];
+    unsigned char imgColorTable[BMP_COLOR_TABLE_SIZE];
+    unsigned char imgBuffer[CUSTOM_IMG_SIZE];
+    unsigned char imgBuffer2[CUSTOM_IMG_SIZE];
+
+    const char imgName[] = "output3.bmp";
+    //const char newImgName[] = "ecoli004.bmp";
+
+    imageReader(imgName, &imgWidth, &imgHeight, &imgBitDepth, &imgHeader[0], &imgColorTable[0], &imgBuffer[0]);
+    ImgHistogram(&imgBuffer[0],imgHeight,imgWidth, &IMG_HIST[0]);
+  //  ImgHistogramEqualization(&imgBuffer[0], &imgBuffer2[0], imgHeight, imgWidth);
+  //  ImgHistogramEqualization(&imgBuffer2[0], &imgBuffer2[0], imgHeight, imgWidth);
+   //imageWriterColor(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth,(imgWidth * imgHeight) );
+    //imageWriter(newImgName, imgHeader, imgColorTable, imgBuffer, imgBitDepth,(imgWidth * imgHeight) );
+    return 0;
+}
+
+void ImgHistogram(unsigned char *_imgData, int imgRows, int imgCols, float hist[])
+{
+    FILE* fptr;
+    fptr = fopen("new_hist.txt", "w");
+    int x, y, i, j;
+    long int ihist[255];
+    long int sum;
+
+    for(i=0; i<=255;i++)
+    {
+        ihist[i] = 0;
+    }
+
+    sum =0;
+    for (y=0; y <= imgRows; y++)
+    {
+                for (x=0; x < imgCols; x++){
+                    j = *(_imgData+x+y*imgCols);
+                    ihist[j] = ihist[j] + 1;
+                    sum = sum + 1;
+                }
+    }
+
+    for (i = 0; i < 255; i++)
+    {
+        hist[i] = (float)ihist[i]/(float)sum;
+    }
+
+    for (int i =0; i < 255; i++)
+    {
+        fprintf(fptr, "\n%f",hist[i]);
+    }
+
+    fclose(fptr);
+}
+/*
+void ImgHistogramEqualization(unsigned char *_inputImgData, unsigned char*_outputImgData, int imgRows, int imgCols)
+{
+    FILE* fptr;
+    fptr = fopen("eq_hist.txt", "w");
+    int x, y, i,j;
+    float sum;
+
+   float histeq[256];
+   float hist[256];
+
+   ImgHistogram(&_inputImgData[0], imgRows, imgCols, &hist[0]);
+
+   for (i = 0; i < 255; i++)
+   {
+        sum = 0.0;
+        for (j = 0; j <= i; j++)
+        {
+            sum = sum + hist[j];
+        }
+        histeq[i] = (int)(255*sum+0.5);
+   }
+
+    for (int i =0; i < 255; i++)
+    {
+        fprintf(fptr, "\n%f",histeq[i]);
+    }
+
+   fclose(fptr);
+   for  (y = 0; y < imgRows; y++)
+   {
+        for (x = 0; x < imgCols; x++)
+        {
+            *(_outputImgData+x+y*imgCols) = histeq[*(_inputImgData+x+y*imgCols)];
+        }
+   }
+}*/
+
+
+
+==> rgbtograyscale.c <==
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(){
+    FILE *fIn = fopen("cropped006.bmp", "rb");
+    FILE *fthree = fopen("lena512.bmp", "rb");
+    FILE *fOut = fopen("cropped006datacenter.bmp", "wb");
+
+    unsigned char imgHeader[54];
+    unsigned char imgHeader2[54];
+    unsigned char colorTable[1024];
+
+    if(fIn == NULL)
+        printf("Unable to open image\n");
+
+    fread(imgHeader,sizeof(unsigned char),54,fIn);
+    fread(imgHeader2,sizeof(unsigned char),54,fthree);
+
+    int height = *(int*)&imgHeader[22];
+    printf("Height: %d\n", height);
+    int width = *(int*)&imgHeader[18];
+    printf("Width: %d\n", width);
+    int bitDepth = *(int*)&imgHeader2[28];
+    printf("Bit Depth: %d\n", bitDepth);
+
+    //int height2 = *(int*)&imgHeader2[22];
+    //printf("Height: %d\n", height2);
+    //int width2 = *(int*)&imgHeader2[18];
+    //printf("Width: %d\n", width2);
+    int imgSize = height * width;
+        printf("imgSize: %d\n", imgSize);
+    unsigned char buffer[3]; //stores RGB colour values for each pixel
+
+    //imgHeader2[22] = (unsigned char)height;
+        //imgHeader2[18] = (unsigned char)width;
+        imgHeader[28] = (unsigned char)8;
+        //imgHeader[28] = (unsigned char)bitDepth;
+        fwrite(imgHeader, sizeof(unsigned char), 54, fOut);
+
+
+        //if (bitDepth <= 8) {
+                fread(colorTable, sizeof(unsigned char), 1024, fthree);
+                fwrite(colorTable, sizeof(unsigned char), 1024, fOut);
+        //}
+
+        int sum = 0;
+        int average = 0;
+
+    for(int i = 0; i < imgSize; i++){
+                buffer[0] = getc(fIn);
+                buffer[1] = getc(fIn);
+                buffer[2] = getc(fIn);
+
+        int temp = 0;
+        //temp = ((buffer[0]*0.3)+(buffer[1]*0.59)+(buffer[2]*0.11));
+        temp = ((buffer[0]*0.33)+(buffer[1]*0.33)+(buffer[2]*0.33));
+                //putc(temp, fOut);
+                sum += temp;
+                //putc(temp, fOut);
+                //putc(temp, fOut);
+    }
+
+        average = sum / imgSize;
+
+    for(int i = 0; i < imgSize; i++){
+                buffer[0] = getc(fIn);
+                buffer[1] = getc(fIn);
+                buffer[2] = getc(fIn);
+
+        int temp = 0;
+        //temp = ((buffer[0]*0.3)+(buffer[1]*0.59)+(buffer[2]*0.11));
+        temp = ((buffer[0]*0.33)+(buffer[1]*0.33)+(buffer[2]*0.33)) - average;
+                putc(temp, fOut);
+                //putc(temp, fOut);
+                //putc(temp, fOut);
+    }
+
+    printf("Success!!\n");
+
+    fclose(fIn);
+    fclose(fOut);
+
+    return 0;
+}
+
