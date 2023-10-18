@@ -8550,5 +8550,204 @@ for iter in range(max_iters):
 	optimizer.step()
 
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
+
+==>00_fundamentals.py<==
+
+#!/usr/bin/python3.8
+
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+print(torch.__version__)
+
+## Introduction to Tensors
+
+#tensors are a way to represent multidimensional numeric data
+# scalar
+scalar = torch.tensor(7)
+print(scalar) ## tensor(7)
+print(scalar.ndim) ## 0
+print(scalar.item()) ## 7 - returns as a python int
+
+vector = torch.tensor([7,7])
+print(vector) ## tensor([7,7])
+print(vector.ndim) ## 1
+print(vector.shape) ## torch.Size([2])
+
+matrix = torch.tensor([[7, 8],
+					   [9,10]])
+print(matrix) ## tensor([[  7,  8],
+#						 [  9, 10]])
+print(matrix.ndim) ## 2
+print(matrix[0]) ## tensor([ 7, 8])
+print(matrix[1]) ## tensor([ 9, 10])
+print(matrix.shape) ## torch.Size([2, 2])
+
+tensor = torch.tensor([[[1,2,3],
+						[3,6,9],
+						[2,4,5]]])
+print(tensor) # tensor([[[1, 2, 3],
+#						 [3, 6, 9],
+#						 [2, 4, 5]]])
+print(tensor.ndim) # 3
+print(tensor.shape) ## torch.Size([1,3,3])
+print(tensor[0]) ## tensor([[1, 2, 3],
+#							[3, 6, 9],
+#							[2, 4, 5]])
+print(tensor[0,0]) ## tensor([1, 2, 3])
+print(tensor[0,1]) ## tensor([3, 6, 9])
+print(tensor[0,2]) ## tensor([2, 4, 5])
+print(tensor[0,:,0]) ## tensor([1, 3, 2])
+print(tensor[0,:,1]) ## tensor([2, 6, 4])
+print(tensor[0,:,2]) ## tensor([3, 9, 5])
+
+##Random Tensors
+
+random_tensor = torch.rand(3, 4)
+print(random_tensor) # RESULT:
+#tensor([[0.8390, 0.4004, 0.6413, 0.0766],
+#        [0.3097, 0.4058, 0.0821, 0.9595],
+#        [0.4169, 0.5951, 0.9291, 0.3680]])
+print(random_tensor.ndim) # 2
+print(random_tensor.dtype) # torch.float32
+
+#Tensors are often initialized with zeroes or ones
+zeros = torch.zeros(3,4)
+print(zeros) # RESULT:
+#tensor([[0., 0., 0., 0.],
+#        [0., 0., 0., 0.],
+#        [0., 0., 0., 0.]])
+
+ones = torch.ones(3,4)
+print(ones) # RESULT:
+#tensor([[1., 1., 1., 1.],
+#        [1., 1., 1., 1.],
+#        [1., 1., 1., 1.]])
+
+print(torch.arange(10)) # tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+print(torch.arange(start=0,end=30,step=4)) #tensor([ 0,  4,  8, 12, 16, 20, 24, 28])
+print(torch.zeros_like(torch.arange(10)))  # tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+#torch data types can be fund at pytorch.org/docs/table/tensors.html
+
+float_32_tensor = torch.tensor([3.0, 6.0, 9.0])
+float_16_tensor = float_32_tensor.type(torch.half) # casts to a float16 tensor
+#float_16_tensor = float_32_tensor.type(torch.float16) # casts to a float16 tensor
+
+float_16_tensor * float_32_tensor #will stil work
+int_32_tensor = torch.tensor([3, 6, 9], dtype=torch.int32)
+float_16_tensor * int_32_tensor #will also work
+
+print(int_32_tensor.dtype) # wll return the dtype of the tensor
+print(int_32_tensor.device) # wll return the device of the tensor
+
+#Tensor operations include addition, subtraction, multiplication, division, matrix multiplication
+newtensor = torch.tensor([1,2,3])
+print(newtensor + 10) # broadcasting turns this operation [1,2,3] + [10,10,10]
+print(newtensor * 10) # broadcasting turns this operation [1,2,3] * [10,10,10]
+print(newtensor - 10) # broadcasting turns this operation [1,2,3] - [10,10,10]
+print(newtensor * newtensor) # [1*1,2*2,3*3], element-wise multiply
+
+#There are two main rules for performing matrix multiplication
+#1. The inner dimensions must match i.e.
+#	torch.Size(3, 2) @ torch.Size(3,2) won't work
+#	torch.Size(2, 3) @ torch.Size(3,2) will work == torch.Size(2,2)
+#	torch.Size(3, 2) @ torch.Size(2,3) will work == torch.Size(3,3)
+#2. The resulting matrix has the shape of the outer dimensions
+
+#there are other ways of matrix multiplication in pytorch
+#torch.matmul(tensorA, tensorB) or torch.mm(tensorA, tensorB)
+
+#Can use the transpose operation to alter shape of matrices
+
+tensorA = torch.rand(2,3)
+tensorB = torch.rand(2,3)
+print(tensorA @ tensorB.T) # Now this will work
+print(tensorA.T @ tensorB) # Now this will work
+print((tensorA @ tensorB.T).shape) # New shape
+print((tensorA.T @ tensorB).shape) # New shape
+
+# Create a tensor
+x = torch.arange(0, 100, 10)
+print(f"x: {x}")
+print(f"Min: {x.min()}")
+print(f"Max: {x.max()}")
+#print(f"Mean: {x.mean()}") ##will throw an error because dtype is int not float
+print(f"Mean: {x.type(torch.float32).mean()}") #needs to be cast to float
+print(f"sum: {x.sum()}")
+print(f"Position of min: [{x.argmin()}]")
+print(f"Position of max: [{x.argmax()}]")
+
+## Reshaping, stacking, squeezing and unnsqueezing tensors
+
+#Stacking - This is similar to concatenation, but stacks tensors along a new dimension instead of an existing one, increasing the dimensionality of the new tensor. It also requires tensors to be of the same shape.
+#Squeezing - 'Squeezes' out (eliminates) all '1' dimensions from a tensor
+#Unsqueeze - Adds a '1' dimension to a target tensor
+#Permute - returns a view of the input tensor with dimensions permuted.
+
+y = torch.rand(2, 5, 4) # dimensions 0, 1, 2
+# torch.permute(*dims) -desired ordering of dimensions
+print((y.permute(1,2,0)).shape) # returns torch.Size([5, 4, 2])
+
+z1 = y.reshape(4,2,5) # reshapes to torch.Size([4, 2, 5])
+z2 = y.view(4,10) # reshapes to torch.Size([6, 4])
+#difference between reshape and view is that view shares the same memory space as the original tensor, so anything done to the result of a .view() operation is done to the original tensor, whereas .reshape() 'may' create a new object in a different memory location to the original tensor. 
+
+z1[0,0] = 5.0
+print(z1[0,0,0] == y[0,0,0])
+z2[0,0] = 6.5
+print(z2[0,0] == y[0,0,0])
+#In the example above,  both return true as were in same memory location as original tensor
+
+print((torch.stack([y, y, y], dim=0)).shape)
+print((torch.stack([y, y, y], dim=1)).shape)
+print((torch.stack([y, y, y], dim=2)).shape)
+print((torch.stack([y, y, y], dim=3)).shape)
+
+z3 = y.reshape(1,40)
+print(z3.shape)
+print(z3.squeeze().shape)
+print(z3.unsqueeze(dim=0).shape)
+print(z3.unsqueeze(dim=1).shape)
+print(z3.unsqueeze(dim=2).shape)
+
+#Numpy is a scientific numerical python computing library
+#pytorch has functionality to interact with numPy and in fact requires numpy for installation.
+#Data may be in NumPy array, want in a pytorch tensor => torch.from_numpy(ndarray)
+#or the reverse from pytorch tensor to numpy => torch.Tensor.numpy()
+
+array = np.arange(1.0, 8.0)
+torchtensor = torch.from_numpy(array)
+print(array)
+print(array.dtype) # numpy default data type is float64
+print(torchtensor) # will now use numpy data type
+
+#torchtensor = torch.from_numpy(array).type(float32) ## will cast to float32
+
+torchtensor1 = torch.ones(7)
+numpy_array = torchtensor1.numpy()
+print(numpy_array)
+print(numpy_array.dtype) # numpy data type is now float32
+print(f"{torchtensor1}, dtype={torchtensor1.dtype}") 
+
+#if want reproducibility, may need generator seeds or random seeds
+RANDOM_SEED = 42
+torch.manual_seed(RANDOM_SEED)
+random_tensor_A = torch.rand(3,4)
+random_tensor_B = torch.rand(3,4)
+
+print(random_tensor_A == random_tensor_B) #will return majority or all false
+
+torch.manual_seed(RANDOM_SEED)
+random_tensor_C = torch.rand(3,4)
+torch.manual_seed(RANDOM_SEED)
+random_tensor_D = torch.rand(3,4)
+
+print(random_tensor_C == random_tensor_D) #will return all true
+
+#as shown above, the random seed has to be set every time the rand() method is called
+
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 
