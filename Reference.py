@@ -7025,3 +7025,1530 @@ def split_loss(split):
 
 split_loss('train')
 split_loss('val')
+
+==> layernorm.py <==
+#!/usr/bin/python3.8
+
+class LayerNorm:
+	def __init__(self, dim, eps=1e-5, momentum=0.1):
+		self.eps = eps
+		# parameters (trained with backprop)
+		self.gamma = torch.ones(dim) #scale
+		self.beta = torch.zeros(dim) #shift
+		# buffers (trained with a running 'momentum update')
+
+	def __call__(self, x):
+		#calculate the forward pass
+		xmean = x.mean(1, keepdim=True) #batch mean
+		xvar = x.var(1, keepdim=True) # batch variance
+		xhat = (x - xmean) / torch.sqrt(xvar + self.eps) # normalize to unit variance
+		self.out = self.gamma * xhat + self.beta 
+		return self.out
+
+	def parameters(self):
+		return [self.gamma, self.beta]
+
+==> bigram-developed.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+# hyperparameters
+batch_size = 32 # how many independent sequences will we process in parallel?
+block_size = 8 # what is the maximum context length for predictions
+max_iters = 5000
+eval_interval = 500
+learning_rate = 1e-2
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+eval_iters = 200
+# -----------------
+
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+@torch.no_grad()
+def estimate_loss():
+	out = {}
+	model.eval()
+	for split in ['train', 'val']:
+		losses = torch.zeros(eval_iters)
+		for k in range(eval_iters):
+			X, Y = get_batch(split)
+			logits, loss = model(X, Y)
+			losses[k] = loss.item()
+		out[split] = losses.mean()
+	model.train()
+	return out
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, vocab_size) # thin wrapper around tensor of shape vocab_size * vocab_size
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings : number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector : number of columns in embedding table
+
+	def forward(self, idx, targets=None):
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		logits = self.token_embedding_table(idx) # (B,T,C), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in ssequence.
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood, expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			# get the predictions
+			logits, loss = self(idx)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C) # -1 means softmax will be applied to last dimension of input tensor
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+
+model = BigramLanguageModel() # calling it
+m = model.to(device) # will move model to whatever device is set to, 'cuda' device or 'cpu'
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+for iter in range(max_iters):
+	# every once in a while evaluate the loss on train and val sets
+	if iter % eval_interval == 0:
+		losses = estimate_loss()
+		print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+==> single-self-attention-head.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+# hyperparameters
+batch_size = 32 # how many independent sequences will we process in parallel?
+block_size = 8 # what is the maximum context length for predictions
+max_iters = 5000
+eval_interval = 500
+learning_rate = 1e-3 #decrease of learning rate for self-attention block
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+eval_iters = 200
+n_embd = 32
+# -----------------
+
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+@torch.no_grad()
+def estimate_loss():
+	out = {}
+	model.eval()
+	for split in ['train', 'val']:
+		losses = torch.zeros(eval_iters)
+		for k in range(eval_iters):
+			X, Y = get_batch(split)
+			logits, loss = model(X, Y)
+			losses[k] = loss.item()
+		out[split] = losses.mean()
+	model.train()
+	return out
+
+class Head(nn.Module):
+	""" one head of self-attention """
+
+	def __init__(self, head_size):
+		super().__init__()
+		self.key = nn.Linear(n_embd, head_size, bias=False)
+		self.query = nn.Linear(n_embd, head_size, bias=False)
+		self.value = nn.Linear(n_embd, head_size, bias=False)
+		#nn.Linear(features_in, features out, bias=True) features_in == number of input neurons, features_out == number of output neurons
+		self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+		#as tril is not a parameter in pytorch naming convention it is called a buffer, so is thus assigned
+
+	def forward(self, x):
+		B,T,C = x.shape
+		k = self.key(x)		# (B, T, C)
+		q = self.query(x) 	# (B, T, C)
+		# compute attention scores ("affinities")
+		wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) => (B, T, T)
+		# in Pytorch -1 refers to the last dimension on the right, -2 to previous. So -2, -1 refer to the 2nd to last and last dimension
+		wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf')) # B, T, T
+		wei = F.softmax(wei, dim=-1) # (B, T, T)
+		# perform the weighted aggregation of the values
+		v = self.value(x) # (B, T, C)
+		out = wei @ v # (B, T, T) @ (B, T, C) => (B, T, C)
+		return out
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # thin wrapper around tensor of shape vocab_size * n_embd
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings - number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector - number of columns in embedding table
+		self.position_embedding_table = nn.Embedding(block_size, n_embd) #Also encodes positions into an embedding table
+		self.sa_head = Head(n_embd) # sa_head == self-attention head
+		self.lm_head = nn.Linear(n_embd, vocab_size) # lm_head == language modelling head
+
+	def forward(self, idx, targets=None):
+		B, T = idx.shape
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		tok_emb = self.token_embedding_table(idx) # (B,T,C==n_embd), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		pos_emb = self.position_embedding_table(torch.arange(T, device=device)) #(T,C), integers from 0 to T-1 are embedded through the table
+		x = tok_emb + pos_emb # (B, T, C) == (B, T, C) + (T,C): (T,C) gets right-aligned, new dimension is added, and it is broadcast along batch dimension
+		x = self.sa_head(x)
+		logits = self.lm_head(x) # (B,T,vocab_size)
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in ssequence.
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood, expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			#crop idx to the last block_size tokens
+			idx_cond = idx[:, -block_size:]
+			# get the predictions
+			logits, loss = self(idx_cond)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C) # -1 means softmax will be applied to last dimension of input tensor
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+
+model = BigramLanguageModel() # calling it
+m = model.to(device) # will move model to whatever device is set to, 'cuda' device or 'cpu'
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+for iter in range(max_iters):
+	# every once in a while evaluate the loss on train and val sets
+	if iter % eval_interval == 0:
+		losses = estimate_loss()
+		print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+==> multi-self-attention-head.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+# hyperparameters
+batch_size = 32 # how many independent sequences will we process in parallel?
+block_size = 8 # what is the maximum context length for predictions
+max_iters = 5000
+eval_interval = 500
+learning_rate = 1e-3 #decrease of learning rate for self-attention block
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+eval_iters = 200
+n_embd = 32
+# -----------------
+
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+@torch.no_grad()
+def estimate_loss():
+	out = {}
+	model.eval()
+	for split in ['train', 'val']:
+		losses = torch.zeros(eval_iters)
+		for k in range(eval_iters):
+			X, Y = get_batch(split)
+			logits, loss = model(X, Y)
+			losses[k] = loss.item()
+		out[split] = losses.mean()
+	model.train()
+	return out
+
+class Head(nn.Module):
+	""" one head of self-attention """
+
+	def __init__(self, head_size):
+		super().__init__()
+		self.key = nn.Linear(n_embd, head_size, bias=False)
+		self.query = nn.Linear(n_embd, head_size, bias=False)
+		self.value = nn.Linear(n_embd, head_size, bias=False)
+		#nn.Linear(features_in, features out, bias=True) features_in == number of input neurons, features_out == number of output neurons
+		self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+		#as tril is not a parameter in pytorch naming convention it is called a buffer, so is thus assigned
+
+	def forward(self, x):
+		B,T,C = x.shape
+		k = self.key(x)		# (B, T, C)
+		q = self.query(x) 	# (B, T, C)
+		# compute attention scores ("affinities")
+		wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) => (B, T, T)
+		# in Pytorch -1 refers to the last dimension on the right, -2 to previous. So -2, -1 refer to the 2nd to last and last dimension
+		wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf')) # B, T, T
+		wei = F.softmax(wei, dim=-1) # (B, T, T)
+		# perform the weighted aggregation of the values
+		v = self.value(x) # (B, T, C)
+		out = wei @ v # (B, T, T) @ (B, T, C) => (B, T, C)
+		return out
+
+class MultiHeadAttention(nn.Module):
+	""" multiple heads of self-attention in parallel """
+
+	def __init__(self, num_heads, head_size):
+		super().__init__()
+		self.heads = nn.ModuleList((Head(head_size) for _ in range(num_heads)))
+		#ModuleList registers the modules it contains as sub-modules, making sure their parameters are included when you call methods like
+		#.parameters() or .to(device) on a module. It can be indexed like a regular list. It's similar to torch.nn.Sequential which not
+		#only stores modules but invokes them sequentially during a forward pass. However sequential can cause problems defining custom fwd behaviours
+
+	def forward(self, x):
+		return torch.cat([h(x) for h in self.heads], dim=-1)
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # thin wrapper around tensor of shape vocab_size * n_embd
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings - number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector - number of columns in embedding table
+		self.position_embedding_table = nn.Embedding(block_size, n_embd) #Also encodes positions into an embedding table
+		self.sa_heads = MultiHeadAttention(4, n_embd//4) # 4 heads of 8-dimensional self-attention
+		self.lm_head = nn.Linear(n_embd, vocab_size) # lm_head == language modelling head
+
+	def forward(self, idx, targets=None):
+		B, T = idx.shape
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		tok_emb = self.token_embedding_table(idx) # (B,T,C==n_embd), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		pos_emb = self.position_embedding_table(torch.arange(T, device=device)) #(T,C), integers from 0 to T-1 are embedded through the table
+		x = tok_emb + pos_emb # (B, T, C) == (B, T, C) + (T,C): (T,C) gets right-aligned, new dimension is added, and it is broadcast along batch dimension
+		x = self.sa_heads(x)
+		logits = self.lm_head(x) # (B,T,vocab_size)
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in ssequence.
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood, expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			#crop idx to the last block_size tokens
+			idx_cond = idx[:, -block_size:]
+			# get the predictions
+			logits, loss = self(idx_cond)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C) # -1 means softmax will be applied to last dimension of input tensor
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+
+model = BigramLanguageModel() # calling it
+m = model.to(device) # will move model to whatever device is set to, 'cuda' device or 'cpu'
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+for iter in range(max_iters):
+	# every once in a while evaluate the loss on train and val sets
+	if iter % eval_interval == 0:
+		losses = estimate_loss()
+		print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+==> feed-fwd+multi-head.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+# hyperparameters
+batch_size = 32 # how many independent sequences will we process in parallel?
+block_size = 8 # what is the maximum context length for predictions
+max_iters = 5000
+eval_interval = 500
+learning_rate = 1e-3 #decrease of learning rate for self-attention block
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+eval_iters = 200
+n_embd = 32
+# -----------------
+
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+@torch.no_grad()
+def estimate_loss():
+	out = {}
+	model.eval()
+	for split in ['train', 'val']:
+		losses = torch.zeros(eval_iters)
+		for k in range(eval_iters):
+			X, Y = get_batch(split)
+			logits, loss = model(X, Y)
+			losses[k] = loss.item()
+		out[split] = losses.mean()
+	model.train()
+	return out
+
+class Head(nn.Module):
+	""" one head of self-attention """
+
+	def __init__(self, head_size):
+		super().__init__()
+		self.key = nn.Linear(n_embd, head_size, bias=False)
+		self.query = nn.Linear(n_embd, head_size, bias=False)
+		self.value = nn.Linear(n_embd, head_size, bias=False)
+		#nn.Linear(features_in, features out, bias=True) features_in == number of input neurons, features_out == number of output neurons
+		self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+		#as tril is not a parameter in pytorch naming convention it is called a buffer, so is thus assigned
+
+	def forward(self, x):
+		B,T,C = x.shape
+		k = self.key(x)		# (B, T, C)
+		q = self.query(x) 	# (B, T, C)
+		# compute attention scores ("affinities")
+		wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) => (B, T, T)
+		# in Pytorch -1 refers to the last dimension on the right, -2 to previous. So -2, -1 refer to the 2nd to last and last dimension
+		wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf')) # B, T, T
+		wei = F.softmax(wei, dim=-1) # (B, T, T)
+		# perform the weighted aggregation of the values
+		v = self.value(x) # (B, T, C)
+		out = wei @ v # (B, T, T) @ (B, T, C) => (B, T, C)
+		return out
+
+class MultiHeadAttention(nn.Module):
+	""" multiple heads of self-attention in parallel """
+
+	def __init__(self, num_heads, head_size):
+		super().__init__()
+		self.heads = nn.ModuleList((Head(head_size) for _ in range(num_heads)))
+		#ModuleList registers the modules it contains as sub-modules, making sure their parameters are included when you call methods like
+		#.parameters() or .to(device) on a module. It can be indexed like a regular list. It's similar to torch.nn.Sequential which not
+		#only stores modules but invokes them sequentially during a forward pass. However sequential can cause problems defining custom fwd behaviours
+
+	def forward(self, x):
+		return torch.cat([h(x) for h in self.heads], dim=-1)
+
+class FeedForward(nn.Module):
+	""" a simple linear layer followed by a non-linearity """
+
+	def __init__(self, n_embd):
+		super().__init__()
+		self.net = nn.Sequential(
+			nn.Linear(n_embd, n_embd),
+			nn.ReLU(),
+		)
+
+	def forward(self, x):
+		return self.net(x)
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # thin wrapper around tensor of shape vocab_size * n_embd
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings - number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector - number of columns in embedding table
+		self.position_embedding_table = nn.Embedding(block_size, n_embd) #Also encodes positions into an embedding table
+		self.sa_heads = MultiHeadAttention(4, n_embd//4) # 4 heads of 8-dimensional self-attention
+		self.ffwd = FeedForward(n_embd)
+		self.lm_head = nn.Linear(n_embd, vocab_size) # lm_head == language modelling head
+
+	def forward(self, idx, targets=None):
+		B, T = idx.shape
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		tok_emb = self.token_embedding_table(idx) # (B,T,C==n_embd), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		pos_emb = self.position_embedding_table(torch.arange(T, device=device)) #(T,C), integers from 0 to T-1 are embedded through the table
+		x = tok_emb + pos_emb # (B, T, C) == (B, T, C) + (T,C): (T,C) gets right-aligned, new dimension is added, and it is broadcast along batch dimension
+		x = self.sa_heads(x)
+		x = self.ffwd(x)
+		logits = self.lm_head(x) # (B,T,vocab_size)
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in sequence.
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood, expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			#crop idx to the last block_size tokens
+			idx_cond = idx[:, -block_size:]
+			# get the predictions
+			logits, loss = self(idx_cond)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C) # -1 means softmax will be applied to last dimension of input tensor
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+
+model = BigramLanguageModel() # calling it
+m = model.to(device) # will move model to whatever device is set to, 'cuda' device or 'cpu'
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+for iter in range(max_iters):
+	# every once in a while evaluate the loss on train and val sets
+	if iter % eval_interval == 0:
+		losses = estimate_loss()
+		print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+==> bigram.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+print("length of dataset in characters: ", len(text))
+
+#let's look at the first 200 characters
+#print(text[:200])
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+#print(''.join(chars))
+#print(vocab_size)
+
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+#print(encode("hii there"))
+#print(decode(encode("hii there")))
+
+data = torch.tensor(encode(text), dtype=torch.long)
+print(data.shape, data.dtype)
+
+# Let's now split the data into train and validation sets
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+# can use validation data to determine to which extent the model is overfitting
+
+block_size = 8
+#print(train_data[:block_size+1])
+
+x = train_data[:block_size]
+y = train_data[1:block_size+1]
+for t in range(block_size):
+	context = x[:t+1]
+	target = y[t]
+	#print(f"{t}: When input is {context} the target is: {target}")
+	#OUTPUT BELOW:
+#When input is tensor([18]) the target is: 47
+#When input is tensor([18, 47]) the target is: 56
+#When input is tensor([18, 47, 56]) the target is: 57
+#When input is tensor([18, 47, 56, 57]) the target is: 58
+#When input is tensor([18, 47, 56, 57, 58]) the target is: 1
+#When input is tensor([18, 47, 56, 57, 58,  1]) the target is: 15
+#When input is tensor([18, 47, 56, 57, 58,  1, 15]) the target is: 47
+#When input is tensor([18, 47, 56, 57, 58,  1, 15, 47]) the target is: 58
+
+batch_size = 4 # how many independent sequences will we process in parallel?
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+xb, yb = get_batch('train')
+#print('inputs:')
+#print(xb.shape) #torch.Size([4, 8])
+#print(xb) # OUTPUT:
+# #tensor([[24, 43, 58,  5, 57,  1, 46, 43],
+# #        [44, 53, 56,  1, 58, 46, 39, 58],
+# #        [52, 58,  1, 58, 46, 39, 58,  1],
+# #        [25, 17, 27, 10,  0, 21,  1, 54]])
+#print('targets:')
+#print(yb.shape) #torch.Size([4, 8])
+#print(yb) # OUTPUT:
+# #tensor([[43, 58,  5, 57,  1, 46, 43, 39],
+# #        [53, 56,  1, 58, 46, 39, 58,  1],
+# #        [58,  1, 58, 46, 39, 58,  1, 46],
+# #        [17, 27, 10,  0, 21,  1, 54, 39]])
+
+print('----')
+
+for b in range(batch_size): #batch dimension
+	for t in range(block_size): #time dimension
+		context = xb[b, :t+1] # selects from original tensor up to context length
+		target = yb[b,t] # selects from output tensor at the position of the next character, will be used by transformer to crete the loss function
+		#print(f"when input is {context.tolist()} the target is: {target}")
+		# OUTPUT:
+		 # when input is [24] the target is: 43
+		 # when input is [24, 43] the target is: 58
+		 # when input is [24, 43, 58] the target is: 5
+		 # when input is [24, 43, 58, 5] the target is: 57
+		 # when input is [24, 43, 58, 5, 57] the target is: 1
+		 # when input is [24, 43, 58, 5, 57, 1] the target is: 46
+		 # when input is [24, 43, 58, 5, 57, 1, 46] the target is: 43
+		 # when input is [24, 43, 58, 5, 57, 1, 46, 43] the target is: 39
+		 # when input is [44] the target is: 53
+		 # when input is [44, 53] the target is: 56
+		 # when input is [44, 53, 56] the target is: 1
+		 # when input is [44, 53, 56, 1] the target is: 58
+		 # when input is [44, 53, 56, 1, 58] the target is: 46
+		 # when input is [44, 53, 56, 1, 58, 46] the target is: 39
+		 # when input is [44, 53, 56, 1, 58, 46, 39] the target is: 58
+		 # when input is [44, 53, 56, 1, 58, 46, 39, 58] the target is: 1
+		 # when input is [52] the target is: 58
+		 # when input is [52, 58] the target is: 1
+		 # when input is [52, 58, 1] the target is: 58
+		 # when input is [52, 58, 1, 58] the target is: 46
+		 # when input is [52, 58, 1, 58, 46] the target is: 39
+		 # when input is [52, 58, 1, 58, 46, 39] the target is: 58
+		 # when input is [52, 58, 1, 58, 46, 39, 58] the target is: 1
+		 # when input is [52, 58, 1, 58, 46, 39, 58, 1] the target is: 46
+		 # when input is [25] the target is: 17
+		 # when input is [25, 17] the target is: 27
+		 # when input is [25, 17, 27] the target is: 10
+		 # when input is [25, 17, 27, 10] the target is: 0
+		 # when input is [25, 17, 27, 10, 0] the target is: 21
+		 # when input is [25, 17, 27, 10, 0, 21] the target is: 1
+		 # when input is [25, 17, 27, 10, 0, 21, 1] the target is: 54
+		 # when input is [25, 17, 27, 10, 0, 21, 1, 54] the target is: 39
+
+		# The transformer will simultaneously process all of these examples (batch_size==4) and work out the next integer to predict from tensor yb
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self, vocab_size):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, vocab_size) # thin wrapper around tensor of shape vocab_size * vocab_size
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings : number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector : number of columns in embedding table
+
+	def forward(self, idx, targets=None):
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		logits = self.token_embedding_table(idx) # (B,T,C), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in sequence (of 65).
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			# get the predictions
+			logits, loss = self(idx)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C)
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+	
+m = BigramLanguageModel(vocab_size) # calling it
+logits, loss = m(xb, yb) # passing in inputs and targets
+print(logits.shape) # is (4, 8, 65) and is interpreted as logits for each of the 4 x 8 positions
+print(loss) # since negative log likelihood expecting around -ln(1/65) == 4.174
+
+print(decode(m.generate(idx = torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+batch_size = 32
+for steps in range(10000):
+	#sample a batch of data
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+print('')
+print(loss.item())
+print(decode(m.generate(idx = torch.zeros((1, 1), dtype=torch.long), max_new_tokens=100)[0].tolist()))
+
+==> self-attention-preview.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+#The mathematical trick in self-attention
+# We want x[b,t] = mean_{i<=t} x[b,i] as easiest way to get info from all elements preceding is to take the mean
+
+#VERSION 1:
+torch.manual_seed(1337)
+B,T,C = 4,8,2
+x = torch.randn(4,8,2)
+#print(x.shape) ##torch.Size([4, 8, 2])
+
+xbow = torch.zeros((B,T,C)) # bow here stands for 'bag of words'
+for b in range(B):
+	for t in range(T):
+		xprev = x[b,:t+1] # returns in form (t,C) - all previous takes current batch dimension b and everything up to and including t :t+1
+		xbow[b,t] = torch.mean(xprev, 0) # returns C 1-dimensional vector, using dimension 0 only
+#inefficient non-vectorized method
+
+#RESULT:
+#print(x[0])
+#tensor([[ 0.1808, -0.0700],
+#        [-0.3596, -0.9152],
+#        [ 0.6258,  0.0255],
+#        [ 0.9545,  0.0643],
+#        [ 0.3612,  1.1679],
+#        [-1.3499, -0.5102],
+#        [ 0.2360, -0.2398],
+#        [-0.9211,  1.5433]])
+#print(xbow[0])
+#tensor([[ 0.1808, -0.0700],
+#        [-0.0894, -0.4926], avg of -0.3596,0.1808, avg of -0.0700,-0.9152
+#        [ 0.1490, -0.3199], avg of 0.6258,-0.3596,0.1808, avg of 0.0255,-0.9152,-.0.0700
+#        [ 0.3504, -0.2238], etcs.
+#        [ 0.3525,  0.0545], ...
+#        [ 0.0688, -0.0396], ...
+#        [ 0.0927, -0.0682], ...
+#        [-0.0341,  0.1332]]) ...
+
+#Can be more efficient about this operation as follows
+torch.manual_seed(42)
+a = torch.ones(3, 3)
+#tensor([[1., 1., 1.],
+#        [1., 1., 1.],
+#        [1., 1., 1.]])
+b = torch.randint(0,10,(3,2,)).float() # torch.randint(low, high, size)
+#tensor([[2., 7.],
+#        [6., 4.],
+#        [6., 5.]])
+c = a @ b # matrix multiplication (1*2)+(1*6)+(1*6)=14, (1*7)+(1*4)+(1*5)=16 
+#tensor([[14., 16.],
+#        [14., 16.],
+#        [14., 16.]])
+
+a=torch.tril(torch.ones(3,3)) # tril == torch.triangle function
+#tensor([[1., 0., 0.],
+#        [1., 1., 0.],
+#        [1., 1., 1.]])
+c=a@b
+#tensor([[ 2.,  7.], (1*2)+(0*6)+(0*6)=2, (1*7)+(0*4)+(0*5)=7 
+#        [ 8., 11.], (1*2)+(1*6)+(0*6)=8, (1*7)+(1*4)+(0*5)=11 
+#        [14., 16.]]) (1*2)+(1*6)+(1*6)=14, (1*7)+(1*4)+(1*5)=16 
+
+a /= torch.sum(a, 1, keepdim=True) 
+#tensor([[1.0000, 0.0000, 0.0000],
+#        [0.5000, 0.5000, 0.0000],
+#        [0.3333, 0.3333, 0.3333]])
+c=a@b
+#tensor([[2.0000, 7.0000], (1*2)+(0*6)+(0*6)=2, (1*7)+(0*4)+(0*5)=7 
+#        [4.0000, 5.5000], (0.5*2)+(0.5*6)+(0*6)=4, (0.5*7)+(0.5*4)+(0*5)=5.5
+#        [4.6667, 5.3333]]) (0.33*2)+(0.33*6)+(0.33*6)=4.67, (0.33*7)+(0.33*4)+(0.33*5)=5.33
+
+# VERSION 2: we can use this technique multiplied with any corresponding matrix to get the means
+wei = torch.tril(torch.ones(T, T))
+wei /= wei.sum(1, keepdim=True) # this represents our a, its an 8x8 matrix
+xbow2 = wei @ x # (T, T) @ (B, T, C) ==> will create a batch dimension in (T, T) matrix so
+				# (B, T, T) @ (B, T, C) ==> (B, T, C) this gives a resultant matrix with the same values as original xbow, therefore
+#print(torch.allclose(xbow, xbow2)) ## returns 'True'
+#print(xbow2[0])
+#tensor([[ 0.1808, -0.0700],
+#        [-0.0894, -0.4926], avg of -0.3596,0.1808, avg of -0.0700,-0.9152
+#        [ 0.1490, -0.3199], avg of 0.6258,-0.3596,0.1808, avg of 0.0255,-0.9152,-.0.0700
+#        [ 0.3504, -0.2238], etcs.
+#        [ 0.3525,  0.0545], ...
+#        [ 0.0688, -0.0396], ...
+#        [ 0.0927, -0.0682], ...
+#        [-0.0341,  0.1332]]) ...
+
+#VERSION 3: USING SOFTMAX
+tril = torch.tril(torch.ones(T,T))
+#tensor([[1., 0., 0., 0., 0., 0., 0., 0.],
+#       [1., 1., 0., 0., 0., 0., 0., 0.],
+#       [1., 1., 1., 0., 0., 0., 0., 0.],
+#       [1., 1., 1., 1., 0., 0., 0., 0.],
+#       [1., 1., 1., 1., 1., 0., 0., 0.],
+#       [1., 1., 1., 1., 1., 1., 0., 0.],
+#       [1., 1., 1., 1., 1., 1., 1., 0.],
+#       [1., 1., 1., 1., 1., 1., 1., 1.]])
+wei = torch.zeros(T,T)
+#tensor([[0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.],
+#       [0., 0., 0., 0., 0., 0., 0., 0.]])
+wei = wei.masked_fill(tril == 0, float('-inf')) # replaces all zeros with '-inf' in wei where tril ==0 
+#tensor([[0., -inf, -inf, -inf, -inf, -inf, -inf, -inf],
+#       [0., 0., -inf, -inf, -inf, -inf, -inf, -inf],
+#       [0., 0., 0., -inf, -inf, -inf, -inf, -inf],
+#       [0., 0., 0., 0., -inf, -inf, -inf, -inf],
+#       [0., 0., 0., 0., 0., -inf, -inf, -inf],
+#       [0., 0., 0., 0., 0., 0., -inf, -inf],
+#       [0., 0., 0., 0., 0., 0., 0., -inf],
+#       [0., 0., 0., 0., 0., 0., 0., 0.]])
+wei = F.softmax(wei, dim=1) # in softmax we exponentiate every single element, and then normalize
+#tensor([[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.5000, 0.5000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.3333, 0.3333, 0.3333, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.2500, 0.2500, 0.2500, 0.2500, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.2000, 0.2000, 0.2000, 0.2000, 0.2000, 0.0000, 0.0000, 0.0000],
+#        [0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.1667, 0.0000, 0.0000],
+#        [0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.1429, 0.0000],
+#        [0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250, 0.1250]])
+xbow3 = wei @ x
+#print(torch.allclose(xbow, xbow3)) ## returns 'True'
+# this is more flexible than the other methods for different weights so is going to be the method we use.
+
+#VERSION 4: Self-attention!
+#Want to gather info from the past in a data-dependent way i.e. a vowel may look for consonants
+#Every token at each position emits two vectors, a query, and a key, query vector is "what am I looking for", key is "what do I contain?"
+#dot product between queries and keys to generate weights, if key and query are aligned they'll interact to a high amount and it will learn more about that token
+
+torch.manual_seed(1337)
+B,T,C = 4,8,32 # batch,time,channels
+x = torch.randn(B,T,C)
+
+# let's see a single Head perform self-attention
+head_size = 16
+key = nn.Linear(C, head_size, bias=False)
+query = nn.Linear(C, head_size, bias=False)
+value = nn.Linear(C, head_size, bias=False)
+k = key(x) # (B, T, 16)
+q = query(x) # (B, T, 16)
+wei = q @ k.transpose(-2, -1) # (B, T, 16) @ (B, 16, T) ==> (B, T, T)
+#print(wei[0])
+#tensor([[-1.7629, -1.3011,  0.5652,  2.1616, -1.0674,  1.9632,  1.0765, -0.4530],
+#        [-3.3334, -1.6556,  0.1040,  3.3782, -2.1825,  1.0415, -0.0557,  0.2927],
+#        [-1.0226, -1.2606,  0.0762, -0.3813, -0.9843, -1.4303,  0.0749, -0.9547],
+#        [ 0.7836, -0.8014, -0.3368, -0.8496, -0.5602, -1.1701, -1.2927, -1.0260],
+#        [-1.2566,  0.0187, -0.7880, -1.3204,  2.0363,  0.8638,  0.3719,  0.9258],
+#        [-0.3126,  2.4152, -0.1106, -0.9931,  3.3449, -2.5229,  1.4187,  1.2196],
+#        [ 1.0876,  1.9652, -0.2621, -0.3158,  0.6091,  1.2616, -0.5484,  0.8048],
+#        [-1.8044, -0.4126, -0.8306,  0.5898, -0.7987, -0.5856,  0.6433,  0.6303]],
+
+tril = torch.tril(torch.ones(T, T))
+#wei = torch.zeros((T, T))
+wei = wei.masked_fill(tril == 0, float('-inf'))
+wei = F.softmax(wei, dim=-1)
+#print(wei[0])
+#tensor([[1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.1574, 0.8426, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.2088, 0.1646, 0.6266, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.5792, 0.1187, 0.1889, 0.1131, 0.0000, 0.0000, 0.0000, 0.0000],
+#        [0.0294, 0.1052, 0.0469, 0.0276, 0.7909, 0.0000, 0.0000, 0.0000],
+#        [0.0176, 0.2689, 0.0215, 0.0089, 0.6812, 0.0019, 0.0000, 0.0000],
+#        [0.1691, 0.4066, 0.0438, 0.0416, 0.1048, 0.2012, 0.0329, 0.0000],
+#        [0.0210, 0.0843, 0.0555, 0.2297, 0.0573, 0.0709, 0.2423, 0.2391]],
+
+v = value(x)a # (B, T, 16)
+#OLD WAY: out = wei @ x, NEW WAY:
+out = wei @ v # (B, T, T) @ (B, T, 16) == (B, T, 16)
+#print(out.shape) ## (4, 8, 16)
+
+#Attention is a communication mechanism. Can be seen as nodes in a directed graph (each containing vectors of information) looking at each other and aggregating 
+#wth a weighted sum from all nodes that point to them (all nodes point in the same direction), wih data-dependent weights
+#It can be applied to any arbitrary directed graph
+#In an encoder attention block just need to delete the line that does the masking with 'tril', allowing all tokens to communicate
+#A decoder attention block has triangular masking, and is usually used in autoregressive settings, like language modelling
+#"self-attention" means that keys and values are produced from the same source as queries. In "cross-attention" the queries
+#are produced by "x" but keys and values come from some other external source (e.g. an "encoder" module)
+#"Scaled" attention additionally multiplies wei by 1/sqrt(head_size). This it makes so when q and k are at unit variance, wei will be at unit
+#variance too, and the softmax will remain diffuse and not vary too much. if this is not done the variance for wei will be on the order
+#of head size. The more positive and negative the values get, the more wei will tend towards one-hot vectors. this is illustrated below:
+
+#torch.softmax(torch.tensor([0.1, -0.2, 0.3, -0.2, 0.5]), dim=-1)
+#OUTPUT: tensor([0.1925, 0.1426, 0.2351, 0.1426, 0.2872])
+
+#torch.softmax(torch.tensor([0.1, -0.2, 0.3, -0.2, 0.5])*8, dim=-1)
+#OUTPUT: tensor([0.0326, 0.0030, 0.1615, 0.0030, 0.8000])
+
+#torch.softmax(torch.tensor([0.1, -0.2, 0.3, -0.2, 0.5])*80, dim=-1)
+#OUTPUT: tensor([1.2664e-14, 4.7809e-25, 1.1254e-07, 4.7809e-25, 1.0000e+00])
+
+#As can be seen above the values start to "sharpen" towards the maximum, as the values become more extreme
+
+
+
+==> communication-computation-interspersed.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+# hyperparameters
+batch_size = 32 # how many independent sequences will we process in parallel?
+block_size = 8 # what is the maximum context length for predictions
+max_iters = 5000
+eval_interval = 10
+learning_rate = 1e-3 #decrease of learning rate for self-attention block
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+eval_iters = 200
+n_embd = 32
+# -----------------
+
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+@torch.no_grad()
+def estimate_loss():
+	out = {}
+	model.eval()
+	for split in ['train', 'val']:
+		losses = torch.zeros(eval_iters)
+		for k in range(eval_iters):
+			X, Y = get_batch(split)
+			logits, loss = model(X, Y)
+			losses[k] = loss.item()
+		out[split] = losses.mean()
+	model.train()
+	return out
+
+class Head(nn.Module):
+	""" one head of self-attention """
+
+	def __init__(self, head_size):
+		super().__init__()
+		self.key = nn.Linear(n_embd, head_size, bias=False)
+		self.query = nn.Linear(n_embd, head_size, bias=False)
+		self.value = nn.Linear(n_embd, head_size, bias=False)
+		#nn.Linear(features_in, features out, bias=True) features_in == number of input neurons, features_out == number of output neurons
+		self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+		#as tril is not a parameter in pytorch naming convention it is called a buffer, so is thus assigned
+
+	def forward(self, x):
+		B,T,C = x.shape
+		k = self.key(x)		# (B, T, C)
+		q = self.query(x) 	# (B, T, C)
+		# compute attention scores ("affinities")
+		wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) => (B, T, T)
+		# in Pytorch -1 refers to the last dimension on the right, -2 to previous. So -2, -1 refer to the 2nd to last and last dimension
+		wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf')) # B, T, T
+		wei = F.softmax(wei, dim=-1) # (B, T, T)
+		# perform the weighted aggregation of the values
+		v = self.value(x) # (B, T, C)
+		out = wei @ v # (B, T, T) @ (B, T, C) => (B, T, C)
+		return out
+
+class MultiHeadAttention(nn.Module):
+	""" multiple heads of self-attention in parallel """
+
+	def __init__(self, num_heads, head_size):
+		super().__init__()
+		self.heads = nn.ModuleList((Head(head_size) for _ in range(num_heads)))
+		#ModuleList registers the modules it contains as sub-modules, making sure their parameters are included when you call methods like
+		#.parameters() or .to(device) on a module. It can be indexed like a regular list. It's similar to torch.nn.Sequential which not
+		#only stores modules but invokes them sequentially during a forward pass. However sequential can cause problems defining custom fwd behaviours
+		self.proj = nn.Linear(n_embd, n_embd)
+		#proj also result of 'Residual connection' (Add operation in AIAYN paper)
+
+	def forward(self, x):
+		out = torch.cat([h(x) for h in self.heads], dim=-1)
+		out = self.proj(out) # Linear transformation of outcome of above layer
+		return out
+
+class FeedForward(nn.Module):
+	""" a simple linear layer followed by a non-linearity """
+
+	def __init__(self, n_embd):
+		super().__init__()
+		self.net = nn.Sequential(
+			nn.Linear(n_embd, 4 * n_embd),
+			nn.ReLU(),
+			nn.Linear(4 * n_embd, n_embd), #projection layer going back into the residual pathway
+		)
+
+	def forward(self, x):
+		return self.net(x)
+
+class Block(nn.Module):
+	""" Transformer block: communication followed by computation """
+
+	def __init__(self, n_embd, n_head):
+		# n_embd: embedding dimension, n_head: the number of heads we'd like
+		super().__init__()
+		head_size = n_embd // n_head
+		self.sa = MultiHeadAttention(n_head, head_size)
+		self.ffwd = FeedForward(n_embd)
+		self.ln1 = nn.LayerNorm(n_embd)
+		self.ln2 = nn.LayerNorm(n_embd)
+
+	#use of residual connection ('skip' connection) == x + (Add in AIAYN paper)
+	def forward(self, x):
+		x = x + self.sa(self.ln1(x))
+		x = x + self.ffwd(self.ln2(x))
+		return x
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # thin wrapper around tensor of shape vocab_size * n_embd
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings - number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector - number of columns in embedding table
+		self.position_embedding_table = nn.Embedding(block_size, n_embd) #Also encodes positions into an embedding table
+		self.blocks = nn.Sequential(
+			Block(n_embd, n_head=4),
+			Block(n_embd, n_head=4),
+			Block(n_embd, n_head=4),
+			nn.LayerNorm(n_embd),
+		)
+		self.lm_head = nn.Linear(n_embd, vocab_size) # lm_head == language modelling head
+
+	def forward(self, idx, targets=None):
+		B, T = idx.shape
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		tok_emb = self.token_embedding_table(idx) # (B,T,C==n_embd), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		pos_emb = self.position_embedding_table(torch.arange(T, device=device)) #(T,C), integers from 0 to T-1 are embedded through the table
+		x = tok_emb + pos_emb # (B, T, C) == (B, T, C) + (T,C): (T,C) gets right-aligned, new dimension is added, and it is broadcast along batch dimension
+		x = self.blocks(x)
+		logits = self.lm_head(x) # (B,T,vocab_size)
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in ssequence.
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood, expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			#crop idx to the last block_size tokens
+			idx_cond = idx[:, -block_size:]
+			# get the predictions
+			logits, loss = self(idx_cond)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C) # -1 means softmax will be applied to last dimension of input tensor
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+
+model = BigramLanguageModel() # calling it
+m = model.to(device) # will move model to whatever device is set to, 'cuda' device or 'cpu'
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+for iter in range(max_iters):
+	# every once in a while evaluate the loss on train and val sets
+	if iter % eval_interval == 0:
+		losses = estimate_loss()
+		print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
+==> gpt-dev.py <==
+#!/usr/bin/python3.8
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
+with open('input.txt', 'r', encoding='utf-8') as f:
+	text = f.read()
+
+# hyperparameters
+batch_size = 64 # how many independent sequences will we process in parallel?
+block_size = 256 # what is the maximum context length for predictions
+max_iters = 5000
+eval_interval = 1
+learning_rate = 3e-4 #decrease of learning rate for self-attention block
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+eval_iters = 200
+n_embd = 384
+n_head = 6
+n_layer = 6
+dropout = 0.2 #randomly switch some neurons off during calculation
+# -----------------
+
+torch.manual_seed(1337)
+
+chars = sorted(list(set(text)))
+vocab_size = len(chars)
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+encode = lambda s: [stoi[c] for c in s] #encoder: take a string, output a list of integers
+decode = lambda l: ''.join([itos[i] for i in l]) #decoder: take a list of integers, output a string
+
+data = torch.tensor(encode(text), dtype=torch.long)
+n = int(0.9*len(data)) # first 90% will be train, rest val
+train_data = data[:n]
+val_data = data[n:]
+
+def get_batch(split):
+	#generate a small batch of data of inputs x and targets y
+	data = train_data if split == 'train' else val_data
+	ix = torch.randint(len(data) - block_size, (batch_size,)) #torch.randint(low=0, high, size) i.e. torch.randint(high, size)
+	#Generates batch_size (i.e. 4) number of random offsets between 0 and len(data) - block_size
+	x = torch.stack([data[i:i+block_size] for i in ix])
+	y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # torch.stack(tensors, dim=0, out=None)
+	#torch.stack stacks sequences of tensors(that must have the same shape) along a new dimension. The default is 0
+	#Therefore 1D tensors become rows in a new 2D tensor
+	return x,y
+
+@torch.no_grad()
+def estimate_loss():
+	out = {}
+	model.eval()
+	for split in ['train', 'val']:
+		losses = torch.zeros(eval_iters)
+		for k in range(eval_iters):
+			X, Y = get_batch(split)
+			logits, loss = model(X, Y)
+			losses[k] = loss.item()
+		out[split] = losses.mean()
+	model.train()
+	return out
+
+class Head(nn.Module):
+	""" one head of self-attention """
+
+	def __init__(self, head_size):
+		super().__init__()
+		self.key = nn.Linear(n_embd, head_size, bias=False)
+		self.query = nn.Linear(n_embd, head_size, bias=False)
+		self.value = nn.Linear(n_embd, head_size, bias=False)
+		#nn.Linear(features_in, features out, bias=True) features_in == number of input neurons, features_out == number of output neurons
+		self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+		#as tril is not a parameter in pytorch naming convention it is called a buffer, so is thus assigned
+
+		self.dropout = nn.Dropout(dropout)
+
+	def forward(self, x):
+		B,T,C = x.shape
+		k = self.key(x)		# (B, T, C)
+		q = self.query(x) 	# (B, T, C)
+		# compute attention scores ("affinities")
+		wei = q @ k.transpose(-2,-1) * C**-0.5 # (B, T, C) @ (B, C, T) => (B, T, T)
+		# in Pytorch -1 refers to the last dimension on the right, -2 to previous. So -2, -1 refer to the 2nd to last and last dimension
+		wei = wei.masked_fill(self.tril[:T, :T] ==0, float('-inf')) # B, T, T
+		wei = F.softmax(wei, dim=-1) # (B, T, T)
+		wei = self.dropout(wei)
+		# perform the weighted aggregation of the values
+		v = self.value(x) # (B, T, C)
+		out = wei @ v # (B, T, T) @ (B, T, C) => (B, T, C)
+		return out
+
+class MultiHeadAttention(nn.Module):
+	""" multiple heads of self-attention in parallel """
+
+	def __init__(self, num_heads, head_size):
+		super().__init__()
+		self.heads = nn.ModuleList((Head(head_size) for _ in range(num_heads)))
+		#ModuleList registers the modules it contains as sub-modules, making sure their parameters are included when you call methods like
+		#.parameters() or .to(device) on a module. It can be indexed like a regular list. It's similar to torch.nn.Sequential which not
+		#only stores modules but invokes them sequentially during a forward pass. However sequential can cause problems defining custom fwd behaviours
+		self.proj = nn.Linear(n_embd, n_embd)
+		#proj also result of 'Residual connection' (Add operation in AIAYN paper)
+		self.dropout = nn.Dropout(dropout)
+
+	def forward(self, x):
+		out = torch.cat([h(x) for h in self.heads], dim=-1)
+		out = self.dropout(self.proj(out)) # Linear transformation of outcome of above layer
+		return out
+
+class FeedForward(nn.Module):
+	""" a simple linear layer followed by a non-linearity """
+
+	def __init__(self, n_embd):
+		super().__init__()
+		self.net = nn.Sequential(
+			nn.Linear(n_embd, 4 * n_embd),
+			nn.ReLU(),
+			nn.Linear(4 * n_embd, n_embd), #projection layer going back into the residual pathway
+			nn.Dropout(dropout)
+		)
+
+	def forward(self, x):
+		return self.net(x)
+
+class Block(nn.Module):
+	""" Transformer block: communication followed by computation """
+
+	def __init__(self, n_embd, n_head):
+		# n_embd: embedding dimension, n_head: the number of heads we'd like
+		super().__init__()
+		head_size = n_embd // n_head
+		self.sa = MultiHeadAttention(n_head, head_size)
+		self.ffwd = FeedForward(n_embd)
+		self.ln1 = nn.LayerNorm(n_embd)
+		self.ln2 = nn.LayerNorm(n_embd)
+
+	#use of residual connection ('skip' connection) == x + (Add in AIAYN paper)
+	def forward(self, x):
+		x = x + self.sa(self.ln1(x))
+		x = x + self.ffwd(self.ln2(x))
+		return x
+
+class BigramLanguageModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		# each token directly reads off the logits for the next token from a lookup table
+		self.token_embedding_table = nn.Embedding(vocab_size, n_embd) # thin wrapper around tensor of shape vocab_size * n_embd
+		#torch.nn.Embedding(num_embeddings, embedding_dim)
+			#num_embeddings == Size of the dictionary of embeddings - number of rows in the embedding table
+			#embedding_dim == the size of each embedding vector - number of columns in embedding table
+		self.position_embedding_table = nn.Embedding(block_size, n_embd) #Also encodes positions into an embedding table
+		self.blocks = nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
+		self.ln_f = nn.LayerNorm(n_embd) # final layer norm
+		self.lm_head = nn.Linear(n_embd, vocab_size) # lm_head == language modelling head
+
+	def forward(self, idx, targets=None):
+		B, T = idx.shape
+		# idx and targets are both tensors of integers of torch.Size([B, T])
+
+		# passing inputs (referred to as idx) into token embedding table
+		tok_emb = self.token_embedding_table(idx) # (B,T,C==n_embd), pytorch plucks out rows from idx tensor, arranges into batch * time * channel table
+		pos_emb = self.position_embedding_table(torch.arange(T, device=device)) #(T,C), integers from 0 to T-1 are embedded through the table
+		x = tok_emb + pos_emb # (B, T, C) == (B, T, C) + (T,C): (T,C) gets right-aligned, new dimension is added, and it is broadcast along batch dimension
+		x = self.blocks(x)
+		x = self.ln_f(x)
+		logits = self.lm_head(x) # (B,T,vocab_size)
+		# where batch == 4, time == 8, and channel == 65. Will interpret this arrangement as logits which are scores for next character in ssequence.
+		
+		if targets is None:
+			loss = None
+		else:
+			B, T, C = logits.shape
+			logits = logits.view(B*T, C) # implementation of negative log likelihood, expects C as 2nd dimension
+			targets = targets.view(B*T)
+			loss = F.cross_entropy(logits, targets) # F.cross_entropy(input, target) 	
+			# input = Tensor of size (N, C), where C is the number of classes
+			# target = Tensor of size N which contains the indices of the true classes for every data point
+		return logits, loss
+
+	def generate(self, idx, max_new_tokens):
+		# idx is (B, T) array of indices in the current context
+		for _ in range(max_new_tokens):
+			#crop idx to the last block_size tokens
+			idx_cond = idx[:, -block_size:]
+			# get the predictions
+			logits, loss = self(idx_cond)
+			# focus only on the last time step, as that is prediction for what comes next
+			logits = logits[:, -1, :] # becomes (B, C)
+			# apply softmax to get probabilities
+			probs = F.softmax(logits, dim=-1) # (B, C) # -1 means softmax will be applied to last dimension of input tensor
+			# sample from the distribution, in each batch dimension only a single prediction for which sample comes next
+			idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+			# torch.multinomial(input, num_samples)
+				# input == input tensor containing probabilities to be used for sampling
+				# num_samples == number of samples to be drawn from each distribution
+			# append sampled index to the running sequence
+			idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+		return idx
+
+model = BigramLanguageModel() # calling it
+m = model.to(device) # will move model to whatever device is set to, 'cuda' device or 'cpu'
+
+# Creates a pytorch optimizer. AdamW more efficent than stochastic gradient descent (accessed via SGD)
+optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+
+for iter in range(max_iters):
+	# every once in a while evaluate the loss on train and val sets
+	if iter % eval_interval == 0:
+		losses = estimate_loss()
+		print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+	xb, yb = get_batch('train')
+
+	#evaluate the loss
+	logits, loss = m(xb, yb)
+	optimizer.zero_grad(set_to_none=True)
+	loss.backward()
+	optimizer.step()
+
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+
