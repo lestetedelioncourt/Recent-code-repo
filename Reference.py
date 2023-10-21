@@ -8751,3 +8751,269 @@ print(random_tensor_C == random_tensor_D) #will return all true
 
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 
+# To setup device agnostic code (all below is device agnostic)
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+print(torch.cuda.device_count())
+
+#Create a tensor (default is on the CPU)
+cputensor = torch.tensor([1,2,3])
+print(cputensor, cputensor.device)
+
+#Move tensor to GPU (if available)
+gputensor = cputensor.to(device)
+print(gputensor) # if gpu available, returns tensor([1, 2, 3], device='cuda:0')
+
+#Numpy only works with the CPU, so may want to move tensors to CPU
+
+gputensor.numpy() # If cuda TypeError: can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory first
+
+newcputensor = gputensor.cpu().numpy() # will convert back to numpy array
+
+#Methods which mutate a tensor are marked with an underscore suffix. For example, torch.FloatTensor.abs_() computes the absolute value in-place and returns the modified tensor, while torch.FloatTensor.abs() computes the result in a new tensor.
+
+#Each tensor has an associated torch.Storage, which holds its data. The tensor class also provides multi-dimensional, strided view of a storage and defines numeric operations on it
+
+#tensor access
+acctensor = torch.ones(4,4)
+print(f"First row: {acctensor[0]}")
+print(f"First column: {acctensor[:, 0]}")
+print(f"Last column: {acctensor[..., -1]}")
+acctensor[:,1] = 0 # 2nd column
+print(acctensor)
+
+print(torch.cat([acctensor, acctensor, acctensor])) #dim=0
+print(torch.cat([acctensor, acctensor, acctensor], dim=1)) 
+
+#In-place operations Operations that store the result into the operand are called in-place. They are denoted by a _ suffix. For example: x.copy_(y), x.t_(), will change x
+
+acctensor.add_(3)
+print(acctensor)
+
+==> torch_quickstart.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 20 21:19:27 2023
+
+@author: leslietetteh
+"""
+
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+
+#PyTorch offers domain-specific libraries such as TorchText, TorchVision, and 
+#TorchAudio, all of which include datasets. For this tutorial, we will be using 
+#a TorchVision dataset.
+#The torchvision.datasets module contains Dataset objects for many real-world 
+#vision data like CIFAR, COCO (full list here). In this tutorial, we use the 
+#FashionMNIST dataset. Every TorchVision Dataset includes two arguments:  
+#transform and target_transform to modify the samples and labels respectively.
+
+# Download training data from open datasets
+training_data = datasets.FashionMNIST(
+    root="data",
+    train=True,
+    download=True,
+    transform=ToTensor(),    
+)
+
+#Download test data from open datasets.
+test_data = datasets.FashionMNIST(
+    root="data",
+    train=False,
+    download=True,
+    transform=ToTensor(),    
+)
+
+#We pass the Dataset as an argument to DataLoader. This wraps an iterable over 
+#our dataset, and supports automatic batching, sampling, shuffling and 
+#multiprocess data loading. Here we define a batch size of 64, i.e. each element 
+#in the dataloader iterable will return a batch of 64 features and labels.
+
+batch_size = 64
+
+# Create data loaders
+train_dataloader = DataLoader(training_data, batch_size=batch_size)
+test_dataloader = DataLoader(test_data, batch_size=batch_size)
+
+for X, y in test_dataloader:
+    print(f"Shape of X [N, C, H, W]: {X.shape}")
+    print(f"Shape of y: {y.shape} {y.dtype}")
+    break
+
+# Get cpu, gpu or mps device for training
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"    
+)
+print(f"Using {device} device")
+
+#To define a neural network in PyTorch, we create a class that inherits from 
+#nn.Module. We define the layers of the network in the __init__ function and 
+#specify how data will pass through the network in the forward function. To 
+#accelerate operations in the neural network, we move it to the GPU or MPS if available.
+
+#Define model
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.flatten = nn.Flatten()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(28*28, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10)
+        )
+        
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_relu_stack(x)
+        return logits
+    
+model = NeuralNetwork().to(device)
+print(model)
+    
+#To train a model, we need a loss function and an optimizer.
+
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-3) #stochastic gradient descent
+
+#In a single training loop, the model makes predictions on the training dataset 
+#(fed to it in batches), and backpropagates the prediction error to adjust the 
+#model’s parameters.   
+
+def train(dataloader, model, loss_fn, optimizer):
+    size = len(dataloader.dataset)
+    model.train()
+    for batch, (X, y) in enumerate(dataloader):
+        X, y = X.to(device), y.to(device)
+        
+        # Compute prediction error
+        pred = model(X)
+        loss = loss_fn(pred, y)
+        
+        # Backpropagation
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        
+        if batch % 100 == 0:
+            loss, current = loss.item(), (batch + 1) * len(X)
+            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
+            
+#We also check the model''s performance against the test dataset to ensure its learning
+
+def test(dataloader, model, loss_fn):
+    size = len(dataloader.dataset)
+    num_batches = len(dataloader)
+    model.eval()
+    test_loss, correct = 0, 0
+    with torch.no_grad():
+        for X, y in dataloader:
+            X, y = X.to(device), y.to(device)
+            pred = model(X)
+            test_loss += loss_fn(pred, y).item()
+            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+    test_loss /= num_batches
+    correct /= size
+    print(f"Test Error: \n Accuracy {(100*correct):>0.1f}%, AVg loss{test_loss:>8f}\n")
+
+#The training process is conducted over several iterations (epochs). During each 
+#epoch, the model learns parameters to make better predictions. We print the 
+#model’s accuracy and loss at each epoch; we’d like to see the accuracy increase 
+#and the loss decrease with every epoch.
+
+epochs = 5
+for t in range(epochs):
+    print(f"Epoch {t+1}\n-----------------------------")
+    train(train_dataloader, model, loss_fn, optimizer)
+    test(test_dataloader, model, loss_fn)
+    
+#A common way to save a model is to serialize the internal state dictionary 
+#(containing the model parameters).
+
+torch.save(model.state_dict(), "model.pth")
+print("Saved PyTorch Model State to model.pth")
+
+==> torch_quickstart2.py <==
+
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Oct 21 12:20:34 2023
+
+@author: leslietetteh
+"""
+
+import torch
+from torch import nn
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+
+#Setup code
+
+test_data = datasets.FashionMNIST(
+    root="data",
+    train=False,
+    download=True,
+    transform=ToTensor(),
+)
+
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()=
+        self.flatten = nn.Flatten()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(28*28, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+       ++     nn.Linear(512, 10)
+        )
+        
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_relu_stack(x)
+        return logits
+
+device = (
+    "cuda" 
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
+
+#The process for loading a model includes re-creating the model structure and 
+#loading the state dictionary into it
+
+model = NeuralNetwork().to(device)
+model.load_state_dict(torch.load("model.pth"))
+
+classes = [
+    "T-shirt/top",
+    "Trouser",
+    "Pullover",
+    "Dress",
+    "Coat",
+    "Sandal",
+    "Shirt",
+    "Sneaker",
+    "Bag",
+    "Ankle boot",    
+]
+
+model.eval()
+x, y = test_data[0][0], test_data[0][1]
+with torch.no_grad():
+    x = x.to(device)
+    pred = model(x)
+    predicted, actual = classes[pred[0].argmax(0)], classes[y]
+    print(f'Predicted: "{predicted}", Actual: "{actual}"')
+          
