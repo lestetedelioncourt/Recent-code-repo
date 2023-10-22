@@ -9017,3 +9017,351 @@ with torch.no_grad():
     predicted, actual = classes[pred[0].argmax(0)], classes[y]
     print(f'Predicted: "{predicted}", Actual: "{actual}"')
           
+==> pytorch_workflow0load.py <==
+#!/usr/bin/python3.8
+
+import torch
+from torch import nn # nn contains all of PyTorch's building blocks for graphs
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+
+print(torch.__version__)
+
+class LinearRegressionModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		self.weights = nn.Parameter(torch.rand(1))
+		self.bias = nn.Parameter(torch.rand(1))
+
+		def forward(self, x: torch.Tensor) -> torch.Tensor:
+			return self.weights * x + self.bias
+
+loaded_model_0 = LinearRegressionModel()
+
+MODEL_PATH = Path("models")
+MODEL_NAME = "01_pytorch_workflow_model_0.pth"
+MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+
+loaded_model_0.load_state_dict(torch.load(f=MODEL_SAVE_PATH))
+print(loaded_model_0.state_dict())
+
+==> pytorch_workflow0save.py <==
+#!/usr/bin/python3.8
+
+import torch
+from torch import nn # nn contains all of PyTorch's building blocks for graphs
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+
+print(torch.__version__)
+
+#Data (preparing and loading)
+
+#Using linear regression formula (Y= ax + b) to make straight line with known parameters
+weight = 0.7 #a
+bias = 0.3   #b
+
+start = 0
+end = 1
+step = 0.02
+X = torch.arange(start, end, step).unsqueeze(dim=1)
+y = weight * X + bias
+
+print(f"{X[:10]}")
+print(f"{y[:10]}")
+print(f"{len(X)}")
+print(f"{len(y)}")
+
+#purpose of machine learning is to learn a representation of input and how it maps to output
+
+train_split = int(0.8 * len(X))
+X_train, y_train = X[:train_split], y[:train_split] #Before train_split
+X_test, y_test = X[train_split:], y[train_split:] #After train_split
+
+print(f"{len(X_train)}, {len(y_train)}, {len(X_test)}, {len(y_test)}")
+
+#To visualize the data
+def plot_predictions(train_data=X_train,
+					 train_labels=y_train,
+					 test_data=X_test,
+					 test_labels=y_test,
+					 predictions=None):
+	plt.figure(figsize=(10,7))
+	# Plot training data in blue
+	plt.scatter(train_data, train_labels, c="b", s=4, label="Training data")
+
+	# Plot test data in green
+	plt.scatter(test_data, test_labels, c="g", s=4, label="Testing data")
+
+	#Are there predictions?
+	if predictions is not None:
+		#Plot the predictions if they exist
+		plt.scatter(test_data, predictions, c="r", s=4, label="Predictions")
+
+	#Show the legend
+	plt.legend(prop={"size": 14})
+	plt.show()
+
+plot_predictions()
+
+#Create LinearRegressionModel class
+class LinearRegressionModel(nn.Module):
+	def __init__(self):
+		super().__init__()
+		self.weights = nn.Parameter(torch.rand(1,requires_grad=True,dtype=torch.float))
+		self.bias = nn.Parameter(torch.randn(1,requires_grad=True,dtype=torch.float))
+		
+	#forward() defines the forward computation in the model
+	#any subclass of nn.Module (inheriting) needs to override forward()
+	def forward(self, x: torch.Tensor) -> torch.Tensor: #x is the input data
+		return self.weights * x + self.bias # this is the linear regression formula
+		
+#the model starts with random values, looks at trainng data and adjust the random values
+#to get closer to the real data. Does this through gradient descent and backpropagation
+
+torch.manual_seed(42)
+
+model_0 = LinearRegressionModel()
+
+print(list(model_0.parameters())) # prints values for self.weights & self.bias
+print(list(model_0.state_dict())) # returns 'weights' and 'bias'
+
+#initializes with requires_grad=True and therefore not optiized for predictions
+y_preds_not_optimized = model_0(X_test)
+
+#making a prediction using 'torch.inference_mode()', sets requires_grad to False and
+#has other features that give it an advantage over using torch.no_grad()
+with torch.inference_mode():
+	y_preds = model_0(X_test)
+
+print(y_preds_not_optimized) # can see the gradient object
+print(y_preds)
+print(y_test)
+plot_predictions(predictions=y_preds)
+
+#loss function can also be called 'cost function' or 'criterion'. It measures how 
+#wrong your model's output are compared to the actual data. It can do this through
+#the 'mean absolute error'.It then uses an optimizer to adjust the model parameters
+#to minimize the loss function output.
+
+#Mean Absolute Error is referred to as nn.L1Loss and is usually used for regression problems
+#nn.MSELoss, (mean squared error, known as L2 loss) is similarly used for regression, while
+#cross-entropy loss is usually used for classification problems. read pytorch loss functions
+
+#Loss function:
+loss_fn = nn.L1Loss()
+
+#Optimizer:
+optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
+# Stochastic (uses random subset of data in each iteration to find minimum of function),
+# instead of using the whole dataset
+#lr (learning rate) is possibly the most important hyperparameter, hyperparameter refers to
+#any parameter which is set manually by the user
+
+#Necessary steps in a training loop
+#0. Loop through data
+#1. Perform forward pass (move through model forward() function) to make predictions on data
+#2. Calculate the loss (compare fwd pass predictions to ground truth labels)
+#3. Optimizer zero grad
+#4. loss.backward() - calculate gradients of parameters with respect to the loss
+#5. Optimize - use optimizer to adjust model's parameters to try and improve loss
+
+#An epoch is one loop through the data (also a hyperparameter, because set by user)
+epochs = 400
+
+#Track different values
+epoch_count = []
+loss_values = []
+test_loss_values = []
+
+#Training
+for epoch in range(epochs):
+	#set the model to training mode
+	model_0.train() # sets requires_grad to true for parameters that require gradients
+	#1. Forward pass
+	y_pred = model_0(X_train)
+	#2. Calculate the loss
+	loss = loss_fn(y_pred, y_train)
+	#3. Optimizer zero grad
+	optimizer.zero_grad()
+	#4. Backpropagation on loss with respect to model paramenters
+	loss.backward()
+	#5. Step the optimizer (perform gradient descent)
+	optimizer.step()
+	
+	#Testing
+	if epoch % 10 == 0:
+		model_0.eval() #must call model.eval() to set dropout and batch norm layers
+		#to evaluation mode before running inference. Failing to do this will yield
+		#inconsistent inference results.
+
+		with torch.inference_mode():
+			y_preds = model_0(X_test)
+			test_loss = loss_fn(y_preds, y_test)
+		#plot_predictions(predictions=y_preds)
+		
+		epoch_count.append(epoch)
+		loss_values.append(loss.item())
+		test_loss_values.append(test_loss)
+		#print(f"Epoch: {epoch} | Loss: {loss} | Test loss: {test_loss}")
+		#print(f"{list(model_0.parameters())}") # prints values for weights & bias
+
+	#by default optimizer grad will accumulate over multiple loops. Needs zero_grad
+	#operation on each iteration of the loop, before performing backpropagation
+
+#if appending loss instead off loss.item()
+#plt.plot(epoch_count, torch.tensor(loss_values).numpy(), label="Train loss")
+plt.plot(epoch_count, loss_values, label="Train loss")
+plt.plot(epoch_count, test_loss_values, label="Test loss")
+plt.title("Training and test loss curves")
+plt.ylabel("Loss")
+plt.xlabel("Epochs")
+plt.legend()
+plt.show()
+
+#Three main methods need to know about saving and loading a model in PyTorch
+#1. 'torch.save()' -saves a pytorch object in python's pickle format
+#2. 'torch.load()' -allows you to load a saved PyTorch object
+#3. 'torch.nn.Module.load_state_dict()' -this allows to load a model's parameters
+#(its saved state dictionary)
+
+# 1. Create models directory
+MODEL_PATH = Path("models")
+MODEL_PATH.mkdir(parents=True, exist_ok=True) # if already exists wont throw error
+
+# 2. Create Model save path
+MODEL_NAME = "01_pytorch_workflow_model_0.pth"
+MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+
+print(MODEL_SAVE_PATH)
+
+# 3. Save the model state dict
+print(f"Saving model to: {MODEL_SAVE_PATH}")
+torch.save(obj=model_0.state_dict(), f=MODEL_SAVE_PATH)
+
+==> pytorch_workflow1.py <==
+#!/usr/bin/python3.8
+
+import torch
+from torch import nn
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+print(torch.__version__)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
+weight = 0.7
+bias = 0.3
+amin = 0
+amax = 1
+step = 0.02
+
+X = torch.arange(amin, amax, step).unsqueeze(dim=1)
+y = weight * X + bias
+
+train_split = int(0.8 * len(X))
+X_train, y_train = X[:train_split], y[:train_split]
+X_test, y_test = X[train_split:], y[train_split:]
+
+def plot_predictions(train_data=X_train,
+					 train_labels=y_train,
+					 test_data=X_test,
+					 test_labels=y_test,
+					 predictions=None):
+	plt.figure(figsize=(10,7))
+	plt.scatter(train_data, train_labels, c="b", s=4, label="Training data")
+	plt.scatter(test_data, test_labels, c="g", s=4, label="Test data")
+
+	if predictions is not None:
+		plt.scatter(test_data, predictions, c="r", s=4, label="Predictions")
+
+	plt.legend(prop={"size": 14})
+	plt.show()
+
+plot_predictions()
+
+#Build model
+class LinearRegressionModel1(nn.Module):
+	def __init__(self):
+		super().__init__()
+
+		#Use nn.Linear for creating model parameters, instead of explicitly stating
+		self.linear_layer = nn.Linear(in_features=1, out_features=1) #1 input, 1 output
+	
+	def forward(self, x: torch.Tensor) -> torch.Tensor:
+		return self.linear_layer(x)
+		
+torch.manual_seed(42)
+model_1 = LinearRegressionModel1()
+print(model_1)
+print(model_1.state_dict())
+
+model_1.to(device)
+
+#Loss function
+loss_fn = nn.L1Loss()
+
+#Optimizer
+optimizer = torch.optim.SGD(params=model_1.parameters(), lr=0.005)
+
+#training loop
+torch.manual_seed(42)
+
+epochs = 300
+
+#Put data on target device (device agnostic code for data)
+X_train = X_train.to(device) 
+y_train = y_train.to(device)
+X_test = X_test.to(device)
+y_test = y_test.to(device)
+
+for epoch in range(epochs):
+	model_1.train()
+
+	#Forward pass
+	y_pred = model_1(X_train)
+
+	#calculate loss
+	loss = loss_fn(y_pred, y_train)
+
+	#optimizer zero grad
+	optimizer.zero_grad()
+
+	#perform backpropagation
+	loss.backward()
+
+	#Optimizer Step
+	optimizer.step()
+
+	#
+	model_1.eval()
+	with torch.inference_mode():
+		test_pred= model_1(X_test)
+
+		test_loss= loss_fn(test_pred, y_test)
+	
+		if epoch % 10 == 0:
+			print(f"Epoch: {epoch} | Loss: {loss} | Test Loss: {test_loss}")
+			#plot_predictions(predictions=test_pred)
+
+print(model_1.state_dict())
+
+MODEL_PATH = Path("models")
+MODEL_PATH.mkdir(parents=True, exist_ok=True)
+
+MODEL_NAME = "01_pytorch_workflow_model_1.pth"
+MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+
+print(f"Saving model to: {MODEL_SAVE_PATH}")
+torch.save(obj=model_1.state_dict(), f=MODEL_SAVE_PATH)
+
+model_1loaded = LinearRegressionModel1()
+model_1loaded.load_state_dict(torch.load(MODEL_SAVE_PATH))
+
+model_1loaded.to(device)
+print(model_1loaded)
+print(model_1loaded.state_dict())
