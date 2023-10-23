@@ -9168,7 +9168,7 @@ optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
 #4. loss.backward() - calculate gradients of parameters with respect to the loss
 #5. Optimize - use optimizer to adjust model's parameters to try and improve loss
 
-#An epoch is one loop through the data (also a hyperparameter, because set by user)
+#An epoch is one loop through all the data (also a hyperparameter, because set by user)
 epochs = 400
 
 #Track different values
