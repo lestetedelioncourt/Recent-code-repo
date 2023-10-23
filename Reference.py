@@ -9365,3 +9365,3600 @@ model_1loaded.load_state_dict(torch.load(MODEL_SAVE_PATH))
 model_1loaded.to(device)
 print(model_1loaded)
 print(model_1loaded.state_dict())
+
+==> nn_tutorial0.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Oct 22 19:13:00 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+
+try:
+    import google.colab
+except ImportError:
+    pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+#Let’s first create a model using nothing but PyTorch tensor 
+#operations. We’re assuming you’re already familiar with the 
+#basics of neural networks. (If you’re not, you can learn them at 
+#course.fast.ai).
+
+#PyTorch provides methods to create random or zero-filled tensors, 
+#which we will use to create our weights and bias for a simple 
+#linear model. These are just regular tensors, with one very 
+#special addition: we tell PyTorch that they require a gradient. 
+#This causes PyTorch to record all of the operations done on the 
+#tensor, so that it can calculate the gradient during back-propagation
+
+#For the weights, we set requires_grad after the initialization, 
+#since we don’t want that step included in the gradient. (Note the 
+#trailing _ in PyTorch signifies that the operation is performed 
+#in-place.)
+
+#NOTE: We are initializing the weights here with Xavier 
+#initialisation (by multiplying with 1/sqrt(n)).
+
+import math
+
+weights = torch.randn(784, 10) / math.sqrt(784)
+weights.requires_grad_()
+bias = torch.zeros(10, requires_grad=True)
+
+#Thanks to PyTorch’s ability to calculate gradients automatically, 
+#we can use any standard Python function (or callable object) as a 
+#model! So let’s just write a plain matrix multiplication and 
+#broadcasted addition to create a simple linear model. We also 
+#need an activation function, so we’ll write log_softmax and use 
+#it. Remember: although PyTorch provides lots of prewritten loss 
+#functions, activation functions, and so forth, you can easily 
+#write your own using plain python. PyTorch will even create fast 
+#GPU or vectorized CPU code for your function automatically.
+
+def log_softmax(x):
+    return x - x.exp().sum(-1).log().unsqueeze(-1)
+
+def model(xb):
+    return log_softmax(xb @ weights + bias)
+
+#In the above, the @ stands for the matrix multiplication 
+#operation. We will call our function on one batch of data (in 
+#this case, 64 images). This is one forward pass. Note that our 
+#predictions won’t be any better than random at this stage, since 
+#we start with random weights.
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s implement negative log-likelihood to use as the loss 
+#function (again, we can just use standard Python):
+    
+def nll(input, target):
+    return -input[range(target.shape[0]), target].mean()
+
+loss_func = nll
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+for epoch in range(epochs):
+    for i in range((n - 1) // bs + 1):
+        #set_trace()
+        start_i = i * bs
+        end_i = start_i + bs
+        xb = x_train[start_i:end_i]
+        yb = y_train[start_i:end_i]
+        pred = model(xb)
+        loss = loss_func(pred, yb)
+        
+        loss.backward()
+        with torch.no_grad():
+            weights -= weights.grad * lr
+            bias -= bias.grad * lr
+            weights.grad.zero_()
+            bias.grad.zero_()
+            
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial1.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 16:06:39 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+
+try:
+    import google.colab
+except ImportError:
+    pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+#Let’s first create a model using nothing but PyTorch tensor 
+#operations. We’re assuming you’re already familiar with the 
+#basics of neural networks. (If you’re not, you can learn them at 
+#course.fast.ai).
+
+#PyTorch provides methods to create random or zero-filled tensors, 
+#which we will use to create our weights and bias for a simple 
+#linear model. These are just regular tensors, with one very 
+#special addition: we tell PyTorch that they require a gradient. 
+#This causes PyTorch to record all of the operations done on the 
+#tensor, so that it can calculate the gradient during back-propagation
+
+#For the weights, we set requires_grad after the initialization, 
+#since we don’t want that step included in the gradient. (Note the 
+#trailing _ in PyTorch signifies that the operation is performed 
+#in-place.)
+
+#NOTE: We are initializing the weights here with Xavier 
+#initialisation (by multiplying with 1/sqrt(n)).
+
+import math
+
+weights = torch.randn(784, 10) / math.sqrt(784)
+weights.requires_grad_()
+bias = torch.zeros(10, requires_grad=True)
+
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+
+#Using torch.nn.functional
+
+#We will now refactor our code, so that it does the same thing as 
+#before, only we’ll start taking advantage of PyTorch’s nn classes 
+#to make it more concise and flexible. At each step from here, we 
+#should be making our code one or more of: shorter, more 
+#understandable, and/or more flexible.
+
+#The first and easiest step is to make our code shorter by 
+#replacing our hand-written activation and loss functions with 
+#those from torch.nn.functional (which is generally imported into 
+#the namespace F by convention). This module contains all the 
+#functions in the torch.nn library (whereas other parts of the 
+#library contain classes). As well as a wide range of loss and 
+#activation functions, you’ll also find here some convenient 
+#functions for creating neural nets, such as pooling functions. 
+#(There are also functions for doing convolutions, linear layers, 
+#etc, but as we’ll see, these are usually better handled using 
+#other parts of the library.)
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+def model(xb):
+    return xb @ weights + bias
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+for epoch in range(epochs):
+    for i in range((n - 1) // bs + 1):
+        #set_trace()
+        start_i = i * bs
+        end_i = start_i + bs
+        xb = x_train[start_i:end_i]
+        yb = y_train[start_i:end_i]
+        pred = model(xb)
+        loss = loss_func(pred, yb)
+        
+        loss.backward()
+        with torch.no_grad():
+            weights -= weights.grad * lr
+            bias -= bias.grad * lr
+            weights.grad.zero_()
+            bias.grad.zero_()
+            
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial2.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 16:22:00 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+
+try:
+    import google.colab
+except ImportError:
+    pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+        self.bias = nn.Parameter(torch.zeros(10))
+        
+    def forward(self, xb):
+        return xb @ self.weights + self.bias
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+model = Mnist_Logistic()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+#We’ll wrap the training loop in a fit function to run it again later.
+
+def fit():
+    for epoch in range(epochs):
+        for i in range((n - 1) // bs + 1):
+            #set_trace()
+            start_i = i * bs
+            end_i = start_i + bs
+            xb = x_train[start_i:end_i]
+            yb = y_train[start_i:end_i]
+            pred = model(xb)
+            loss = loss_func(pred, yb)
+            
+            loss.backward()
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    #Previously for our training loop we had to update the values for 
+    #each parameter by name, and manually zero out the grads for each 
+    #parameter separately, (above)
+    
+    #Now we can take advantage of model.parameters() and model.zero_grad() 
+    #(which are both defined by PyTorch for nn.Module) to make those steps 
+    #more concise and less prone to the error of forgetting some of our 
+    #parameters, particularly if we had a more complicated model:
+            with torch.no_grad():
+                for p in model.parameters():
+                    p -= p.grad * lr
+                model.zero_grad()
+
+fit()
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial3.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 17:12:16 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+
+try:
+    import google.colab
+except ImportError:
+    pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    model = Mnist_Logistic()
+    return model, optim.SGD(model.parameters(), lr=lr)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+#We’ll wrap the training loop in a fit function to run it again later.
+
+def fit():
+    for epoch in range(epochs):
+        for i in range((n - 1) // bs + 1):
+            #set_trace()
+            start_i = i * bs
+            end_i = start_i + bs
+            xb = x_train[start_i:end_i]
+            yb = y_train[start_i:end_i]
+            pred = model(xb)
+            loss = loss_func(pred, yb)
+            
+            loss.backward()
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+
+    #This will let us replace the code above:
+            opt.step()
+            opt.zero_grad()
+fit()
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial4.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 17:42:56 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+
+try:
+    import google.colab
+except ImportError:
+    pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    model = Mnist_Logistic()
+    return model, optim.SGD(model.parameters(), lr=lr)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+#Refactor using Dataset
+
+#PyTorch has an abstract Dataset class. A Dataset can be anything that 
+#has a __len__ function (called by Python’s standard len function) 
+#and a __getitem__ function as a way of indexing into it.
+
+#PyTorch’s TensorDataset is a Dataset wrapping tensors. By defining a 
+#length and way of indexing, this also gives us a way to iterate, 
+#index, and slice along the first dimension of a tensor. This will 
+#make it easier to access both the independent and dependent variables 
+#in the same line as we train.
+
+from torch.utils.data import TensorDataset
+
+#Both x_train and y_train can be combined in a single TensorDataset, 
+#which will be easier to iterate over and slice.
+
+train_ds = TensorDataset(x_train, y_train)
+
+#We’ll wrap the training loop in a fit function to run it again later.
+
+def fit():
+    for epoch in range(epochs):
+        for i in range((n - 1) // bs + 1):
+            #set_trace()
+            # #start_i = i * bs
+            # #end_i = start_i + bs
+            # #xb = x_train[start_i:end_i]
+            # #yb = y_train[start_i:end_i]
+            
+            #Previously, we had to iterate through minibatches of x 
+            #and y vals separately. Now, we do these 2 steps together:
+            xb,yb = train_ds[i*bs : i*bs + bs]
+            pred = model(xb)
+            loss = loss_func(pred, yb)
+            
+            loss.backward()
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+
+    #This will let us replace the code above:
+            opt.step()
+            opt.zero_grad()
+fit()
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial5.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 17:58:07 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+# #import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+
+pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+# #import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    model = Mnist_Logistic()
+    return model, optim.SGD(model.parameters(), lr=lr)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+#Refactor using Dataset
+
+#PyTorch has an abstract Dataset class. A Dataset can be anything that 
+#has a __len__ function (called by Python’s standard len function) 
+#and a __getitem__ function as a way of indexing into it.
+
+#PyTorch’s TensorDataset is a Dataset wrapping tensors. By defining a 
+#length and way of indexing, this also gives us a way to iterate, 
+#index, and slice along the first dimension of a tensor. This will 
+#make it easier to access both the independent and dependent variables 
+#in the same line as we train.
+
+from torch.utils.data import TensorDataset
+
+#Both x_train and y_train can be combined in a single TensorDataset, 
+#which will be easier to iterate over and slice.
+
+train_ds = TensorDataset(x_train, y_train)
+
+#Refactor using DataLoader
+
+#PyTorch’s DataLoader is responsible for managing batches. You can 
+#create a DataLoader from any Dataset. DataLoader makes it easier to 
+#iterate over batches. Rather than using train_ds[i*bs : i*bs+bs], 
+#the DataLoader gives us each minibatch automatically.
+
+from torch.utils.data import DataLoader
+
+train_dl = DataLoader(train_ds, batch_size=bs, shuffle=True)
+
+#Add validation
+
+#Shuffling (above) training data is important to prevent correlation 
+#between batches and overfitting. On the other hand, the validation 
+#loss will be identical whether we shuffle the validation set or not. 
+#Since shuffling takes extra time, it makes no sense to shuffle the 
+#validation data.
+
+#We’ll use a batch size for the validation set that is twice as large 
+#as that for the training set. This is because the validation set does 
+#not need backpropagation and thus takes less memory (it doesn’t need 
+#to store the gradients). We take advantage of this to use a larger 
+#batch size and compute the loss more quickly
+
+valid_ds = TensorDataset(x_valid, y_valid)
+valid_dl = DataLoader(valid_ds, batch_size=bs * 2)
+
+#We will calculate and print validation loss at the end of each epoch.
+
+#Note: we always call model.train() before training, and model.eval() 
+#before inference, because these are used by layers such as 
+#nn.BatchNorm2d and nn.Dropout to ensure appropriate behavior for 
+#these different phases.)
+
+#We’ll wrap the training loop in a fit function to run it again later.
+
+def fit():
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            pred = model(xb)
+            loss = loss_func(pred, yb)
+            loss.backward()
+            
+        # #for i in range((n - 1) // bs + 1):
+            # #set_trace()
+            # #start_i = i * bs
+            # #end_i = start_i + bs
+            # #xb = x_train[start_i:end_i]
+            # #yb = y_train[start_i:end_i]
+            
+            # #Previously, we had to iterate through minibatches of x 
+            # #and y vals separately. Now, we do these 2 steps together:
+            # #xb,yb = train_ds[i*bs : i*bs + bs]
+            # #pred = model(xb)
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+
+    #This will let us replace the code above:
+            
+            opt.step()
+            opt.zero_grad()
+        
+        model.eval()
+        with torch.no_grad():
+            valid_loss = sum(loss_func(model(xb), yb) for xb, yb in valid_dl)
+        print(f"Epoch: {epoch}, valid_loss: {valid_loss / len(valid_dl)}")
+fit()
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial6.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 18:39:56 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.5 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+# #import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    model = Mnist_Logistic()
+    return model, optim.SGD(model.parameters(), lr=lr)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#Refactor using Dataset
+
+#PyTorch has an abstract Dataset class. A Dataset can be anything that 
+#has a __len__ function (called by Python’s standard len function) 
+#and a __getitem__ function as a way of indexing into it.
+
+#PyTorch’s TensorDataset is a Dataset wrapping tensors. By defining a 
+#length and way of indexing, this also gives us a way to iterate, 
+#index, and slice along the first dimension of a tensor. This will 
+#make it easier to access both the independent and dependent variables 
+#in the same line as we train.
+
+from torch.utils.data import TensorDataset
+
+#Both x_train and y_train can be combined in a single TensorDataset, 
+#which will be easier to iterate over and slice.
+
+train_ds = TensorDataset(x_train, y_train)
+
+#Add validation
+
+#Shuffling (above) training data is important to prevent correlation 
+#between batches and overfitting. On the other hand, the validation 
+#loss will be identical whether we shuffle the validation set or not. 
+#Since shuffling takes extra time, it makes no sense to shuffle the 
+#validation data.
+
+#We’ll use a batch size for the validation set that is twice as large 
+#as that for the training set. This is because the validation set does 
+#not need backpropagation and thus takes less memory (it doesn’t need 
+#to store the gradients). We take advantage of this to use a larger 
+#batch size and compute the loss more quickly
+
+valid_ds = TensorDataset(x_valid, y_valid)
+
+#Refactor using DataLoader
+
+#PyTorch’s DataLoader is responsible for managing batches. You can 
+#create a DataLoader from any Dataset. DataLoader makes it easier to 
+#iterate over batches. Rather than using train_ds[i*bs : i*bs+bs], 
+#the DataLoader gives us each minibatch automatically.
+
+from torch.utils.data import DataLoader
+
+def get_data(train_ds, valid_ds, bs):
+    return(
+        DataLoader(train_ds, batch_size=bs, shuffle=True),
+        DataLoader(valid_ds, batch_size=bs * 2),
+    )
+
+train_dl, valid_dl = get_data(train_ds, valid_ds, bs)
+
+#We will calculate and print validation loss at the end of each epoch.
+
+#Note: we always call model.train() before training, and model.eval() 
+#before inference, because these are used by layers such as 
+#nn.BatchNorm2d and nn.Dropout to ensure appropriate behavior for 
+#these different phases.)
+
+#We’ll now do a little refactoring of our own. Since we go through a 
+#similar process twice of calculating the loss for both the training 
+#set and the validation set, let’s make that into its own function, 
+#loss_batch, which computes the loss for one batch.
+
+#We pass an optimizer in for the training set, and use it to perform 
+#backprop. For the validation set, we don’t pass an optimizer, so the 
+#method doesn’t perform backprop.
+
+def loss_batch(model, loss_func, xb, yb, opt=None):
+    loss = loss_func(model(xb), yb)
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+        
+    return loss.item(), len(xb)
+
+#We’ll wrap the training loop in a fit() function to run again later.
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            #set_trace()
+            loss_batch(model, loss_func, xb, yb, opt)
+            
+            # #pred = model(xb)
+            # #loss = loss_func(pred, yb)
+            # #loss.backward()
+        # #for i in range((n - 1) // bs + 1):
+            # #start_i = i * bs
+            # #end_i = start_i + bs
+            # #xb = x_train[start_i:end_i]
+            # #yb = y_train[start_i:end_i]
+            
+            # #Previously, we had to iterate through minibatches of x 
+            # #and y vals separately. Now, we do these 2 steps together:
+            # #xb,yb = train_ds[i*bs : i*bs + bs]
+            # #pred = model(xb)
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    # #This will let us replace the code above:
+        
+        model.eval()
+        with torch.no_grad():
+            losses, nums = zip(
+                *[loss_batch(model, loss_func, xb, yb) for xb, yb in valid_dl]    
+            )
+            # #valid_loss = sum(loss_func(model(xb), yb) for xb, yb in valid_dl)
+        # #print(f"Epoch: {epoch}, valid_loss: {valid_loss / len(valid_dl)}")
+        val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
+        print(f"Epoch: {epoch}, val loss: {val_loss}")
+
+fit(epochs, model, loss_func, opt, train_dl, valid_dl)
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial7.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 19:34:08 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.1 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+# #import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#Switch to CNN
+
+#We are going to build a neural network with three convolutional 
+#layers. Because none of the functions in the previous section 
+#assume anything about the model form, we’ll be able to use them to 
+#train a CNN without any modification.
+
+#We will use PyTorch’s predefined Conv2d class as our convolutional 
+#layer, defining a CNN with 3 convolutional layers. Each convolution 
+#is followed by a ReLU. At the end, we perform an average pooling. 
+#(Note that view is PyTorch’s version of Numpy’s reshape)
+
+class Mnist_CNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(16, 10, kernel_size=3, stride=2, padding=1)
+
+    def forward(self, xb):
+        xb = xb.view(-1, 1, 28, 28)
+        xb = F.relu(self.conv1(xb))
+        xb = F.relu(self.conv2(xb))
+        xb = F.relu(self.conv3(xb))
+        xb = F.avg_pool2d(xb, 4)
+        return xb.view(-1, xb.size(1))    
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    # #model = Mnist_Logistic()
+    model = Mnist_CNN()
+    return model, optim.SGD(model.parameters(), lr=lr)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#Refactor using Dataset
+
+#PyTorch has an abstract Dataset class. A Dataset can be anything that 
+#has a __len__ function (called by Python’s standard len function) 
+#and a __getitem__ function as a way of indexing into it.
+
+#PyTorch’s TensorDataset is a Dataset wrapping tensors. By defining a 
+#length and way of indexing, this also gives us a way to iterate, 
+#index, and slice along the first dimension of a tensor. This will 
+#make it easier to access both the independent and dependent variables 
+#in the same line as we train.
+
+from torch.utils.data import TensorDataset
+
+#Both x_train and y_train can be combined in a single TensorDataset, 
+#which will be easier to iterate over and slice.
+
+train_ds = TensorDataset(x_train, y_train)
+
+#Add validation
+
+#Shuffling (above) training data is important to prevent correlation 
+#between batches and overfitting. On the other hand, the validation 
+#loss will be identical whether we shuffle the validation set or not. 
+#Since shuffling takes extra time, it makes no sense to shuffle the 
+#validation data.
+
+#We’ll use a batch size for the validation set that is twice as large 
+#as that for the training set. This is because the validation set does 
+#not need backpropagation and thus takes less memory (it doesn’t need 
+#to store the gradients). We take advantage of this to use a larger 
+#batch size and compute the loss more quickly
+
+valid_ds = TensorDataset(x_valid, y_valid)
+
+#Refactor using DataLoader
+
+#PyTorch’s DataLoader is responsible for managing batches. You can 
+#create a DataLoader from any Dataset. DataLoader makes it easier to 
+#iterate over batches. Rather than using train_ds[i*bs : i*bs+bs], 
+#the DataLoader gives us each minibatch automatically.
+
+from torch.utils.data import DataLoader
+
+def get_data(train_ds, valid_ds, bs):
+    return(
+        DataLoader(train_ds, batch_size=bs, shuffle=True),
+        DataLoader(valid_ds, batch_size=bs * 2),
+    )
+
+train_dl, valid_dl = get_data(train_ds, valid_ds, bs)
+
+#We will calculate and print validation loss at the end of each epoch.
+
+#Note: we always call model.train() before training, and model.eval() 
+#before inference, because these are used by layers such as 
+#nn.BatchNorm2d and nn.Dropout to ensure appropriate behavior for 
+#these different phases.)
+
+#We’ll now do a little refactoring of our own. Since we go through a 
+#similar process twice of calculating the loss for both the training 
+#set and the validation set, let’s make that into its own function, 
+#loss_batch, which computes the loss for one batch.
+
+#We pass an optimizer in for the training set, and use it to perform 
+#backprop. For the validation set, we don’t pass an optimizer, so the 
+#method doesn’t perform backprop.
+
+def loss_batch(model, loss_func, xb, yb, opt=None):
+    loss = loss_func(model(xb), yb)
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+        
+    return loss.item(), len(xb)
+
+#We’ll wrap the training loop in a fit() function to run again later.
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            #set_trace()
+            loss_batch(model, loss_func, xb, yb, opt)
+            
+            # #pred = model(xb)
+            # #loss = loss_func(pred, yb)
+            # #loss.backward()
+        # #for i in range((n - 1) // bs + 1):
+            # #start_i = i * bs
+            # #end_i = start_i + bs
+            # #xb = x_train[start_i:end_i]
+            # #yb = y_train[start_i:end_i]
+            
+            # #Previously, we had to iterate through minibatches of x 
+            # #and y vals separately. Now, we do these 2 steps together:
+            # #xb,yb = train_ds[i*bs : i*bs + bs]
+            # #pred = model(xb)
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    # #This will let us replace the code above:
+        
+        model.eval()
+        with torch.no_grad():
+            losses, nums = zip(
+                *[loss_batch(model, loss_func, xb, yb) for xb, yb in valid_dl]    
+            )
+            # #valid_loss = sum(loss_func(model(xb), yb) for xb, yb in valid_dl)
+        # #print(f"Epoch: {epoch}, valid_loss: {valid_loss / len(valid_dl)}")
+        val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
+        print(f"Epoch: {epoch}, val loss: {val_loss}")
+
+fit(epochs, model, loss_func, opt, train_dl, valid_dl)
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial8.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 20:23:16 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.1 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+# #import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#Switch to CNN
+
+#We are going to build a neural network with three convolutional 
+#layers. Because none of the functions in the previous section 
+#assume anything about the model form, we’ll be able to use them to 
+#train a CNN without any modification.
+
+#We will use PyTorch’s predefined Conv2d class as our convolutional 
+#layer, defining a CNN with 3 convolutional layers. Each convolution 
+#is followed by a ReLU. At the end, we perform an average pooling. 
+#(Note that view is PyTorch’s version of Numpy’s reshape)
+
+class Mnist_CNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(16, 10, kernel_size=3, stride=2, padding=1)
+
+    def forward(self, xb):
+        xb = xb.view(-1, 1, 28, 28)
+        xb = F.relu(self.conv1(xb))
+        xb = F.relu(self.conv2(xb))
+        xb = F.relu(self.conv3(xb))
+        xb = F.avg_pool2d(xb, 4)
+        return xb.view(-1, xb.size(1))    
+
+#Using nn.Sequential
+
+#torch.nn has another handy class we can use to simplify our code: 
+#Sequential . A Sequential object runs each of the modules contained 
+#within it, in a sequential manner. This is a simpler way of writing 
+#our neural network.
+
+#To take advantage of this, we need to be able to easily define a 
+#custom layer from a given function. For instance, PyTorch doesn’t 
+#have a view layer, and we need to create one for our network. Lambda 
+#will create a layer that we can then use when defining a network 
+#with Sequential.
+
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+        
+    def forward(self, x):
+        return self.func(x)
+    
+def preprocess(x):
+    return x.view(-1, 1, 28, 28)
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    # #model = Mnist_Logistic()
+    # #model = Mnist_CNN()
+    #The model created with Sequential is simple:
+    model = nn.Sequential(
+     Lambda(preprocess),
+     nn.Conv2d(1, 16, kernel_size=3, stride=2,padding=1),
+     nn.ReLU(),
+     nn.Conv2d(16, 16, kernel_size=3, stride=2,padding=1),
+     nn.ReLU(),
+     nn.Conv2d(16, 10, kernel_size=3, stride=2,padding=1),
+     nn.ReLU(),
+     nn.AvgPool2d(4),
+     Lambda(lambda x: x.view(x.size(0), -1)),
+    )
+    return model, optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+xb = x_train[0:bs] # a mini-batch size
+preds = model(xb)
+preds[0], preds.shape
+print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+yb = y_train[0:bs]
+print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#Refactor using Dataset
+
+#PyTorch has an abstract Dataset class. A Dataset can be anything that 
+#has a __len__ function (called by Python’s standard len function) 
+#and a __getitem__ function as a way of indexing into it.
+
+#PyTorch’s TensorDataset is a Dataset wrapping tensors. By defining a 
+#length and way of indexing, this also gives us a way to iterate, 
+#index, and slice along the first dimension of a tensor. This will 
+#make it easier to access both the independent and dependent variables 
+#in the same line as we train.
+
+from torch.utils.data import TensorDataset
+
+#Both x_train and y_train can be combined in a single TensorDataset, 
+#which will be easier to iterate over and slice.
+
+train_ds = TensorDataset(x_train, y_train)
+
+#Add validation
+
+#Shuffling (above) training data is important to prevent correlation 
+#between batches and overfitting. On the other hand, the validation 
+#loss will be identical whether we shuffle the validation set or not. 
+#Since shuffling takes extra time, it makes no sense to shuffle the 
+#validation data.
+
+#We’ll use a batch size for the validation set that is twice as large 
+#as that for the training set. This is because the validation set does 
+#not need backpropagation and thus takes less memory (it doesn’t need 
+#to store the gradients). We take advantage of this to use a larger 
+#batch size and compute the loss more quickly
+
+valid_ds = TensorDataset(x_valid, y_valid)
+
+#Refactor using DataLoader
+
+#PyTorch’s DataLoader is responsible for managing batches. You can 
+#create a DataLoader from any Dataset. DataLoader makes it easier to 
+#iterate over batches. Rather than using train_ds[i*bs : i*bs+bs], 
+#the DataLoader gives us each minibatch automatically.
+
+from torch.utils.data import DataLoader
+
+def get_data(train_ds, valid_ds, bs):
+    return(
+        DataLoader(train_ds, batch_size=bs, shuffle=True),
+        DataLoader(valid_ds, batch_size=bs * 2),
+    )
+
+train_dl, valid_dl = get_data(train_ds, valid_ds, bs)
+
+#We will calculate and print validation loss at the end of each epoch.
+
+#Note: we always call model.train() before training, and model.eval() 
+#before inference, because these are used by layers such as 
+#nn.BatchNorm2d and nn.Dropout to ensure appropriate behavior for 
+#these different phases.)
+
+#We’ll now do a little refactoring of our own. Since we go through a 
+#similar process twice of calculating the loss for both the training 
+#set and the validation set, let’s make that into its own function, 
+#loss_batch, which computes the loss for one batch.
+
+#We pass an optimizer in for the training set, and use it to perform 
+#backprop. For the validation set, we don’t pass an optimizer, so the 
+#method doesn’t perform backprop.
+
+def loss_batch(model, loss_func, xb, yb, opt=None):
+    loss = loss_func(model(xb), yb)
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+        
+    return loss.item(), len(xb)
+
+#We’ll wrap the training loop in a fit() function to run again later.
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            #set_trace()
+            loss_batch(model, loss_func, xb, yb, opt)
+            
+            # #pred = model(xb)
+            # #loss = loss_func(pred, yb)
+            # #loss.backward()
+        # #for i in range((n - 1) // bs + 1):
+            # #start_i = i * bs
+            # #end_i = start_i + bs
+            # #xb = x_train[start_i:end_i]
+            # #yb = y_train[start_i:end_i]
+            
+            # #Previously, we had to iterate through minibatches of x 
+            # #and y vals separately. Now, we do these 2 steps together:
+            # #xb,yb = train_ds[i*bs : i*bs + bs]
+            # #pred = model(xb)
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    # #This will let us replace the code above:
+        
+        model.eval()
+        with torch.no_grad():
+            losses, nums = zip(
+                *[loss_batch(model, loss_func, xb, yb) for xb, yb in valid_dl]    
+            )
+            # #valid_loss = sum(loss_func(model(xb), yb) for xb, yb in valid_dl)
+        # #print(f"Epoch: {epoch}, valid_loss: {valid_loss / len(valid_dl)}")
+        val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
+        print(f"Epoch: {epoch}, val loss: {val_loss}")
+
+fit(epochs, model, loss_func, opt, train_dl, valid_dl)
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+#Let’s check the loss and accuracy and compare those to what we 
+#got earlier. We expect that the loss will have decreased and 
+#accuracy to have increased, and they have.
+
+print(f"LOSS1: {loss_func(model(xb), yb)}")
+print(f"ACCURACY1: {accuracy(model(xb), yb)}")
+==> nn_tutorial9.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct 23 21:11:14 2023
+
+@author: leslietetteh
+"""
+
+#We will use the classic MNIST dataset, which consists of 
+#black-and-white images of hand-drawn digits (between 0 and 9).
+
+#We will use pathlib for dealing with paths (part of the Python 3 
+#standard library), and will download the dataset using requests. 
+#We will only import modules when we use them, so you can see 
+#exactly what’s being used at each point.
+
+lr = 0.1 # learning rate
+epochs = 2 # how many epochs to train for
+
+from pathlib import Path
+import requests
+
+DATA_PATH = Path("data")
+PATH = DATA_PATH / "mnist"
+
+PATH.mkdir(parents=True, exist_ok=True)
+
+URL = "https://github.com/pytorch/tutorials/raw/main/_static/"
+FILENAME = "mnist.pkl.gz"
+
+if not (PATH / FILENAME).exists():
+    content = requests.get(URL + FILENAME).content
+    (PATH / FILENAME).open("wb").write(content)
+    
+#This dataset is in numpy array format, and has been stored using 
+#pickle, a python-specific format for serializing data.    
+
+import pickle
+import gzip
+
+with gzip.open((PATH / FILENAME).as_posix(), "rb") as f:
+    ((x_train, y_train), (x_valid, y_valid), _) = pickle.load(f, encoding="latin-1")
+    
+#Each image is 28 x 28, and is being stored as a flattened row of 
+#length 784 (=28x28). Let’s take a look at one; we need to reshape
+#it to 2d first.
+
+from matplotlib import pyplot
+import numpy as np
+
+pyplot.imshow(x_train[0].reshape((28,28)), cmap="gray")
+pyplot.show()
+print(x_train.shape)
+
+#PyTorch uses torch.tensor, rather than numpy arrays, so we need 
+#to convert our data.
+
+import torch
+
+dev = torch.device(
+    "cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+x_train, y_train, x_valid, y_valid = map(
+    torch.tensor, (x_train, y_train, x_valid, y_valid)    
+)
+n,c = x_train.shape
+print(x_train, y_train)
+print(x_train.shape)
+print(y_train.min(), y_train.max())
+
+# #Let’s first create a model using nothing but PyTorch tensor 
+# #operations. We’re assuming you’re already familiar with the 
+# #basics of neural networks. (If you’re not, you can learn them at 
+# #course.fast.ai).
+# #
+# #PyTorch provides methods to create random or zero-filled tensors, 
+# #which we will use to create our weights and bias for a simple 
+# #linear model. These are just regular tensors, with one very 
+# #special addition: we tell PyTorch that they require a gradient. 
+# #This causes PyTorch to record all of the operations done on the 
+# #tensor, so that it can calculate the gradient during back-propagation
+# #
+# #For the weights, we set requires_grad after the initialization, 
+# #since we don’t want that step included in the gradient. (Note the 
+# #trailing _ in PyTorch signifies that the operation is performed 
+# #in-place.)
+# #
+# #NOTE: We are initializing the weights here with Xavier 
+# #initialisation (by multiplying with 1/sqrt(n)).
+# #
+# #
+# #weights = torch.randn(784, 10) / math.sqrt(784)
+# #weights.requires_grad_()
+# #bias = torch.zeros(10, requires_grad=True)
+# #
+# #Thanks to PyTorch’s ability to calculate gradients automatically, 
+# #we can use any standard Python function (or callable object) as a 
+# #model! So let’s just write a plain matrix multiplication and 
+# #broadcasted addition to create a simple linear model. We also 
+# #need an activation function, so we’ll write log_softmax and use 
+# #it. Remember: although PyTorch provides lots of prewritten loss 
+# #functions, activation functions, and so forth, you can easily 
+# #write your own using plain python. PyTorch will even create fast 
+# #GPU or vectorized CPU code for your function automatically.
+# #
+# #def log_softmax(x):
+# #    return x - x.exp().sum(-1).log().unsqueeze(-1)
+# #
+# #def model(xb):
+# #   return log_softmax(xb @ weights + bias)
+# #
+# #In the above, the @ stands for the matrix multiplication 
+# #operation. We will call our function on one batch of data (in 
+# #this case, 64 images). This is one forward pass. Note that our 
+# #predictions won’t be any better than random at this stage, since 
+# #we start with random weights.
+# #
+# #Let’s implement negative log-likelihood to use as the loss 
+# #function (again, we can just use standard Python):
+# #    
+# #def nll(input, target):
+# #    return -input[range(target.shape[0]), target].mean()
+# #
+# #loss_func = nll
+# #
+# #Using torch.nn.functional
+# #
+# #We will now refactor our code, so that it does the same thing as 
+# #before, only we’ll start taking advantage of PyTorch’s nn classes 
+# #to make it more concise and flexible. At each step from here, we 
+# #should be making our code one or more of: shorter, more 
+# #understandable, and/or more flexible.
+# #
+# #The first and easiest step is to make our code shorter by 
+# #replacing our hand-written activation and loss functions with 
+# #those from torch.nn.functional (which is generally imported into 
+# #the namespace F by convention). This module contains all the 
+# #functions in the torch.nn library (whereas other parts of the 
+# #library contain classes). As well as a wide range of loss and 
+# #activation functions, you’ll also find here some convenient 
+# #functions for creating neural nets, such as pooling functions. 
+# #(There are also functions for doing convolutions, linear layers, 
+# #etc, but as we’ll see, these are usually better handled using 
+# #other parts of the library.)
+# #def model(xb):
+# #    return xb @ weights + bias
+# #
+
+#Refactor using nn.Module
+
+#Next up, we’ll use nn.Module and nn.Parameter, for a clearer and 
+#more concise training loop. We subclass nn.Module (which itself is 
+#a class and able to keep track of state). In this case, we want to 
+#create a class that holds our weights, bias, and method for the 
+#forward step. nn.Module has a number of attributes and methods 
+#(such as .parameters() and .zero_grad()) which we will be using.
+
+
+#Refactor using nn.Linear
+
+#We continue to refactor our code. Instead of manually defining and 
+#initializing self.weights and self.bias, and calculating 
+#xb  @ self.weights + self.bias, we will instead use the Pytorch
+#class nn.Linear for a linear layer, which does all that for us. 
+#Pytorch has many types of predefined layers that can greatly 
+#simplify our code, and often makes it faster too.
+
+# #import math
+from torch import nn
+
+class Mnist_Logistic(nn.Module):
+    def __init__(self):
+        super().__init__()
+# #        self.weights = nn.Parameter(torch.randn(784, 10) / math.sqrt(784))
+# #        self.bias = nn.Parameter(torch.zeros(10))
+        self.lin = nn.Linear(784, 10)
+        
+    def forward(self, xb):
+# #        return xb @ self.weights + self.bias
+        return self.lin(xb)
+
+#NOTE:nn.Module (uppercase M) is a PyTorch specific concept, and is 
+#a class we’ll be using a lot. nn.Module is not to be confused with 
+#the Python concept of a (lowercase m) module, which is a file of 
+#Python code that can be imported.
+
+#Switch to CNN
+
+#We are going to build a neural network with three convolutional 
+#layers. Because none of the functions in the previous section 
+#assume anything about the model form, we’ll be able to use them to 
+#train a CNN without any modification.
+
+#We will use PyTorch’s predefined Conv2d class as our convolutional 
+#layer, defining a CNN with 3 convolutional layers. Each convolution 
+#is followed by a ReLU. At the end, we perform an average pooling. 
+#(Note that view is PyTorch’s version of Numpy’s reshape)
+
+class Mnist_CNN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1)
+        self.conv2 = nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1)
+        self.conv3 = nn.Conv2d(16, 10, kernel_size=3, stride=2, padding=1)
+
+    def forward(self, xb):
+        xb = xb.view(-1, 1, 28, 28)
+        xb = F.relu(self.conv1(xb))
+        xb = F.relu(self.conv2(xb))
+        xb = F.relu(self.conv3(xb))
+        xb = F.avg_pool2d(xb, 4)
+        return xb.view(-1, xb.size(1))    
+
+#Using nn.Sequential
+
+#torch.nn has another handy class we can use to simplify our code: 
+#Sequential . A Sequential object runs each of the modules contained 
+#within it, in a sequential manner. This is a simpler way of writing 
+#our neural network.
+
+#To take advantage of this, we need to be able to easily define a 
+#custom layer from a given function. For instance, PyTorch doesn’t 
+#have a view layer, and we need to create one for our network. Lambda 
+#will create a layer that we can then use when defining a network 
+#with Sequential.
+
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+        
+    def forward(self, x):
+        return self.func(x)
+    
+def preprocess(x):
+    return x.view(-1, 1, 28, 28)
+
+#We’ll define a little function to create our model and optimizer so 
+#we can reuse it in the future.
+
+from torch import optim
+
+def get_model():
+    # #model = Mnist_Logistic()
+    # #model = Mnist_CNN()
+    #The model created with Sequential is simple:
+    model = nn.Sequential(
+        nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
+        nn.ReLU(),
+        nn.Conv2d(16, 16, kernel_size=3, stride=2, padding=1),
+        nn.ReLU(),
+        nn.Conv2d(16, 10, kernel_size=3, stride=2, padding=1),
+        nn.ReLU(),
+        nn.AdaptiveAvgPool2d(1),
+        Lambda(lambda x: x.view(x.size(0), -1)),
+    )
+    model = model.to(dev)
+    # #model = nn.Sequential(
+    # # Lambda(preprocess),
+    # # nn.Conv2d(1, 16, kernel_size=3, stride=2,padding=1),
+    # # nn.ReLU(),
+    # # nn.Conv2d(16, 16, kernel_size=3, stride=2,padding=1),
+    # # nn.ReLU(),
+    # # nn.Conv2d(16, 10, kernel_size=3, stride=2,padding=1),
+    # # nn.ReLU(),
+    # # nn.AvgPool2d(4),
+    # # Lambda(lambda x: x.view(x.size(0), -1)),
+    # #)
+    return model, optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+
+model, opt = get_model()
+
+#Since we’re now using an object instead of just using a function, we 
+#first have to instantiate our model:
+
+import torch.nn.functional as F
+
+loss_func = F.cross_entropy
+
+#If you’re using negative log likelihood loss and log softmax 
+#activation, then Pytorch provides a single function 
+#F.cross_entropy that combines the two. So we can even remove the 
+#activation function from our model (above).
+
+bs = 64 # batch size
+
+#xb = x_train[0:bs] # a mini-batch size
+#preds = model(xb)
+#preds[0], preds.shape
+#print(preds[0], preds.shape)
+
+#As you see, the preds tensor contains not only the tensor values, 
+#but also a gradient function. We’ll use this later to do backprop.
+
+#Let’s check our loss with our random model, so we can see if we 
+#improve after a backprop pass later.
+
+#yb = y_train[0:bs]
+#print(f"LOSS0: {loss_func(preds, yb)}")
+
+#Let’s also implement a function to calculate the accuracy of our 
+#model. For each prediction, if the index with the largest value 
+#matches the target value, then the prediction was correct
+
+def accuracy(out, yb):
+    preds = torch.argmax(out, dim=1)
+    return (preds == yb).float().mean()
+
+#Let’s check the accuracy of our random model, so we can see if 
+#our accuracy improves as our loss improves.
+
+#print(f"ACCURACY0: {accuracy(preds, yb)}")
+
+#We can now run a training loop. For each iteration, we will:
+
+#select a mini-batch of data (of size bs)
+#use the model to make predictions
+#calculate the loss
+#loss.backward() updates the gradients of the model, in this 
+#case, weights and bias.
+
+#We now use these gradients to update the weights and bias. We do 
+#this within the torch.no_grad() context manager, because we do 
+#not want these actions to be recorded for our next calculation 
+#of the gradient. You can read more about how PyTorch’s Autograd 
+#records operations here.
+
+#We then set the gradients to zero, so that we are ready for the 
+#next loop. Otherwise, our gradients would record a running tally 
+#of all the operations that had happened (i.e. loss.backward() 
+#adds the gradients to whatever is already stored, rather than 
+#replacing them).
+
+#Refactor using Dataset
+
+#PyTorch has an abstract Dataset class. A Dataset can be anything that 
+#has a __len__ function (called by Python’s standard len function) 
+#and a __getitem__ function as a way of indexing into it.
+
+#PyTorch’s TensorDataset is a Dataset wrapping tensors. By defining a 
+#length and way of indexing, this also gives us a way to iterate, 
+#index, and slice along the first dimension of a tensor. This will 
+#make it easier to access both the independent and dependent variables 
+#in the same line as we train.
+
+from torch.utils.data import TensorDataset
+
+#Both x_train and y_train can be combined in a single TensorDataset, 
+#which will be easier to iterate over and slice.
+
+train_ds = TensorDataset(x_train, y_train)
+
+#Add validation
+
+#Shuffling (above) training data is important to prevent correlation 
+#between batches and overfitting. On the other hand, the validation 
+#loss will be identical whether we shuffle the validation set or not. 
+#Since shuffling takes extra time, it makes no sense to shuffle the 
+#validation data.
+
+#We’ll use a batch size for the validation set that is twice as large 
+#as that for the training set. This is because the validation set does 
+#not need backpropagation and thus takes less memory (it doesn’t need 
+#to store the gradients). We take advantage of this to use a larger 
+#batch size and compute the loss more quickly
+
+valid_ds = TensorDataset(x_valid, y_valid)
+
+#Refactor using DataLoader
+
+#PyTorch’s DataLoader is responsible for managing batches. You can 
+#create a DataLoader from any Dataset. DataLoader makes it easier to 
+#iterate over batches. Rather than using train_ds[i*bs : i*bs+bs], 
+#the DataLoader gives us each minibatch automatically.
+
+from torch.utils.data import DataLoader
+
+def get_data(train_ds, valid_ds, bs):
+    return(
+        DataLoader(train_ds, batch_size=bs, shuffle=True),
+        DataLoader(valid_ds, batch_size=bs * 2),
+    )
+
+def preprocess(x, y):
+    return x.view(-1, 1, 28, 28).to(dev), y.to(dev)
+
+class WrappedDataLoader:
+    def __init__(self, dl, func):
+        self.dl = dl
+        self.func = func
+
+    def __len__(self):
+        return len(self.dl)
+
+    def __iter__(self):
+        for b in self.dl:
+            yield (self.func(*b))
+
+train_dl, valid_dl = get_data(train_ds, valid_ds, bs)
+train_dl = WrappedDataLoader(train_dl, preprocess)
+valid_dl = WrappedDataLoader(valid_dl, preprocess)
+
+#We will calculate and print validation loss at the end of each epoch.
+
+#Note: we always call model.train() before training, and model.eval() 
+#before inference, because these are used by layers such as 
+#nn.BatchNorm2d and nn.Dropout to ensure appropriate behavior for 
+#these different phases.)
+
+#We’ll now do a little refactoring of our own. Since we go through a 
+#similar process twice of calculating the loss for both the training 
+#set and the validation set, let’s make that into its own function, 
+#loss_batch, which computes the loss for one batch.
+
+#We pass an optimizer in for the training set, and use it to perform 
+#backprop. For the validation set, we don’t pass an optimizer, so the 
+#method doesn’t perform backprop.
+
+def loss_batch(model, loss_func, xb, yb, opt=None):
+    loss = loss_func(model(xb), yb)
+    
+    #Refactor using torch.optim
+    
+    #Pytorch also has a package with various optimization algorithms,
+    #torch.optim. We can use the step method from our optimizer to 
+    #take a forward step, instead of manually updating each parameter.
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
+        
+    return loss.item(), len(xb)
+
+#We’ll wrap the training loop in a fit() function to run again later.
+
+#TIP: You can use the standard python debugger to step through 
+#PyTorch code, allowing you to check the various variable values 
+#at each step. Uncomment set_trace() below to try it out
+
+from IPython.core.debugger import set_trace
+
+def fit(epochs, model, loss_func, opt, train_dl, valid_dl):
+    for epoch in range(epochs):
+        model.train()
+        for xb, yb in train_dl:
+            #set_trace()
+            loss_batch(model, loss_func, xb, yb, opt)
+            
+            # #pred = model(xb)
+            # #loss = loss_func(pred, yb)
+            # #loss.backward()
+        # #for i in range((n - 1) // bs + 1):
+            # #start_i = i * bs
+            # #end_i = start_i + bs
+            # #xb = x_train[start_i:end_i]
+            # #yb = y_train[start_i:end_i]
+            
+            # #Previously, we had to iterate through minibatches of x 
+            # #and y vals separately. Now, we do these 2 steps together:
+            # #xb,yb = train_ds[i*bs : i*bs + bs]
+            # #pred = model(xb)
+    # #        with torch.no_grad():
+    # #            weights -= weights.grad * lr
+    # #            bias -= bias.grad * lr
+    # #            weights.grad.zero_()
+    # #            bias.grad.zero_()
+    # #Previously for our training loop we had to update the values for 
+    # #each parameter by name, and manually zero out the grads for each 
+    # #parameter separately, (above)
+    
+    # #Now we can take advantage of model.parameters() and model.zero_grad() 
+    # #(which are both defined by PyTorch for nn.Module) to make those steps 
+    # #more concise and less prone to the error of forgetting some of our 
+    # #parameters, particularly if we had a more complicated model:
+    # #        with torch.no_grad():
+    # #            for p in model.parameters():
+    # #                p -= p.grad * lr
+    # #            model.zero_grad()
+    # #This will let us replace the code above:
+        
+        model.eval()
+        with torch.no_grad():
+            losses, nums = zip(
+                *[loss_batch(model, loss_func, xb, yb) for xb, yb in valid_dl]    
+            )
+            # #valid_loss = sum(loss_func(model(xb), yb) for xb, yb in valid_dl)
+        # #print(f"Epoch: {epoch}, valid_loss: {valid_loss / len(valid_dl)}")
+        val_loss = np.sum(np.multiply(losses, nums)) / np.sum(nums)
+        print(f"Epoch: {epoch}, val loss: {val_loss}")
+
+fit(epochs, model, loss_func, opt, train_dl, valid_dl)
+                
+#That’s it: we’ve created and trained a minimal neural network 
+#(in this case, a logistic regression, since we have no hidden 
+#layers) entirely from scratch!
+
+# #Let’s check the loss and accuracy and compare those to what we 
+# #got earlier. We expect that the loss will have decreased and 
+# #accuracy to have increased, and they have.
+
+# #print(f"LOSS1: {loss_func(model(xb), yb)}")
+
