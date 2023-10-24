@@ -5094,6 +5094,11 @@ for _ in range(20):
 		for layer in layers:
 			x = layer(x)
 
+#In context of deep learning the logits layer means the layer that feeds in to softmax (or other such normalization). 
+#The output of the softmax are the probabilities for the classification task and its input is logits layer. The 
+#logits layer typically produces values from -infinity to +infinity and the softmax layer transforms it to values 
+#from 0 to 1.
+
 		logits = x
 		probs = F.softmax(logits, dim=1) # normalize (1, 27)
 		ix = torch.multinomial(probs, num_samples=1, generator=g).item() # 1st para(tensor) == input, 2nd para(num_samples). Returns tensor where each 
