@@ -12967,3 +12967,1182 @@ fit(epochs, model, loss_func, opt, train_dl, valid_dl)
 
 # #print(f"LOSS1: {loss_func(model(xb), yb)}")
 
+==> 02_pytorch_binary_classifiation <==
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Oct 24 15:04:11 2023
+
+@author: leslietetteh
+"""
+
+#scikitlearn
+import sklearn
+from sklearn.datasets import make_circles
+
+# Make 1000 samples
+n_samples = 1000
+
+# Create circles (from scikitlearn)
+#https://scikit-learn.org/stable/datasets/loading_other_datasets.html
+X, y = make_circles(n_samples, noise =0.03, random_state=42)
+
+print(f"len X: len(X), len y: len(y)")
+print(f"First 5 samples of X:\n {X[:5]}")
+print(f"First 5 samples of y:\n {y[:5]}")
+
+import pandas as pd
+circles = pd.DataFrame({"X1": X[:, 0],
+                        "X2": X[:, 1],
+                        "label": y})
+print(circles)
+
+import matplotlib.pyplot as plt
+
+plt.scatter(x=X[:, 0],
+            y=X[:, 1],
+            c=y,
+            cmap=plt.cm.RdYlBu);
+plt.show()
+
+# Check input and output shapes
+print(f"X: {X.shape}, y: {y.shape}")
+#X = 1000 samples, 2 features, y = 1000 sample, 0 features
+
+X_sample = X[0]
+y_sample = y[0]
+
+print(f"Values for one sample of X {X[0]} and same for y [{y[0]}]")
+
+import torch
+
+print(f"X type: {type(X)}, {X.dtype}")
+
+#turn data into tensors, casts to torch.float32
+X = torch.from_numpy(X).type(torch.float)
+y = torch.from_numpy(y).type(torch.float)
+
+print(f"X type: {type(X)}, {X.dtype}")
+
+from sklearn.model_selection import train_test_split
+#splits arrrays or matrices into random train/test subsets
+
+X_train, X_test, y_train, y_test = train_test_split(X,
+                                                    y,
+                                                    test_size=0.2,
+                                                    random_state=42) #20% data is test
+
+print(f"train: {len(X_train)}, test: {len(X_test)}")
+
+#2. Building a model
+#We will:
+    #1.Setup device agnostic code 
+    #2.Construct a model (by subclassing 'nn.Module')
+    #3.Define a loss function and optimizer
+    #4.Create a training and test loop
+    
+from torch import nn
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+class CircleModelV0(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer_1 = nn.Linear(in_features=2, out_features=5) #takes in 2 feature upscales to 5 features
+        self.layer_2 = nn.Linear(in_features=5, out_features=1) #takes in 5 features, returns single feature (same shape as y)
+        
+    def forward(self, x):
+        return self.layer_2(self.layer_1(x)) # x -> lay1 -> lay2 -> out
+    
+model_0a = CircleModelV0().to(device)
+
+model_0b = nn.Sequential(
+    nn.Linear(in_features=2, out_features=5),
+    nn.Linear(in_features=5, out_features=1)
+).to(device)
+
+#model 0a and 0b are identical in structure
+#print("STATE DICTIONARY:")
+#print(model_0a.state_dict())
+#print("STATE DICTIONARY:")
+#print(model_0b.state_dict()) 
+
+with torch.inference_mode():
+    untrained_preds = model_0b(X_test.to(device))
+print(f"Length of predictions: {len(untrained_preds)}, Shape: {untrained_preds.shape}")
+print(f"Length of test labels: {len(y_test)}, Shape: {y_test.shape}") 
+print(f"\nFirst 10 predictions:\n{untrained_preds[:10]}")
+print(f"\nFirst 10 labels:\n{y_test[:10]}")
+
+#In terms of picking a loss function for regression, might use MAE or MSE
+#(mean absolute/squared error), however for a classification problem CE
+#Cross Entropy would be appropriate. For binary classification, binary
+#cross-entropy (BCE) would be ideal as a loss function
+
+loss_fn = nn.BCEWithLogitsLoss() # sigmoid aactivation function built-in
+#nn.BCELoss() requires inputs to go through the sigmoid activation 
+#function prior to use, BCEWithLogitsLoss is mre numerically stable
+
+#In context of deep learning the logits layer means the layer that feeds 
+#into softmax (or other such normalization). The output of the softmax are 
+#the probabilities for the classification task and its input is logits 
+#layer. The logits layer typically produces values from -infinity to 
+#+infinity and the softmax layer transforms it to values from 0 to 1.
+
+optimizer = torch.optim.SGD(params=model_0b.parameters(), lr=0.1)
+
+def accuracy_fn(y_true, y_pred):
+    correct = torch.eq(y_true, y_pred).sum().item()
+    acc = (correct/len(y_pred)) * 100
+    return acc
+
+#Going from raw logits -> prediction probabilities -> prediction labels
+
+#Our model outputs are going to be raw logits. We can convert these logits
+#into prediction probabilities by passing them to an activation function
+#e.g. sigmoid for binary classification, softmax for multiclass classification
+
+#We can convert the model's prediction probabilities to prediction labels
+#by either rounding them or taking the 'argmax()' (index of max)
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+epochs = 100
+
+X_train, y_train = X_train.to(device), y_train.to(device)
+X_test, y_test = X_test.to(device), y_test.to(device)
+
+#Build training and evaluation loop
+for epoch in range(epochs):
+    model_0b.train() # sets training mode
+    
+    #1. Forward pass
+    y_logits = model_0b(X_train).squeeze()
+    y_pred = torch.round(torch.sigmoid(y_logits))
+    
+    # 2. Calculate loss - BCEWithLogitsLoss expects raw logits as input
+    loss = loss_fn(y_logits, y_train) 
+    acc = accuracy_fn(y_true=y_train, y_pred=y_pred)
+    
+    #3. Optimizer zero grad
+    optimizer.zero_grad()
+    
+    #4. Backpropagation
+    loss.backward()
+    
+    #5. Optimizer step (Update parameter, gradient descent)
+    optimizer.step()
+    
+    #Testing
+    model_0b.eval()
+    with torch.inference_mode():
+        #1. Forward pass
+        test_logits = model_0b(X_test).squeeze()
+        test_pred = torch.round(torch.sigmoid(test_logits))
+        
+        #2. Calculate test loss / acc
+        test_loss = loss_fn(test_logits, y_test)
+        test_acc = accuracy_fn(y_true=y_test, y_pred=test_pred)
+        
+    #printout
+    if epoch % 10 == 0:
+        print(f"Epoch: {epoch} | Loss: {loss:.5f}, Acc: {acc:.2f}%")
+        print(f"Epoch: {epoch} | Test Loss: {test_loss:.5f}, Test Acc: {test_acc:.2f}%")
+        
+import requests
+from pathlib import Path
+
+#Download helper function from Learn Pytorch repo (if not present)
+if Path("helper_functions.py").is_file():
+    print("Skipping download")
+else:
+    print("Downloading helper_functions.py")
+    request = requests.get("https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/helper_functions.py")
+    with open("helper_functions.py", "wb") as f:
+        f.write(request.content)
+
+from helper_functions import plot_predictions, plot_decision_boundary 
+
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1)
+plt.title("Train")
+plot_decision_boundary(model_0b, X_train, y_train)
+plt.subplot(1, 2, 2)
+plt.title("Test")
+plot_decision_boundary(model_0b, X_test, y_test)
+plt.show()  
+
+#Failed attempt to improve model
+class CircleModelV1(nn.Module):
+    def __init__(self):
+        super().__init__()
+        #Increase number of hidden units, & number of layers
+        self.layer_1 = nn.Linear(in_features=2, out_features=10)
+        self.layer_2 = nn.Linear(in_features=10, out_features=10)
+        self.layer_3 = nn.Linear(in_features=10, out_features=1)
+        #bad way to improve network should alter hyperparameters oone at a time
+        
+    def forward(self, x):
+        z = self.layer_1(x)
+        z = self.layer_2(z)
+        z = self.layer_3(z)
+        #Above code is inefficient, below leverages speedups
+        return self.layer_3(self.layer_2(self.layer_1(x)))
+    
+model_1 = CircleModelV1().to(device)
+print(model_1)
+
+loss_fn1 = nn.BCEWithLogitsLoss()
+
+optimizer = torch.optim.SGD(params=model_1.parameters(), lr=0.1)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+#train for longer
+epochs = 1000
+
+X_train, y_train = X_train.to(device), y_train.to(device)
+X_test, y_test = X_test.to(device), y_test.to(device)
+
+for epoch in range(epochs):
+    model_1.train() # place in training mode
+    #Fwd pass
+    y_logits = model_1(X_train).squeeze()
+    y_pred = torch.round(torch.sigmoid(y_logits))
+    
+    #Calculate loss/acc
+    loss = loss_fn(y_logits, y_train)
+    acc = accuracy_fn(y_true=y_train, y_pred=y_pred)
+    
+    #Optimizer zero grad
+    optimizer.zero_grad()
+    
+    #Loss backward (backprop)
+    loss.backward()
+    
+    #Optimizer step (Gradient descent)
+    optimizer.step()
+
+    #Testing
+    model_1.eval()
+    with torch.inference_mode():
+        #Fwd pass
+        test_logits = model_1(X_test).squeeze()
+        test_pred = torch.round(torch.sigmoid(test_logits))
+        #Calculate loss/acc
+        test_loss = loss_fn(test_logits, y_test)
+        test_acc = accuracy_fn(y_true=y_test, y_pred=test_pred)
+        
+        if epoch % 100 == 0:
+            print(f"Epoch: {epoch} | Loss: {loss:.5f} | Acc: {acc:.2f}%")
+            print(f"Test Loss: {test_loss:.5f} | Test Acc: {test_acc:.2f}%")
+
+#Plot the decision boundary
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1)
+plt.title("Train")
+plot_decision_boundary(model_1, X_train, y_train)
+plt.subplot(1, 2, 2)
+plt.title("Test")
+plot_decision_boundary(model_1, X_test, y_test)
+plt.show()  
+#As model is linear, cannot resolve non-linear relationship
+
+#Building a model with non-linear activation functions
+class CircleModelV2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer_1 = nn.Linear(in_features=2, out_features=10)
+        self.layer_2 = nn.Linear(in_features=10, out_features=10)
+        self.layer_3 = nn.Linear(in_features=10, out_features=1)
+        self.relu = nn.ReLU()
+        
+    def forward(self, x):
+        # Where should we put our non-linear activation functions
+        return self.layer_3(self.relu(self.layer_2(self.relu(self.layer_1(x)))))
+        
+model_2 = CircleModelV2().to(device)
+print(model_2)
+
+loss_fn = nn.BCEWithLogitsLoss()
+optimizer = torch.optim.SGD(model_2.parameters(), lr=0.02)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+epochs = 8000
+
+for epoch in range(epochs):
+    #Training
+    model_2.train()
+    
+    #Forward pass
+    y_logits = model_2(X_train).squeeze()
+    y_pred = torch.round(torch.sigmoid(y_logits))
+    
+    #Calculate loss
+    loss = loss_fn(y_logits, y_train)
+    acc = accuracy_fn(y_true=y_train, y_pred=y_pred)
+
+    #Optimizer zero grad
+    optimizer.zero_grad()
+    
+    #Loss backward
+    loss.backward()
+    
+    #SGD
+    optimizer.step()
+    
+    #Test
+    model_2.eval()
+    
+    with torch.inference_mode():
+        test_logits = model_2(X_test).squeeze()
+        test_pred = torch.round(torch.sigmoid(test_logits))
+        
+        test_loss = loss_fn(test_logits, y_test)
+        test_acc = accuracy_fn(y_test, test_pred)
+        
+        if epoch % 100 == 0:
+            print(f"Epoch: {epoch} | Loss: {loss:.5f} | Accuracy: {acc:.2f}%")
+            print(f"Test Loss: {test_loss:.5f} | Test Accuracy: {test_acc:.2f}")
+            
+#Make predictions
+model_2.eval()
+with torch.inference_mode():
+    y_preds = torch.round(torch.sigmoid(model_2(X_test))).squeeze()
+print(y_preds[:10])
+print(y_test[:10])
+
+#Plot the decision boundary
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1) #number of rows, no. of columns, index
+plt.title("Train")
+plot_decision_boundary(model_2, X_train, y_train)
+plt.subplot(1, 2, 2) #number of rows, no. of columns, index
+plt.title("Test")
+plot_decision_boundary(model_2, X_test, y_test)
+plt.show()  
+#As model is linear, cannot resolve non-linear relationship
+
+==> helper_functions <==
+"""
+A series of helper functions used throughout the course.
+
+If a function gets defined once and could be used over and over, it'll go in here.
+"""
+import torch
+import matplotlib.pyplot as plt
+import numpy as np
+
+from torch import nn
+
+import os
+import zipfile
+
+from pathlib import Path
+
+import requests
+
+# Walk through an image classification directory and find out how many files (images)
+# are in each subdirectory.
+import os
+
+def walk_through_dir(dir_path):
+    """
+    Walks through dir_path returning its contents.
+    Args:
+    dir_path (str): target directory
+
+    Returns:
+    A print out of:
+      number of subdiretories in dir_path
+      number of images (files) in each subdirectory
+      name of each subdirectory
+    """
+    for dirpath, dirnames, filenames in os.walk(dir_path):
+        print(f"There are {len(dirnames)} directories and {len(filenames)} images in '{dirpath}'.")
+
+def plot_decision_boundary(model: torch.nn.Module, X: torch.Tensor, y: torch.Tensor):
+    """Plots decision boundaries of model predicting on X in comparison to y.
+
+    Source - https://madewithml.com/courses/foundations/neural-networks/ (with modifications)
+    """
+    # Put everything to CPU (works better with NumPy + Matplotlib)
+    model.to("cpu")
+    X, y = X.to("cpu"), y.to("cpu")
+
+    # Setup prediction boundaries and grid
+    x_min, x_max = X[:, 0].min() - 0.1, X[:, 0].max() + 0.1
+    y_min, y_max = X[:, 1].min() - 0.1, X[:, 1].max() + 0.1
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 101), np.linspace(y_min, y_max, 101))
+
+    # Make features
+    X_to_pred_on = torch.from_numpy(np.column_stack((xx.ravel(), yy.ravel()))).float()
+
+    # Make predictions
+    model.eval()
+    with torch.inference_mode():
+        y_logits = model(X_to_pred_on)
+
+    # Test for multi-class or binary and adjust logits to prediction labels
+    if len(torch.unique(y)) > 2:
+        y_pred = torch.softmax(y_logits, dim=1).argmax(dim=1)  # mutli-class
+    else:
+        y_pred = torch.round(torch.sigmoid(y_logits))  # binary
+
+    # Reshape preds and plot
+    y_pred = y_pred.reshape(xx.shape).detach().numpy()
+    plt.contourf(xx, yy, y_pred, cmap=plt.cm.RdYlBu, alpha=0.7)
+    plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.RdYlBu)
+    plt.xlim(xx.min(), xx.max())
+    plt.ylim(yy.min(), yy.max())
+
+
+# Plot linear data or training and test and predictions (optional)
+def plot_predictions(
+    train_data, train_labels, test_data, test_labels, predictions=None
+):
+    """
+  Plots linear training data and test data and compares predictions.
+  """
+    plt.figure(figsize=(10, 7))
+
+    # Plot training data in blue
+    plt.scatter(train_data, train_labels, c="b", s=4, label="Training data")
+
+    # Plot test data in green
+    plt.scatter(test_data, test_labels, c="g", s=4, label="Testing data")
+
+    if predictions is not None:
+        # Plot the predictions in red (predictions were made on the test data)
+        plt.scatter(test_data, predictions, c="r", s=4, label="Predictions")
+
+    # Show the legend
+    plt.legend(prop={"size": 14})
+
+
+# Calculate accuracy (a classification metric)
+def accuracy_fn(y_true, y_pred):
+    """Calculates accuracy between truth labels and predictions.
+
+    Args:
+        y_true (torch.Tensor): Truth labels for predictions.
+        y_pred (torch.Tensor): Predictions to be compared to predictions.
+
+    Returns:
+        [torch.float]: Accuracy value between y_true and y_pred, e.g. 78.45
+    """
+    correct = torch.eq(y_true, y_pred).sum().item()
+    acc = (correct / len(y_pred)) * 100
+    return acc
+
+
+def print_train_time(start, end, device=None):
+    """Prints difference between start and end time.
+
+    Args:
+        start (float): Start time of computation (preferred in timeit format). 
+        end (float): End time of computation.
+        device ([type], optional): Device that compute is running on. Defaults to None.
+
+    Returns:
+        float: time between start and end in seconds (higher is longer).
+    """
+    total_time = end - start
+    print(f"\nTrain time on {device}: {total_time:.3f} seconds")
+    return total_time
+
+
+# Plot loss curves of a model
+def plot_loss_curves(results):
+    """Plots training curves of a results dictionary.
+
+    Args:
+        results (dict): dictionary containing list of values, e.g.
+            {"train_loss": [...],
+             "train_acc": [...],
+             "test_loss": [...],
+             "test_acc": [...]}
+    """
+    loss = results["train_loss"]
+    test_loss = results["test_loss"]
+
+    accuracy = results["train_acc"]
+    test_accuracy = results["test_acc"]
+
+    epochs = range(len(results["train_loss"]))
+
+    plt.figure(figsize=(15, 7))
+
+    # Plot loss
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs, loss, label="train_loss")
+    plt.plot(epochs, test_loss, label="test_loss")
+    plt.title("Loss")
+    plt.xlabel("Epochs")
+    plt.legend()
+
+    # Plot accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs, accuracy, label="train_accuracy")
+    plt.plot(epochs, test_accuracy, label="test_accuracy")
+    plt.title("Accuracy")
+    plt.xlabel("Epochs")
+    plt.legend()
+
+
+# Pred and plot image function from notebook 04
+# See creation: https://www.learnpytorch.io/04_pytorch_custom_datasets/#113-putting-custom-image-prediction-together-building-a-function
+from typing import List
+import torchvision
+
+
+def pred_and_plot_image(
+    model: torch.nn.Module,
+    image_path: str,
+    class_names: List[str] = None,
+    transform=None,
+    device: torch.device = "cuda" if torch.cuda.is_available() else "cpu",
+):
+    """Makes a prediction on a target image with a trained model and plots the image.
+
+    Args:
+        model (torch.nn.Module): trained PyTorch image classification model.
+        image_path (str): filepath to target image.
+        class_names (List[str], optional): different class names for target image. Defaults to None.
+        transform (_type_, optional): transform of target image. Defaults to None.
+        device (torch.device, optional): target device to compute on. Defaults to "cuda" if torch.cuda.is_available() else "cpu".
+    
+    Returns:
+        Matplotlib plot of target image and model prediction as title.
+
+    Example usage:
+        pred_and_plot_image(model=model,
+                            image="some_image.jpeg",
+                            class_names=["class_1", "class_2", "class_3"],
+                            transform=torchvision.transforms.ToTensor(),
+                            device=device)
+    """
+
+    # 1. Load in image and convert the tensor values to float32
+    target_image = torchvision.io.read_image(str(image_path)).type(torch.float32)
+
+    # 2. Divide the image pixel values by 255 to get them between [0, 1]
+    target_image = target_image / 255.0
+
+    # 3. Transform if necessary
+    if transform:
+        target_image = transform(target_image)
+
+    # 4. Make sure the model is on the target device
+    model.to(device)
+
+    # 5. Turn on model evaluation mode and inference mode
+    model.eval()
+    with torch.inference_mode():
+        # Add an extra dimension to the image
+        target_image = target_image.unsqueeze(dim=0)
+
+        # Make a prediction on image with an extra dimension and send it to the target device
+        target_image_pred = model(target_image.to(device))
+
+    # 6. Convert logits -> prediction probabilities (using torch.softmax() for multi-class classification)
+    target_image_pred_probs = torch.softmax(target_image_pred, dim=1)
+
+    # 7. Convert prediction probabilities -> prediction labels
+    target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
+
+    # 8. Plot the image alongside the prediction and prediction probability
+    plt.imshow(
+        target_image.squeeze().permute(1, 2, 0)
+    )  # make sure it's the right size for matplotlib
+    if class_names:
+        title = f"Pred: {class_names[target_image_pred_label.cpu()]} | Prob: {target_image_pred_probs.max().cpu():.3f}"
+    else:
+        title = f"Pred: {target_image_pred_label} | Prob: {target_image_pred_probs.max().cpu():.3f}"
+    plt.title(title)
+    plt.axis(False)
+
+def set_seeds(seed: int=42):
+    """Sets random sets for torch operations.
+
+    Args:
+        seed (int, optional): Random seed to set. Defaults to 42.
+    """
+    # Set the seed for general torch operations
+    torch.manual_seed(seed)
+    # Set the seed for CUDA torch operations (ones that happen on the GPU)
+    torch.cuda.manual_seed(seed)
+
+def download_data(source: str, 
+                  destination: str,
+                  remove_source: bool = True) -> Path:
+    """Downloads a zipped dataset from source and unzips to destination.
+
+    Args:
+        source (str): A link to a zipped file containing data.
+        destination (str): A target directory to unzip data to.
+        remove_source (bool): Whether to remove the source after downloading and extracting.
+    
+    Returns:
+        pathlib.Path to downloaded data.
+    
+    Example usage:
+        download_data(source="https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip",
+                      destination="pizza_steak_sushi")
+    """
+    # Setup path to data folder
+    data_path = Path("data/")
+    image_path = data_path / destination
+
+    # If the image folder doesn't exist, download it and prepare it... 
+    if image_path.is_dir():
+        print(f"[INFO] {image_path} directory exists, skipping download.")
+    else:
+        print(f"[INFO] Did not find {image_path} directory, creating one...")
+        image_path.mkdir(parents=True, exist_ok=True)
+        
+        # Download pizza, steak, sushi data
+        target_file = Path(source).name
+        with open(data_path / target_file, "wb") as f:
+            request = requests.get(source)
+            print(f"[INFO] Downloading {target_file} from {source}...")
+            f.write(request.content)
+
+        # Unzip pizza, steak, sushi data
+        with zipfile.ZipFile(data_path / target_file, "r") as zip_ref:
+            print(f"[INFO] Unzipping {target_file} data...") 
+            zip_ref.extractall(image_path)
+
+        # Remove .zip file
+        if remove_source:
+            os.remove(data_path / target_file)
+    
+    return image_path
+
+==> 02_non-linear_activation_functions <==
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Oct 24 15:04:11 2023
+
+@author: leslietetteh
+"""
+
+#scikitlearn
+import sklearn
+from sklearn.datasets import make_circles
+
+# Make 1000 samples
+n_samples = 1000
+
+# Create circles (from scikitlearn)
+#https://scikit-learn.org/stable/datasets/loading_other_datasets.html
+X, y = make_circles(n_samples, noise =0.03, random_state=42)
+
+print(f"len X: len(X), len y: len(y)")
+print(f"First 5 samples of X:\n {X[:5]}")
+print(f"First 5 samples of y:\n {y[:5]}")
+
+import pandas as pd
+circles = pd.DataFrame({"X1": X[:, 0],
+                        "X2": X[:, 1],
+                        "label": y})
+print(circles)
+
+import matplotlib.pyplot as plt
+
+plt.scatter(x=X[:, 0],
+            y=X[:, 1],
+            c=y,
+            cmap=plt.cm.RdYlBu);
+plt.show()
+
+# Check input and output shapes
+print(f"X: {X.shape}, y: {y.shape}")
+#X = 1000 samples, 2 features, y = 1000 sample, 0 features
+
+X_sample = X[0]
+y_sample = y[0]
+
+print(f"Values for one sample of X {X[0]} and same for y [{y[0]}]")
+
+import torch
+
+print(f"X type: {type(X)}, {X.dtype}")
+
+#turn data into tensors, casts to torch.float32
+X = torch.from_numpy(X).type(torch.float)
+y = torch.from_numpy(y).type(torch.float)
+
+print(f"X type: {type(X)}, {X.dtype}")
+
+from sklearn.model_selection import train_test_split
+#splits arrrays or matrices into random train/test subsets
+
+X_train, X_test, y_train, y_test = train_test_split(X,
+                                                    y,
+                                                    test_size=0.2,
+                                                    random_state=42) #20% data is test
+
+print(f"train: {len(X_train)}, test: {len(X_test)}")
+
+#2. Building a model
+#We will:
+    #1.Setup device agnostic code 
+    #2.Construct a model (by subclassing 'nn.Module')
+    #3.Define a loss function and optimizer
+    #4.Create a training and test loop
+    
+from torch import nn
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+class CircleModelV0(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer_1 = nn.Linear(in_features=2, out_features=5) #takes in 2 feature upscales to 5 features
+        self.layer_2 = nn.Linear(in_features=5, out_features=1) #takes in 5 features, returns single feature (same shape as y)
+        
+    def forward(self, x):
+        return self.layer_2(self.layer_1(x)) # x -> lay1 -> lay2 -> out
+    
+model_0a = CircleModelV0().to(device)
+
+model_0b = nn.Sequential(
+    nn.Linear(in_features=2, out_features=5),
+    nn.Linear(in_features=5, out_features=1)
+).to(device)
+
+#model 0a and 0b are identical in structure
+#print("STATE DICTIONARY:")
+#print(model_0a.state_dict())
+#print("STATE DICTIONARY:")
+#print(model_0b.state_dict()) 
+
+with torch.inference_mode():
+    untrained_preds = model_0b(X_test.to(device))
+print(f"Length of predictions: {len(untrained_preds)}, Shape: {untrained_preds.shape}")
+print(f"Length of test labels: {len(y_test)}, Shape: {y_test.shape}") 
+print(f"\nFirst 10 predictions:\n{untrained_preds[:10]}")
+print(f"\nFirst 10 labels:\n{y_test[:10]}")
+
+#In terms of picking a loss function for regression, might use MAE or MSE
+#(mean absolute/squared error), however for a classification problem CE
+#Cross Entropy would be appropriate. For binary classification, binary
+#cross-entropy (BCE) would be ideal as a loss function
+
+loss_fn = nn.BCEWithLogitsLoss() # sigmoid aactivation function built-in
+#nn.BCELoss() requires inputs to go through the sigmoid activation 
+#function prior to use, BCEWithLogitsLoss is mre numerically stable
+
+#In context of deep learning the logits layer means the layer that feeds 
+#into softmax (or other such normalization). The output of the softmax are 
+#the probabilities for the classification task and its input is logits 
+#layer. The logits layer typically produces values from -infinity to 
+#+infinity and the softmax layer transforms it to values from 0 to 1.
+
+optimizer = torch.optim.SGD(params=model_0b.parameters(), lr=0.1)
+
+def accuracy_fn(y_true, y_pred):
+    correct = torch.eq(y_true, y_pred).sum().item()
+    acc = (correct/len(y_pred)) * 100
+    return acc
+
+#Going from raw logits -> prediction probabilities -> prediction labels
+
+#Our model outputs are going to be raw logits. We can convert these logits
+#into prediction probabilities by passing them to an activation function
+#e.g. sigmoid for binary classification, softmax for multiclass classification
+
+#We can convert the model's prediction probabilities to prediction labels
+#by either rounding them or taking the 'argmax()' (index of max)
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+epochs = 100
+
+X_train, y_train = X_train.to(device), y_train.to(device)
+X_test, y_test = X_test.to(device), y_test.to(device)
+
+#Build training and evaluation loop
+for epoch in range(epochs):
+    model_0b.train() # sets training mode
+    
+    #1. Forward pass
+    y_logits = model_0b(X_train).squeeze()
+    y_pred = torch.round(torch.sigmoid(y_logits))
+    
+    # 2. Calculate loss - BCEWithLogitsLoss expects raw logits as input
+    loss = loss_fn(y_logits, y_train) 
+    acc = accuracy_fn(y_true=y_train, y_pred=y_pred)
+    
+    #3. Optimizer zero grad
+    optimizer.zero_grad()
+    
+    #4. Backpropagation
+    loss.backward()
+    
+    #5. Optimizer step (Update parameter, gradient descent)
+    optimizer.step()
+    
+    #Testing
+    model_0b.eval()
+    with torch.inference_mode():
+        #1. Forward pass
+        test_logits = model_0b(X_test).squeeze()
+        test_pred = torch.round(torch.sigmoid(test_logits))
+        
+        #2. Calculate test loss / acc
+        test_loss = loss_fn(test_logits, y_test)
+        test_acc = accuracy_fn(y_true=y_test, y_pred=test_pred)
+        
+    #printout
+    if epoch % 10 == 0:
+        print(f"Epoch: {epoch} | Loss: {loss:.5f}, Acc: {acc:.2f}%")
+        print(f"Epoch: {epoch} | Test Loss: {test_loss:.5f}, Test Acc: {test_acc:.2f}%")
+        
+import requests
+from pathlib import Path
+
+#Download helper function from Learn Pytorch repo (if not present)
+if Path("helper_functions.py").is_file():
+    print("Skipping download")
+else:
+    print("Downloading helper_functions.py")
+    request = requests.get("https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/helper_functions.py")
+    with open("helper_functions.py", "wb") as f:
+        f.write(request.content)
+
+from helper_functions import plot_predictions, plot_decision_boundary 
+
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1)
+plt.title("Train")
+plot_decision_boundary(model_0b, X_train, y_train)
+plt.subplot(1, 2, 2)
+plt.title("Test")
+plot_decision_boundary(model_0b, X_test, y_test)
+plt.show()  
+
+#Failed attempt to improve model
+class CircleModelV1(nn.Module):
+    def __init__(self):
+        super().__init__()
+        #Increase number of hidden units, & number of layers
+        self.layer_1 = nn.Linear(in_features=2, out_features=10)
+        self.layer_2 = nn.Linear(in_features=10, out_features=10)
+        self.layer_3 = nn.Linear(in_features=10, out_features=1)
+        #bad way to improve network should alter hyperparameters oone at a time
+        
+    def forward(self, x):
+        z = self.layer_1(x)
+        z = self.layer_2(z)
+        z = self.layer_3(z)
+        #Above code is inefficient, below leverages speedups
+        return self.layer_3(self.layer_2(self.layer_1(x)))
+    
+model_1 = CircleModelV1().to(device)
+print(model_1)
+
+loss_fn1 = nn.BCEWithLogitsLoss()
+
+optimizer = torch.optim.SGD(params=model_1.parameters(), lr=0.1)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+#train for longer
+epochs = 1000
+
+X_train, y_train = X_train.to(device), y_train.to(device)
+X_test, y_test = X_test.to(device), y_test.to(device)
+
+for epoch in range(epochs):
+    model_1.train() # place in training mode
+    #Fwd pass
+    y_logits = model_1(X_train).squeeze()
+    y_pred = torch.round(torch.sigmoid(y_logits))
+    
+    #Calculate loss/acc
+    loss = loss_fn(y_logits, y_train)
+    acc = accuracy_fn(y_true=y_train, y_pred=y_pred)
+    
+    #Optimizer zero grad
+    optimizer.zero_grad()
+    
+    #Loss backward (backprop)
+    loss.backward()
+    
+    #Optimizer step (Gradient descent)
+    optimizer.step()
+
+    #Testing
+    model_1.eval()
+    with torch.inference_mode():
+        #Fwd pass
+        test_logits = model_1(X_test).squeeze()
+        test_pred = torch.round(torch.sigmoid(test_logits))
+        #Calculate loss/acc
+        test_loss = loss_fn(test_logits, y_test)
+        test_acc = accuracy_fn(y_true=y_test, y_pred=test_pred)
+        
+        if epoch % 100 == 0:
+            print(f"Epoch: {epoch} | Loss: {loss:.5f} | Acc: {acc:.2f}%")
+            print(f"Test Loss: {test_loss:.5f} | Test Acc: {test_acc:.2f}%")
+
+#Plot the decision boundary
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1)
+plt.title("Train")
+plot_decision_boundary(model_1, X_train, y_train)
+plt.subplot(1, 2, 2)
+plt.title("Test")
+plot_decision_boundary(model_1, X_test, y_test)
+plt.show()  
+#As model is linear, cannot resolve non-linear relationship
+
+#Building a model with non-linear activation functions
+class CircleModelV2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer_1 = nn.Linear(in_features=2, out_features=10)
+        self.layer_2 = nn.Linear(in_features=10, out_features=10)
+        self.layer_3 = nn.Linear(in_features=10, out_features=1)
+        self.relu = nn.ReLU()
+        
+    def forward(self, x):
+        # Where should we put our non-linear activation functions
+        return self.layer_3(self.relu(self.layer_2(self.relu(self.layer_1(x)))))
+        
+model_2 = CircleModelV2().to(device)
+print(model_2)
+
+loss_fn = nn.BCEWithLogitsLoss()
+optimizer = torch.optim.SGD(model_2.parameters(), lr=0.02)
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+epochs = 8000
+
+for epoch in range(epochs):
+    #Training
+    model_2.train()
+    
+    #Forward pass
+    y_logits = model_2(X_train).squeeze()
+    y_pred = torch.round(torch.sigmoid(y_logits))
+    
+    #Calculate loss
+    loss = loss_fn(y_logits, y_train)
+    acc = accuracy_fn(y_true=y_train, y_pred=y_pred)
+
+    #Optimizer zero grad
+    optimizer.zero_grad()
+    
+    #Loss backward
+    loss.backward()
+    
+    #SGD
+    optimizer.step()
+    
+    #Test
+    model_2.eval()
+    
+    with torch.inference_mode():
+        test_logits = model_2(X_test).squeeze()
+        test_pred = torch.round(torch.sigmoid(test_logits))
+        
+        test_loss = loss_fn(test_logits, y_test)
+        test_acc = accuracy_fn(y_test, test_pred)
+        
+        if epoch % 100 == 0:
+            print(f"Epoch: {epoch} | Loss: {loss:.5f} | Accuracy: {acc:.2f}%")
+            print(f"Test Loss: {test_loss:.5f} | Test Accuracy: {test_acc:.2f}")
+            
+#Make predictions
+model_2.eval()
+with torch.inference_mode():
+    y_preds = torch.round(torch.sigmoid(model_2(X_test))).squeeze()
+print(y_preds[:10])
+print(y_test[:10])
+
+#Plot the decision boundary
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1) #number of rows, no. of columns, index
+plt.title("Train")
+plot_decision_boundary(model_2, X_train, y_train)
+plt.subplot(1, 2, 2) #number of rows, no. of columns, index
+plt.title("Test")
+plot_decision_boundary(model_2, X_test, y_test)
+plt.show()  
+#As model is linear, cannot resolve non-linear relationship
+
+==>02_pytorch_multiclass_classification<==
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct 26 18:52:41 2023
+
+@author: leslietetteh
+"""
+
+import torch
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
+from sklearn.model_selection import train_test_split
+import torch.nn as nn
+
+
+#Set hyperparameters for data creation'
+NUM_CLASSES = 4
+NUM_FEATURES = 2
+RANDOM_SEED = 42
+
+# Create multiclass data
+X_blob, y_blob = make_blobs(n_samples=1000,
+                            n_features=NUM_FEATURES,
+                            centers=NUM_CLASSES,
+                            cluster_std=1.5, #std-deviation
+                            random_state=RANDOM_SEED)
+
+# Turn data into tensors
+X_blob = torch.from_numpy(X_blob).type(torch.float)
+y_blob = torch.from_numpy(y_blob).type(torch.int64)
+
+#Split into train/test
+X_blob_train, X_blob_test, y_blob_train, y_blob_test = train_test_split(X_blob,
+                                                                        y_blob,
+                                                                        test_size=0.2,
+                                                                        random_state=RANDOM_SEED)
+
+#Plot data
+plt.figure(figsize=(10,7))
+plt.scatter(X_blob[:, 0], X_blob[:, 1], c=y_blob, cmap=plt.cm.RdYlBu)
+plt.show()
+
+#create device agnostic code
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+X_blob_train = X_blob_train.to(device) 
+X_blob_test = X_blob_test.to(device) 
+y_blob_train = y_blob_train.to(device) 
+y_blob_test = y_blob_test.to(device)
+
+#Build multi-class classification model
+class BlobModel(nn.Module):
+    def __init__(self, input_features, output_features, hidden_units=8):
+        #python docstring below (see google)
+        """Initializes multi-class classification model
+        
+        Args:
+            input_features (int): Number of input features to the model
+            output_features (int): Number of output features (number of output classes)
+            hidden_units (int): Number of hidden units between layers, default 8
+            
+        Returns:
+            
+        Example:
+        """
+        super().__init__()
+        self.linear_layer_stack = nn.Sequential(
+            nn.Linear(in_features=input_features, out_features=hidden_units),
+            #nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=hidden_units),
+            #nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=output_features),
+        )
+        
+    def forward(self, x):
+        return self.linear_layer_stack(x)
+   
+print(f"X_blob_train: {X_blob_train.shape}")
+print(f"y_blob_train: {y_blob_train.shape}")
+print(f"y_blob_train: {y_blob_train[:5]}")
+print(f"torch.unique(y_blob_train): {torch.unique(y_blob_train)}")
+
+model_3 = BlobModel(input_features=2, output_features=4).to(device)
+print(model_3)
+
+#accuracy function
+def accuracy_fn(y_true, y_pred):
+    correct = torch.eq(y_true, y_pred).sum().item()
+    acc = (correct/len(y_pred)) * 100
+    return acc
+
+#create loss fn for multi-class classification
+loss_fn = nn.CrossEntropyLoss()
+
+optimizer = torch.optim.SGD(params=model_3.parameters(), lr=0.1)
+
+model_3.eval()
+with torch.inference_mode():
+    y_logits = model_3(X_blob_test)
+    
+print(y_logits[:10]) # raw logits, need to convert    
+# raw logits -> prediction probabilities -> prediction labels
+
+y_pred_probs = torch.softmax(y_logits, dim=1)
+print(y_pred_probs[:5]) #prediction probabilities
+y_preds = torch.argmax(y_pred_probs, dim=1)
+print(y_preds) # prediction labels
+
+torch.manual_seed(RANDOM_SEED)
+torch.cuda.manual_seed(RANDOM_SEED)
+
+# Set number of epochs
+epochs = 100
+
+for epoch in range(epochs):
+    model_3.train() # set training mode
+    y_logits = model_3(X_blob_train)
+    y_pred_probs = torch.softmax(y_logits, dim=1).argmax(dim=1).type(torch.float)
+    loss = loss_fn(y_logits, y_blob_train)
+    acc = accuracy_fn(y_true=y_blob_train, y_pred=y_pred_probs)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    
+    #Testing
+    model_3.eval()
+    with torch.inference_mode():
+        test_logits = model_3(X_blob_test)
+        test_pred_probs = torch.softmax(test_logits, dim=1).argmax(dim=1).type(torch.float)
+        test_loss = loss_fn(test_logits, y_blob_test)
+        test_acc = accuracy_fn(y_blob_test, test_pred_probs)
+        
+        if epoch % 10 == 0:
+            print(f"Epoch: {epoch}, Loss: {loss:.5f}, accuracy: {acc:.2f}%")
+            print(f"Test Loss: {test_loss:.5f}, Test accuracy: {test_acc:.2f}%")
+
+from helper_functions import plot_predictions, plot_decision_boundary
+            
+model_3.eval()
+with torch.inference_mode():
+    y_logits = model_3(X_blob_test) #raw logits
+    y_pred_probs= torch.softmax(y_logits, dim=1)
+    y_preds = torch.argmax(y_pred_probs, dim=1) #can also be y_pred_probs.argmax()
+    
+plt.figure(figsize=(12,6))
+plt.subplot(1, 2, 1)
+plt.title("Train")
+plot_decision_boundary(model_3, X_blob_train, y_blob_train)
+plt.subplot(1, 2, 2)
+plt.title("Test")
+plot_decision_boundary(model_3, X_blob_test, y_blob_test)
+#For this particular case the noon-linearities were not needed
+
+#Other classification metrics are
+#Precision
+#Recall
+#F1-score
+#Confusion matrix
+#Classification report
+
+#are available under torchmetrics which can be installed as pip or conda package
+from torchmetrics import Accuracy
+
+#setup metric 
+torchmetric_accuracy = Accuracy(task="multiclass", num_classes=4)
+
+#Calculate accuracy
+print(torchmetric_accuracy(y_preds, y_blob_test).item())
