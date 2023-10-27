@@ -13621,6 +13621,32 @@ def download_data(source: str,
     return image_path
 
 ==> 02_non-linear_activation_functions <==
+import torch
+import matplotlib.pyplot as plt
+import torch.nn as nn
+
+A = torch.arange(-10, 10, 1, dtype=torch.float32) 
+#if initialized with int step size, min max, will default to int64
+
+plt.plot(A)
+plt.show()
+plt.plot(torch.relu(A))
+plt.show()
+
+def relu(x: torch.Tensor) -> torch.Tensor:
+    return torch.maximum(torch.tensor(0), x)
+
+plt.plot(relu(A))
+plt.show()
+
+def sigmoid(x):
+    return 1 / (1 + torch.exp(-x))
+
+plt.plot(torch.sigmoid(A))
+plt.show()
+plt.plot(sigmoid(A))
+plt.show()
+
 # -*- coding: utf-8 -*-
 """
 Created on Tue Oct 24 15:04:11 2023
