@@ -14193,3 +14193,660 @@ for j in range(K):
   # lets visualize the data
   plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.Spectral)
   plt.show()
+
+==>03_pytorch_computer_vision_fashionmnist<==
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Oct 28 17:13:17 2023
+
+@author: leslietetteh
+"""
+# Computer vision libraries in pytorch:
+from pathlib import Path
+import requests
+from torch.utils.data import DataLoader
+# torchvision
+# torchvision.datasets, get datasets and data loading funcs for computer vision
+# torchvision.models, pretrained computer visioon models, which can be leveraged
+# torchvision.transforms, functions for manipulating image data to be suitabe with ML model
+# torch.utils.data.Dataset # Base dataset class for pytorch
+# torch.utils.data.Dataset # Creates python iterable over a dataset
+
+import torch
+from torch import nn
+
+import torchvision
+from torchvision import datasets
+from torchvision import transforms
+from torchvision.transforms import ToTensor
+import matplotlib.pyplot as plt
+
+print(torch.__version__)
+print(torchvision.__version__)
+
+# Getting a dataset (FashionMNIST)
+train_data = datasets.FashionMNIST(
+    root="data",  # where to download data to
+    train=True,  # do we wat the training dataset?
+    download=True,  # do we want to download?
+    transform=torchvision.transforms.ToTensor(),  # how do we transform the data?
+    target_transform=None  # how do we want to transform the labels/targets?
+)
+
+test_data = datasets.FashionMNIST(
+    root="data",
+    train=False,
+    download=True,
+    transform=ToTensor(),
+    target_transform=None
+)
+
+print(len(train_data))
+print(len(test_data))
+
+image, label = train_data[0]
+# print(image)
+print(f"Image shape: {image.shape}")
+print(f"label: {label}")
+
+class_names = train_data.classes
+class_to_idx = train_data.class_to_idx
+print(class_to_idx)
+
+plt.imshow(image.squeeze(), cmap="gray")
+plt.show()
+
+torch.manual_seed(42)
+fig = plt.figure(figsize=(9, 9))
+rows, cols = 4, 4
+for i in range(1, rows*cols+1):
+    random_idx = torch.randint(0, len(train_data), size=[1]).item()
+    img, label = train_data[random_idx]
+    # print(random_idx)
+    fig.add_subplot(rows, cols, i)
+    plt.imshow(img.squeeze(), cmap="gray")
+    plt.title(class_names[label])
+    plt.axis(False)
+
+print(train_data)  # is in the form of python dataset
+print(test_data)  # same form
+
+# want to turn our dataset into a dataloader. A dataloader
+# turns our dataset into a Python iterable
+
+# Turning data into batches (or mini-batches) is more computationally
+# efficient, and it gives our neural network more chances to update
+# its gradients per epoch
+
+
+# serts batch size hyperprameter
+BATCH_SIZE = 32
+
+train_dataloader = DataLoader(dataset=train_data,
+                              batch_size=BATCH_SIZE,
+                              shuffle=True)
+
+test_dataloader = DataLoader(dataset=test_data,
+                             batch_size=BATCH_SIZE,
+                             shuffle=False)
+
+print(
+    f"Length of train_dataloader: {len(train_dataloader)} batches of {BATCH_SIZE}")
+print(
+    f"Length of test_dataloader: {len(test_dataloader)} batches of {BATCH_SIZE}")
+
+# check out whats inside the training dataloader
+train_features_batch, train_labels_batch = next(iter(train_dataloader))
+print(train_features_batch.shape)  # torch.Size([32, 1, 28, 28])
+print(train_labels_batch.shape)  # torch.Size([32])
+
+torch.manual_seed(42)
+random_idx = torch.randint(0, len(train_features_batch), size=[1]).item()
+img, label = train_features_batch[random_idx], train_labels_batch[random_idx]
+plt.imshow(img.squeeze(), cmap="gray")
+plt.title(class_names[label])
+plt.axis(False)
+plt.show()
+print(f"Image size: {img.shape}")
+
+# Build a baseline model, best to start with baseline model
+
+# Create a flatten layer
+flatten_model = nn.Flatten()
+
+# Get a single sample
+x = train_features_batch[0]
+print(x.shape)  # torch.Size([32, 1, 28, 28])
+
+# Flatten the sample
+output = flatten_model(x)
+print(output.shape)  # torch.Size([1, 784])
+
+
+class FashionMNISTModelV0(nn.Module):
+    def __init__(self,
+                 input_shape: int,
+                 hidden_units: int,
+                 output_shape: int):
+        super().__init__()
+        self.layer_stack = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=input_shape, out_features=hidden_units),
+            nn.Linear(in_features=hidden_units, out_features=output_shape),
+        )
+
+    def forward(self, x):
+        return self.layer_stack(x)
+
+
+torch.manual_seed(42)
+
+model_0 = FashionMNISTModelV0(input_shape=784,
+                              hidden_units=10,
+                              output_shape=len(class_names))
+
+dummy_x = torch.rand([1, 1, 28, 28])
+print(model_0(dummy_x))
+# returns 10 raw logits. If not for flatten layer, and input shape was
+# 28 result of matrix multiplication leaves (1, 28, 10) shape tensor
+# for model's final output
+
+# setup loss, optimizer and evaluation metrics
+
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
+
+# Download
+if Path("helper_functions.py").is_file():
+    print("Skipping dowload...")
+else:
+    print("Downloading helper_functions.py")
+    request = requests.get("https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/helper_functions.py")
+    with open("helper_functions.py", "wb") as f:
+        f.write(request.content)
+        
+from helper_functions import accuracy_fn
+
+#Creating a function to time experiments
+from timeit import default_timer as timer
+
+def print_train_time(start: float,
+                     end: float,
+                     device: torch.device = None):
+    """Prints difference between start and end time."""
+    total_time = end - start
+    print(f"Train time on {device}: {total_time:.3f} seconds")
+    return total_time
+
+# import tqdm for a progress bar (tqdm.auto gives a different
+#progress bar based on the environment you're running in)
+from tqdm.auto import tqdm
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+torch.manual_seed(42)
+
+start_time = timer()
+
+epochs=3
+
+#for tqdm to work just wrap iterator with tqdm
+for epoch in tqdm(range(epochs)):
+    print(f"Epoch: {epoch}\n")
+    train_loss = 0
+    #Loop for training batches
+    for batch, (X, y) in enumerate(train_dataloader):
+        model_0.train()
+        #Forward pass
+        y_pred = model_0(X)
+        loss = loss_fn(y_pred, y)
+        train_loss += loss #accumulate train_loss
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        if batch % 400 == 0:
+            print(f"Looked at {batch * len(X)}/{len(train_dataloader.dataset)} samples")
+    
+    #Divide total train loss by length of train_dataloader
+    train_loss /= len(train_dataloader)
+    
+    #Testing
+    test_loss, test_acc = 0,0
+    model_0.eval()
+    with torch.inference_mode():
+        for X_test, y_test in test_dataloader:
+            test_pred = model_0(X_test)
+            #Calculate loss/acc cumulatively
+            test_loss += loss_fn(test_pred, y_test)
+            test_acc += accuracy_fn(y_true=y_test, y_pred=test_pred.argmax(dim=1))
+            
+        test_loss /= len(test_dataloader)
+        test_acc /= len(test_dataloader)
+    
+    print(f"\nTrain loss: {train_loss:.4f} | Test loss: {test_loss:.4f}, Test acc: {test_acc:.2f}%")
+            
+#calculate training time    
+end_time = timer()
+total_train_time_0 = print_train_time(start=start_time, end=end_time, device="cpu")
+
+torch.manual_seed(42)
+def eval_model(model: torch.nn.Module,
+               data_loader: torch.utils.data.DataLoader,
+               loss_fn: torch.nn.Module,
+               accuracy_fn,
+               device=device):
+    """Returns a dictionary containing the results of model predicting on data_loader"""
+    loss, acc = 0, 0
+    model.eval()
+    with torch.inference_mode():
+        for X, y in data_loader:
+            X, y = X.to(device), y.to(device)
+            #Make predictions
+            y_pred = model(X)
+            
+            #Accumulate loss and acc pre batch
+            loss += loss_fn(y_pred, y)
+            acc += accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
+        
+        #Scale loss and acc to find averages
+        loss /= len(data_loader)
+        acc /= len(data_loader)
+    
+    return {"model_name": model.__class__.__name__, #only works when model was created with a class
+            "model_loss": loss.item(),
+            "model_acc": acc}
+
+#Calculate model_0 results on test dataset
+model_0_results = eval_model(model=model_0,
+                             data_loader=test_dataloader,
+                             loss_fn=loss_fn,
+                             accuracy_fn=accuracy_fn)
+print(model_0_results)
+
+#Building a better model with non-linearity
+
+class FashionMNISTModelV1(nn.Module):
+    def __init__(self,
+                 input_shape: int,
+                 hidden_units: int,
+                 output_shape: int):
+        super().__init__()
+        self.layer_stack = nn.Sequential(
+            nn.Flatten(), #
+            nn.Linear(in_features=input_shape, out_features=hidden_units),
+            nn.ReLU(),
+            nn.Linear(in_features=hidden_units, out_features=output_shape),
+            nn.ReLU()
+        )
+        
+    def forward(self, x: torch.Tensor):
+        return self.layer_stack(x)
+    
+torch.manual_seed(42)
+model_1 = FashionMNISTModelV1(input_shape=784, hidden_units=10, output_shape=len(class_names)).to(device)
+#print(model_1.parameters().device)
+
+from helper_functions import accuracy_fn
+
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(params=model_1.parameters(),
+                            lr=0.1)
+
+#functionizisng training/testing loops
+def train_step(model: nn.Module, 
+               data_loader: torch.utils.data.DataLoader,
+               loss_fn: nn.Module,
+               optimizer: torch.optim.Optimizer,
+               accuracy_fn,
+               device: torch.device = device):
+    """Performs training with a model trying to learn on data_loader."""
+    train_loss, train_acc = 0, 0
+    
+    model.train()
+    
+    for batch, (X, y) in enumerate(data_loader):    
+        X, y = X.to(device), y.to(device)
+    
+        y_pred = model(X).squeeze()
+        
+        loss = loss_fn(y_pred, y)
+        train_loss += loss
+        train_acc += accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        if batch % 400 == 0:
+            print(f"Looked at {batch * len(X)}/{len(data_loader.dataset)} samples")
+        
+    train_loss /= len(data_loader)
+    train_acc /= len(data_loader)
+    print(f"Train loss: {train_loss:.5f} | Train acc: {train_acc:.2f}%")
+    
+def test_step(model: nn.Module,
+              data_loader: torch.utils.data.DataLoader,
+              loss_fn: nn.Module,
+              accuracy_fn,
+              device: torch.device = device):
+    test_loss, test_acc = 0, 0
+    
+    model.eval()
+    
+    with torch.inference_mode():
+        for X, y in data_loader:
+            X, y = X.to(device), y.to(device)
+            
+            test_pred = model(X).squeeze()
+            
+            test_loss += loss_fn(test_pred, y)
+            test_acc += accuracy_fn(y_true=y, y_pred = test_pred.argmax(dim=1))
+            
+        test_loss /= len(data_loader)
+        test_acc /= len(data_loader)
+        print(f"Test loss: {test_loss:.5f} | Test acc: {test_acc:.2f}%")
+        
+torch.manual_seed(42)
+
+train_time_start = timer()
+
+epochs = 3
+
+for epoch in tqdm(range(epochs)):
+    print(f"Epoch: {epoch}")
+    train_step(model_1,
+               train_dataloader,
+               loss_fn,
+               optimizer,
+               accuracy_fn,
+               device)
+    
+    test_step(model_1,
+              test_dataloader,
+              loss_fn,
+              accuracy_fn,
+              device)
+    
+train_time_end = timer()
+total_train_time_1 = print_train_time(train_time_start, train_time_end)
+
+model_1_results = eval_model(model_1, 
+                             test_dataloader, 
+                             loss_fn, 
+                             accuracy_fn,
+                             device) 
+
+#Building a Convolutional Neural Network (CNN)
+class FashionMNISTModelV2(nn.Module):
+    """Model architecture that replicates the TinyVGG model from CNN Explainer website"""
+    def __init__(self, 
+                 input_shape: int, 
+                 hidden_units: int,
+                 output_shape: int):
+        super().__init__()
+        self.conv_block1 = nn.Sequential(
+            nn.Conv2d(in_channels=input_shape, 
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hidden_units, 
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.conv_block2 = nn.Sequential(
+            nn.Conv2d(in_channels=hidden_units, 
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=hidden_units, 
+                      out_channels=hidden_units,
+                      kernel_size=3,
+                      stride=1,
+                      padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=hidden_units * 49,# *0==placeholder
+                      out_features=output_shape)
+        )
+    
+    def forward(self, x):
+        x = self.conv_block1(x)
+        #print(x.shape)
+        x = self.conv_block2(x)
+        #print(x.shape)
+        x = self.classifier(x)
+        #print(x.shape)
+        return x      
+    
+torch.manual_seed(42)
+model_2 = FashionMNISTModelV2(input_shape=1, hidden_units=10, output_shape=len(class_names))
+
+model_2(image.unsqueeze(0).to(device))
+
+optimizer = torch.optim.SGD(params=model_2.parameters(), lr=0.1)
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+start_model2_time = timer()
+
+epochs=3
+for epoch in tqdm(range(epochs)):
+    print(f"Epoch: {epoch}")
+    train_step(model_2, 
+               train_dataloader, 
+               loss_fn, 
+               optimizer, 
+               accuracy_fn,
+               device)
+    
+    test_step(model_2, 
+              test_dataloader, 
+              loss_fn, 
+              accuracy_fn,
+              device)
+
+end_model2_time = timer()
+
+total_train_time_2 = print_train_time(start_model2_time, end_model2_time)
+
+
+model_2_results = eval_model(model_2, 
+                             test_dataloader, 
+                             loss_fn, 
+                             accuracy_fn,
+                             device) 
+
+import pandas as pd
+compare_results = pd.DataFrame([model_0_results,
+                                model_1_results,
+                                model_2_results])
+print(compare_results)
+
+compare_results["training_time"] = [total_train_time_0,
+                                    total_train_time_1,
+                                    total_train_time_2]
+print(compare_results)
+
+#Visualize model results
+compare_results.set_index("model_name")["model_acc"].plot(kind="barh")
+plt.xlabel("accuracy (%)")
+plt.ylabel("model")
+plt.show()
+
+def make_predictions(model: nn.Module,
+                     data: list,
+                     device: torch.device = device):
+    pred_probs = []
+    model.eval()
+    with torch.inference_mode():
+        for sample in data:
+            sample = torch.unsqueeze(sample, dim=0).to(device)
+            
+            pred_logit = model(sample)
+            
+            pred_prob = torch.softmax(pred_logit.squeeze(), dim=0)
+            
+            pred_probs.append(pred_prob.cpu()) #move to cpu      
+            
+    return torch.stack(pred_probs)
+
+import random
+random.seed(42)
+test_samples = []
+test_labels = []
+for sample, label in random.sample(list(test_data), k=9):
+    test_samples.append(sample)
+    test_labels.append(label)
+    
+    #view firs sample shape
+print(test_samples[0].shape)
+plt.imshow(test_samples[0].squeeze(), cmap="gray")
+plt.title(class_names[test_labels[0]])
+plt.show()
+    
+pred_probs = make_predictions(model=model_2, data=test_samples)
+pred_labels = pred_probs.argmax(dim=1)
+
+#plot predictions
+plt.figure(figsize=(9,9)) 
+nrows = 3
+ncols = 3
+for i, sample in enumerate(test_samples):
+    plt.subplot(nrows, ncols, i+1)
+    plt.imshow(sample.squeeze(), cmap="gray")
+    pred_label = class_names[pred_labels[i]]
+    
+    truth_label = class_names[test_labels[i]]
+    
+    title_text = f"Pred: {pred_label} | Truth: {truth_label}"
+    
+    if pred_label == truth_label:
+        plt.title(title_text, fontsize=10, c="g")
+    else:
+        plt.title(title_text, fontsize=10, c="r")
+    plt.axis(False)
+    plt.show()
+    
+#Making a confusion matrix for further prediction evaluation
+
+y_preds = []
+model_2.eval()
+with torch.inference_mode():
+    for X, y in tqdm(test_dataloader, desc="Making predictions..."):
+        X, y = X.to(device), y.to(device)
+        y_logit = model_2(X)
+        # logits -> prediction probabilities -> pred labels
+        y_pred = torch.softmax(y_logit.squeeze(), dim=0).argmax(dim=1)
+        y_preds.append(y_pred.cpu())
+        
+#concatenate list of predictions into a tensor
+y_pred_tensor = torch.cat(y_preds)
+print(len(y_pred_tensor)) # should be 10000
+        
+try:
+    import torchmetrics, mlxtend
+    assert int(mlxtend.__version__.split(".")[1]) >= 19,"mlxtend should be version 0.19.0 or higher"
+except:
+    print("Oh noes") 
+    
+from torchmetrics import ConfusionMatrix
+from mlxtend.plotting import plot_confusion_matrix
+
+# Setup confusion matrix instance
+confmat = ConfusionMatrix(task="multiclass", num_classes=len(class_names))
+confmat_tensor = confmat(preds=y_pred_tensor, target=test_data.targets)
+
+fig, ax = plot_confusion_matrix(
+    conf_mat=confmat_tensor.numpy(),
+    class_names=class_names,
+    figsize=(10,7)
+)
+
+from pathlib import Path
+
+MODEL_PATH = Path("models")
+MODEL_PATH.mkdir(parents=True, exist_ok=True)
+MODEL_NAME = "03_pytorch_computer_vision_model_2.pth"
+MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+
+print(f"Saving model")
+torch.save(obj=model_2.state_dict(), f=MODEL_SAVE_PATH)
+
+loaded_model_2 = FashionMNISTModelV2(input_shape=1, 
+                                     hidden_units=10, 
+                                     output_shape=len(class_names))
+
+loaded_model_2.load_state_dict(torch.load(f=MODEL_SAVE_PATH))
+
+loaded_model_2.to(device)
+
+torch.manual_seed(42)
+
+loaded_model_2_results = eval_model(loaded_model_2,
+                                    test_dataloader,
+                                    loss_fn,
+                                    accuracy_fn)
+
+print(loaded_model_2_results)
+
+torch.isclose(torch.tensor(model_2_results["model_loss"]), 
+              torch.tensor(loaded_model_2_results["model_loss"]),
+              atol=1e-02)
+
+==>conv2d-step-by-step<==
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Oct 31 17:58:21 2023
+
+@author: leslietetteh
+"""
+
+#see nn.conv2d documentation
+
+import torch
+import torch.nn as nn
+
+torch.manual_seed(42)
+
+#create a batch of images
+images = torch.randn(size=(32, 3, 64, 64))
+test_image = images[0]
+
+print(f"Image batch shape: {images.shape}")
+print(f"Single image shape: {test_image.shape}") #torch.Size([3, 64, 64]) 
+#print(f"Test image:\n {test_image}")
+
+torch.manual_seed(42)
+
+conv_layer = nn.Conv2d(in_channels=3, 
+                       out_channels=10, 
+                       kernel_size=3,
+                       stride=1,
+                       padding=1) #if have info at edges, use padding
+  
+conv_output = conv_layer(test_image)
+print(conv_output.shape) # torch.Size([10, 62, 62]) for padding = 0
+#torch.Size([10, 64, 64]) for padding=1 "CNN Explainer"
+
+#Stepping through nn.MaxPool2d
+
+max_pool_layer = nn.MaxPool2d(kernel_size=2)
+
+#Pass data through max pool layer
+
+max_pool_output = max_pool_layer(conv_output)
+
+print(max_pool_output.shape) # torch.Size([10, 32, 32])
