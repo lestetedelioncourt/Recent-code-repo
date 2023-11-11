@@ -15618,3 +15618,551 @@ pred_and_plot_image(model=model_0,
                     class_names=class_names,
                     transform=custom_image_transform,
                     device=device)
+
+==> 05_going_modular.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov  7 21:13:07 2023
+
+@author: leslietetteh
+"""
+
+from going_modular import data_setup, model_builder, engine
+from pathlib import Path
+from torchvision import transforms
+import torch
+
+train_dir = Path("data/pizza_steak_sushi/train")
+test_dir = Path("data/pizza_steak_sushi/test")
+data_transform = transforms.Compose([transforms.Resize(size=(64, 64)),
+                                     transforms.ToTensor()])
+
+train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(
+    train_dir=train_dir, 
+    test_dir=test_dir, 
+    transform=data_transform, 
+    batch_size=32)
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+torch.manual_seed(42)
+model_0 = model_builder.TinyVGGModel(input_shape=3, 
+                                     hidden_units=10, 
+                                     output_shape=len(class_names)).to(device)
+
+engine.train()
+==> going_modular/data_setup.py <==
+# -*- coding: utf-8 -*-
+"""
+Contains functionality for creating PyTorch DataLoaders for image
+classification data
+"""
+
+import os
+
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+#NUM_WORKERS = os.cpu_count()
+
+def create_dataloaders(train_dir: str,
+                       test_dir: str,
+                       transform: transforms.Compose,
+                       batch_size: int,
+                       #num_workers: int = NUM_WORKERS
+                       ):
+    """Creates training and testing DataLoaders
+    
+    Takes in a training directory and testing directory path and turns them into
+    PyTorch Datasets and then into PyTorch DataLoaders
+    
+    Args:
+        train_dir: Path to training directory.
+        test_dir: Path to testing diectory.
+        transform: torchvision transforms to perform on training and testing data
+        batch_size: Number of samples per batch in each of the DataLoaders
+        num_workers: An integer for number of workers per DataLoader.
+        
+    Returns:
+        A tuple of (train_dataloader, test_dataloader, class_names).
+        Where class_names is a list of the target classes
+        Example usage:
+            train_dataloader, test_dataloader, class_names = create_dataloaders(
+                train_dir=path/to/train_dir,
+                test_dir=path/to/test_dir,
+                transform=some_transform,
+                batch_size=32,
+                num_workers=4)
+    """
+    
+    #Create datasets
+    train_data = datasets.ImageFolder(train_dir, transform=transform)
+    test_data = datasets.ImageFolder(test_dir, transform=transform)
+    
+    class_names = train_data.classes
+    
+    # Turn images into DataLoaders
+    train_dataloader = DataLoader(
+        train_data,
+        batch_size=batch_size,
+        shuffle=True,
+        #num_workers=num_workers,
+        pin_memory=True #enables pinning memory on GPU (permanently)
+        )
+    
+    test_dataloader = DataLoader(
+        test_data,
+        batch_size=batch_size,
+        shuffle=False,
+        #num_workers=num_workers,
+        pin_memory=True #enables pinning memory on GPU (permanently)
+        )
+    
+    return train_dataloader, test_dataloader, class_names
+
+
+==> going_modular/engine.py <==
+# -*- coding: utf-8 -*-
+"""
+Contains functions for training and testing a Pytorch model
+"""
+
+from typing import Dict, List, Tuple
+import torch
+from tqdm.auto import tqdm
+
+def train_step(model: torch.nn.Module,
+               dataloader: torch.utils.data.DataLoader,
+               loss_fn: torch.nn.Module,
+               optimizer: torch.optim.Optimizer,
+               device: torch.device) -> Tuple[float, float]:
+    """Trains a PyTorch model for a single epoch
+    
+    Turns a target PyTorch model to training mode and then runs through all
+    required training steps (forward pass, loss calculation, optimizer step)
+    
+    Args:
+        model: A PyTorch model to be tested
+        dataloader: A DataLoader instance for the model to be trained on.
+        loss_fn: A PyTorch loss function to calculate loss on the training data
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        device: A target device to compute on (e.g. "cuda" or "cpu")
+        
+    Returns:
+        A tuple of training loss and training accuracy metrics.
+        In the form (train_loss, train_acc). For example:
+        (0.0223, (0.8985)
+    """
+    #put model into training mode
+    model.train()
+    
+    train_loss, train_acc = 0, 0
+    
+    for batch, (X, y) in enumerate(dataloader):
+        X, y = X.to(device), y.to(device)
+        
+        y_pred = model(X).squeeze()
+        
+        loss = loss_fn(y_pred, y)
+        train_loss += loss.item()
+        
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        y_pred_class = y_pred.argmax(dim=1)
+        train_acc +=  (y_pred_class == y).sum().item() / len(y_pred)
+        
+    train_loss /= len(dataloader)
+    train_acc /= len(dataloader)
+    
+    return train_loss, train_acc
+
+def test_step(model: torch.nn.Module,
+              dataloader: torch.utils.data.DataLoader,
+              loss_fn: torch.nn.Module,
+              device: torch.device) -> Tuple[float, float]:
+    """Tests a PyTorch model for a single epoch
+    
+    Turns a target PyTorch model to "eval" mode and then performs a forward
+    pass on a testing dataset.
+    
+    Args:
+        model: A PyTorch model to be tested
+        dataloader: A DataLoader instance for the model to be tested on.
+        loss_fn: A PyTorch loss function to calculate loss on the test data
+        device: A target device to compute on (e.g. "cuda" or "cpu")
+        
+    Returns:
+        A tuple of testing loss and testing accuracy metrics.
+        In the form (test_loss, test_accuracy). For example:
+        (0.0223, (0.8985)
+    """
+    #Put model into eval mode
+    model.eval()
+    
+    test_loss, test_acc = 0, 0
+    
+    with torch.inference_mode():
+        for batch, (X, y) in enumerate(dataloader):
+            X, y = X.to(device), y.to(device)
+            
+            test_logits = model(X).squeeze()
+            
+            loss = loss_fn(test_logits, y)
+            test_loss += loss.item()
+            
+            test_pred_labels = test_logits.argmax(dim=1)
+            test_acc += (test_pred_labels == y).sum().item() / len(test_logits)
+            
+    test_loss /= len(dataloader)
+    test_acc /= len(dataloader)
+    
+    return test_loss, test_acc
+            
+def train(model: torch.nn.Module,
+          train_dataloader: torch.utils.data.DataLoader,
+          test_dataloader: torch.utils.data.DataLoader,
+          optimizer: torch.optim.Optimizer,
+          loss_fn: torch.nn.Module,
+          epochs: int,
+          device: torch.device) -> Dict[str, List[float]]:
+    """Trains and tests a PyTorch model.
+    
+    Passes a target PyTorch model through train_step() and test_step()
+    functions for a number of epochs, training and testing the model in
+    the same epoch loop.
+    
+    Calculates, prints and stores evaluation metrics throughout.
+    
+    Args:
+        model: A PyTorch model to be tested
+        train_dataloader: A DataLoader instance for the model to be trained on
+        test_dataloader: A DataLoader instance for the model to be tested on.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        loss_fn: A PyTorch loss function to calculate loss on the test data
+        epochs: An integer indicating how many epochs to train for.
+        device: A target device to compute on (e.g. "cuda" or "cpu")
+        
+    Returns:
+        A dictionary of training and testing loss aas well as training
+        and testing accuracy metris. Each metric adds a value to a list
+        for each epoch, in the form:
+            {train_loss: [...],
+             train_acc: [...],
+             test_loss: [...],
+             test_acc: [...]}
+        For example if training for epochs=2:
+            {train_loss: [2.0616, 1.6573],
+             train_acc: [0.3945, 0.4356],
+             test_loss: [2.0345, 1,7384],
+             test_acc: [0.3678, 0.4321]}
+    """
+    results = {"train_loss": [],
+               "train_acc": [],
+               "test_loss": [],
+               "test_acc": []}
+    
+    for epoch in tqdm(range(epochs)):
+        train_loss, train_acc = train_step(model=model,
+                                           dataloader=train_dataloader,
+                                           loss_fn=loss_fn,
+                                           optimizer=optimizer,
+                                           device=device)
+        
+        test_loss, test_acc = test_step(model=model, 
+                                        dataloader=test_dataloader, 
+                                        loss_fn=loss_fn, 
+                                        device=device)
+        
+        print(f"Epochs: {epoch} | Train Loss: {train_loss} | Train Acc: {train_acc} | Test Loss: {test_loss} | Test Acc: {test_acc}")
+        
+        results["train_loss"].append(train_loss)
+        results["train_acc"].append(train_acc)
+        results["test_loss"].append(test_loss)
+        results["test_acc"].append(test_acc)
+        
+    return results
+==> going_modular/get_data.py <==
+# -*- coding: utf-8 -*-
+"""
+Imports data for PyTorch model training
+"""
+
+import requests     
+import zipfile
+from pathlib import Path
+
+def download_data(download_url: str,
+                  target_file: str,
+                  target_directory: str):
+    """Downloads and unzips training and testing data to a target directory
+    
+    Args:
+        download_url: A target PyTorch model to save
+        target_file: A filename for the downloaded data.
+        target_directory: A directory for saving the data to. 
+        
+    Usage:
+        download_data(download_url="www.somesite.com/files.zip",
+                      target_file="files.zip",
+                      target_directory="downloaded_files")
+    """
+    
+    #setup path to data folder
+    data_path = Path("data/")
+    image_path = data_path / target_directory
+    
+    if image_path.is_dir():
+        print(f"Skipping download...")
+    else:
+        print(f"Creating {image_path}")
+        image_path.mkdir(parents=True, exist_ok=True)
+            
+        #download data
+        with open(data_path / target_file, "wb") as f:
+            print(f"Downloading {target_file}...")
+            request = requests.get(download_url)
+            f.write(request.content)
+            
+        #Unzip data
+        with zipfile.ZipFile(data_path / target_file, "r") as zip_ref:
+            print(f"Unzipping {target_file}...")
+            zip_ref.extractall(image_path)
+            
+def download_single_image(download_url: str,
+                          target_file: str):
+    data_path = Path("data/")
+    custom_image_path = data_path / target_file
+    
+    #download image (if it doesn't exist)
+    if not custom_image_path.is_file():
+        with open(custom_image_path, "wb") as f:
+            print(f"Downloading {custom_image_path}...")
+            request = requests.get(download_url)
+            f.write(request.content)
+    else:
+        print(f"{custom_image_path} exists. Skipping download")
+        
+    return custom_image_path
+==> going_modular/model_builder.py <==
+# -*- coding: utf-8 -*-
+"""
+Contains pyTorch model code to instantiate the TinyVGG model from the 
+CNNExplainer website
+"""
+
+from torch import nn
+
+class TinyVGGModel(nn.Module):
+    def __init__(self, input_shape: int, hidden_units: int, output_shape: int):
+        super().__init__()
+        self.conv_block1 = nn.Sequential(nn.Conv2d(in_channels=input_shape,
+                                                 out_channels=hidden_units,
+                                                 kernel_size=3,
+                                                 padding=1,
+                                                 stride=1),
+                                       nn.ReLU(),
+                                       nn.Conv2d(in_channels=hidden_units, 
+                                                 out_channels=hidden_units, 
+                                                 kernel_size=3,
+                                                 padding=1,
+                                                 stride=1),
+                                       nn.ReLU(),
+                                       nn.MaxPool2d(kernel_size=2,
+                                                    stride=2))
+        self.conv_block2 = nn.Sequential(nn.Conv2d(in_channels=hidden_units,
+                                                 out_channels=hidden_units,
+                                                 kernel_size=3,
+                                                 padding=1,
+                                                 stride=1),
+                                       nn.ReLU(),
+                                       nn.Conv2d(in_channels=hidden_units, 
+                                                 out_channels=hidden_units, 
+                                                 kernel_size=3,
+                                                 padding=1,
+                                                 stride=1),
+                                       nn.ReLU(),
+                                       nn.MaxPool2d(kernel_size=2,
+                                                    stride=2))
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=hidden_units*16*16,
+                      out_features=output_shape))
+        
+    def forward(self, X):
+        return self.classifier(self.conv_block2(self.conv_block1(X)))
+==> going_modular/predict.py <==
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 10 20:04:21 2023
+
+@author: leslietetteh
+"""
+import torch
+from torchvision import transforms
+import model_builder, utils, get_data
+import torchvision
+import argparse
+from pathlib import Path
+
+
+def label_prediction(filename: str,
+                     model: torch.nn.Module,
+                     class_names: list):    
+    custom_image_path = Path("data") / filename
+    
+    custom_image_uint8 = torchvision.io.read_image(str(custom_image_path))
+    custom_image = custom_image_uint8.type(torch.float32) / 255
+    custom_image_transform = transforms.Compose([transforms.Resize(size=(64,64))])
+    custom_image_transformed = custom_image_transform(custom_image)
+    custom_image_batch = custom_image_transformed.unsqueeze(0)
+    
+    model.eval()
+    with torch.inference_mode():
+        custom_image_logits = model(custom_image_batch.to(device))
+        print(class_names[custom_image_logits.argmax(dim=1)])
+
+
+HIDDEN_UNITS = 10
+INPUT_SHAPE = 3
+MODEL_SAVE_PATH = "models/05_going_modular_script_mode_tinyvgg_model.pth"
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+parser = argparse.ArgumentParser(description="Image prediction script")
+parser.add_argument('image', type=str, help="Path to the image file")
+args = parser.parse_args()
+filename = args.image
+class_names = ["pizza", "steak", "sushi"]
+
+model = model_builder.TinyVGGModel(input_shape=INPUT_SHAPE, 
+                                   hidden_units=HIDDEN_UNITS, 
+                                   output_shape=3)
+
+model = utils.load_model(model=model, 
+                         model_save_path=MODEL_SAVE_PATH, 
+                         device=device)
+
+label_prediction(filename=filename, model=model, class_names=class_names)        
+==> going_modular/train.py <==
+# -*- coding: utf-8 -*-
+"""
+Trains a PyTorch image classification model using device agnostic code
+"""
+
+import os
+import torch
+from torchvision import transforms
+import data_setup, engine, model_builder, utils, get_data
+from timeit import default_timer as timer
+import argparse
+
+parser = argparse.ArgumentParser(description="Hyperparameters to set within the train function")
+#parser.add_argument('-f', '--targetfile', type=str, help="Target filename to write to")
+#parser.add_argument('-d', '--targetdir', type=str, help="Target directory to write to")
+#parser.add_argument('-u', '--url', type=str, help="URL of data to download (must be zip)")
+
+parser.add_argument('--traindir', type=str, default='data/pizza_steak_sushi/train', help="Training directory for data")
+parser.add_argument('--testdir', type=str, default='data/pizza_steak_sushi/test', help="Testing directory for data")
+parser.add_argument('-e', '--num_epochs', type=int, default=5, help="Number of epochs to train for")
+parser.add_argument('-b', '--batch_size', type=int, default=32, help="Size of a training/testing batch")
+parser.add_argument('--hidden_units', type=int, default=10, help="Number of hidden units in the model")
+parser.add_argument('-l', '--learning_rate', type=float, default=0.001, help="Number of hidden units in the model")
+args = parser.parse_args()
+
+
+target_file = "pizza_steak_sushi.zip"
+target_dir = "pizza_steak_sushi"
+download_url = "https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip"
+
+get_data.download_data(download_url=download_url,
+                       target_file=target_file,
+                       target_directory=target_dir)
+
+#Setup hyperparameters
+
+NUM_EPOCHS = args.num_epochs
+BATCH_SIZE = args.batch_size
+HIDDEN_UNITS = args.hidden_units
+LEARNING_RATE = args.learning_rate
+INPUT_SHAPE = 3
+
+train_dir = args.traindir
+test_dir = args.testdir
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+data_transform = transforms.Compose([transforms.Resize(size=(64,64)),
+                                     transforms.ToTensor()])
+
+train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(train_dir=train_dir, 
+                                                                               test_dir=test_dir, 
+                                                                               transform=data_transform,                                                                                batch_size=BATCH_SIZE)
+
+model = model_builder.TinyVGGModel(input_shape=INPUT_SHAPE, 
+                                   hidden_units=HIDDEN_UNITS, 
+                                   output_shape=len(class_names)).to(device)
+
+loss_fn = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(params=model.parameters(), lr=LEARNING_RATE)
+
+start_time = timer()
+
+engine.train(model=model, 
+             train_dataloader=train_dataloader, 
+             test_dataloader=test_dataloader, 
+             optimizer=optimizer, 
+             loss_fn=loss_fn, 
+             epochs=NUM_EPOCHS, 
+             device=device)
+
+end_time = timer()
+print(f"Total training time: {end_time - start_time:.3f} seconds")
+
+utils.save_model(model=model, 
+                 target_dir="models", 
+                 model_name="05_going_modular_script_mode_tinyvgg_model.pth")
+==> going_modular/utils.py <==
+# -*- coding: utf-8 -*-
+"""
+File containing various utility functions for PyTorch model training
+"""
+
+from pathlib import Path
+import torch
+
+def save_model(model: torch.nn.Module,
+               target_dir: str,
+               model_name: str):
+    """Saves a PyTorch model to a target directory
+    
+    Args:
+        model: A target PyTorch model to save
+        target_dir: A directory for saving the model to.
+        model_name: A filename for the saved model. Should include either
+        ".pth" or ".pt" as the file extension
+        
+    Example usage:
+        save_model(model=model_0,
+                   target_dir="models",
+                   model_name="05_going_modular_tinyvgg_model.pth")
+    """
+    
+    target_dir_path = Path(target_dir)
+    target_dir_path.mkdir(parents=True,
+                          exist_ok=True)
+    
+    assert model_name.endswith(".pth") or model_name.endswith(".pt"), "Model_name should end with '.pt' or '.pth'"
+    model_save_path = target_dir_path / model_name
+    
+    #Save the model state_dict()
+    print(f"Saving  model to: {model_save_path}")
+    torch.save(obj=model.state_dict(), f=model_save_path)
+    
+def load_model(model: torch.nn.Module,
+               model_save_path: str,
+               device: torch.device) -> torch.nn.Module:
+    model.load_state_dict(torch.load(f=model_save_path))
+    model = model.to(device)
+    
+    return model
