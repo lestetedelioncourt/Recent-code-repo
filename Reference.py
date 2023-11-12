@@ -16166,3 +16166,202 @@ def load_model(model: torch.nn.Module,
     model = model.to(device)
     
     return model
+
+==>06_transfer_learning.py<==
+# -*- coding: utf-8 -*-
+"""
+Transfer learning involves taking the parameters of what one model has learned
+on another dataset, and applying them to our data
+"""
+
+import torch
+import torchvision
+import matplotlib.pyplot as plt
+from torch import nn
+from torchvision import transforms
+from torchinfo import summary
+from going_modular import data_setup, engine
+from pathlib import Path
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+image_path = Path("data") / "pizza_steak_sushi"
+train_dir = image_path / "train"
+test_dir = image_path / "test"
+
+#All pre-trained models in torchvison (prior to v0.13) expects input images normalized int
+#the same way, i.e. mini-batches of 3-channel RGB of shape (3 x H x W), where H and W are 
+#expected to be at least 224. The images have to be loaded into a range of [0, 1] and then
+#normalized using mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+
+manual_transforms = transforms.Compose([transforms.Resize(size=(224,224)),
+                                        transforms.ToTensor(),
+                                        normalize])
+
+train_dataloader1, test_dataloader1, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                               test_dir, 
+                                                                               manual_transforms, 
+                                                                               batch_size=32)
+    
+#post torchvision v0.13+ there is now support for automatic data transform creation
+#based on the pretrained model weights you are using. 
+
+weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
+print(weights)
+
+auto_transforms = weights.transforms()
+print(auto_transforms)
+
+train_dataloader2, test_dataloader2, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                                 test_dir, 
+                                                                                 auto_transforms, 
+                                                                                 batch_size=32)
+
+#There are various places to geta pretrained model, such as:
+#1. PyTorch domain libraries: torchvision, torchtext, torchaudio, etc.
+#2. Libraries like timm (torch image models)
+#3. HuggingFace Hub (for plenty of different models)
+#4. Paperswithcode (for models across different problem spaces/domains)
+
+# OLD method of creating a pretrained model (prior to v0.13)
+# model = torchvision.models.efficientnet_b0(pretrained=True) 
+
+# NEW method of creating a pretrained model (torchvision v0.13+)
+#weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT # ".DEFAULT"  = best available weights
+#model = torchvision.models.efficientnet_b0(weights=weights)
+
+model = torchvision.models.efficientnet_b0(pretrained=False)
+model.load_state_dict(torch.load('efficientnet_b0_rwightman-3dd342df.pth')) 
+model = model.to(device)
+
+#print(model)
+
+print(summary(model=model,
+              input_size=(1, 3, 224, 224),
+              col_names=["input_size", "output_size", "num_params", "trainable"],
+              col_width=20,
+              row_settings=["var_names"]))
+
+#We will freeze  the base model and change the output layer to suit our needs
+
+#With a feature extractor model, typically you will "freeze" the base layers
+#of a pretrained/foundation model and update the output layers to suit your
+#own problem
+
+#Freeze all of the base layers in EfficientnetB0
+for param in model.features.parameters():
+    param.requires_grad = False #will freeze all base layers
+
+# Now model only partially trainable
+print(summary(model=model,
+              input_size=(1, 3, 224, 224),
+              col_names=["input_size", "output_size", "num_params", "trainable"],
+              col_width=20,
+              row_settings=["var_names"]))
+
+#Update the classifier head of our model to suit our problem
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+model.classifier = nn.Sequential(nn.Dropout(p=0.2, inplace=True),
+                                 nn.Linear(in_features=1280,
+                                           out_features=len(class_names))).to(device)
+
+# Now model only classifier we have defined is trainable
+print(summary(model=model,
+              input_size=(1, 3, 224, 224),
+              col_names=["input_size", "output_size", "num_params", "trainable"],
+              col_width=20,
+              row_settings=["var_names"]))
+
+##TRAIN MODEL## 
+
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(),
+                             lr = 0.001)
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
+from timeit import default_timer as timer
+
+start_time = timer()
+
+results = engine.train(model, 
+                       train_dataloader2, 
+                       test_dataloader2, 
+                       optimizer, 
+                       loss_fn, 
+                       5, 
+                       device)
+
+end_time = timer()
+print(f"Total training time: {end_time - start_time:.3f} seconds")
+
+try:
+    from helper_functions import plot_loss_curves
+except:
+    import requests
+    with open("helper_functions.py", "wb") as f:
+        request = requests.get("https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/helper_functions.py")
+        f.write(request.content)
+    from helper_functions import plot_loss_curves
+
+plot_loss_curves(results)
+
+from typing import List, Tuple
+from PIL import Image
+
+def pred_and_plot_image(model: nn.Module,
+                        image_path: str,
+                        class_names: List[str],
+                        image_size: Tuple[int, int] = (224,224),
+                        transform: torchvision.transforms = None,
+                        device: torch.device = device):
+    img = Image.open(image_path)
+    
+    if transform is not None:
+        image_transform = transform 
+    else:
+        image_transform = transforms.Compose([transforms.Resize(image_size),
+                                              transforms.ToTensor(),
+                                              transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                                                                   std=[0.229, 0.224, 0.225])])
+    model = model.to(device)
+    
+    model.eval()
+    with torch.inference_mode():
+        transformed_image = image_transform(img).unsqueeze(dim=0)
+        
+        target_image_pred = model(transformed_image.to(device))
+    target_image_pred_probs = target_image_pred.softmax(dim=1)
+    target_image_pred_label = target_image_pred_probs.argmax(dim=1)
+    
+    plt.figure()
+    plt.imshow(img)
+    plt.title(f"Pred: {class_names[target_image_pred_label]} | Prob: {target_image_pred_probs.max()*100:.2f}")
+    plt.axis('off')
+    
+import random
+
+num_images_to_plot = 3       
+test_image_path_list = list(Path(test_dir).glob("*/*.jpg")) 
+test_image_path_sample = random.sample(population=test_image_path_list,
+                                       k=num_images_to_plot)
+
+for image_path in test_image_path_sample:
+    pred_and_plot_image(model, image_path, class_names)
+        
+custom_image_path = Path("data") / "04-pizza-dad.jpeg"
+
+if not custom_image_path.is_file():
+    with open(custom_image_path, "wb") as f:
+        print(f"Downloading {custom_image_path}")
+        request = requests.get("https://raw.githubusercontent.com/mrdbourke/pytorch-deep-learning/main/images/04-pizza-dad.jpeg")
+        f.write(request.content)
+else:
+    print(f"skipping download...")
+    
+pred_and_plot_image(model, custom_image_path, class_names)
