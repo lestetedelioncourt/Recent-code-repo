@@ -16201,9 +16201,9 @@ manual_transforms = transforms.Compose([transforms.Resize(size=(224,224)),
                                         normalize])
 
 train_dataloader1, test_dataloader1, class_names = data_setup.create_dataloaders(train_dir, 
-                                                                               test_dir, 
-                                                                               manual_transforms, 
-                                                                               batch_size=32)
+                                                                                 test_dir, 
+                                                                                 manual_transforms, 
+                                                                                 batch_size=32)
     
 #post torchvision v0.13+ there is now support for automatic data transform creation
 #based on the pretrained model weights you are using. 
@@ -16236,7 +16236,7 @@ model = torchvision.models.efficientnet_b0(pretrained=False)
 model.load_state_dict(torch.load('efficientnet_b0_rwightman-3dd342df.pth')) 
 model = model.to(device)
 
-#print(model)
+print(model)
 
 print(summary(model=model,
               input_size=(1, 3, 224, 224),
@@ -16365,3 +16365,134 @@ else:
     print(f"skipping download...")
     
 pred_and_plot_image(model, custom_image_path, class_names)
+from going_modular import utils, classification_metrics
+utils.save_model(model, "models", "transfer_learning.pth")
+
+classification_metrics.plot_confusion_matrix(model, 
+                                             test_dir, 
+                                             manual_transforms, 
+                                             test_dataloader2, 
+                                             device)
+
+wrong_preds = []
+
+model.eval()
+with torch.inference_mode():
+    for X, y in test_dataloader2:
+        X, y = X.to(device), y.to(device)
+        y_logit = model(X).squeeze()
+        y_pred_probs = y_logit.softmax(dim=1)
+        y_pred = y_logit.argmax(dim=1)
+        
+        wrong_indices = y_pred != y
+        
+        if wrong_indices.any():
+            wrong_X = X[wrong_indices]
+            wrong_y_pred_probs = y_pred_probs[wrong_indices]
+            wrong_y = y[wrong_indices]
+            wrong_y_pred = y_pred[wrong_indices]
+            
+            for i in range(wrong_X.shape[0]):
+                wrong_preds.append((wrong_X[i], 
+                                   wrong_y_pred_probs[i].max(), 
+                                   wrong_y[i], 
+                                   wrong_y_pred[i]))
+                
+wrong_preds_sorted = sorted(wrong_preds, key=lambda x: x[1], reverse=True)        
+
+plt.figure(figsize=(16,8))
+
+for i in range(5):
+    print(f"{wrong_preds_sorted[i][1] * 100:.2f}% {class_names[wrong_preds_sorted[i][2]]} {class_names[wrong_preds_sorted[i][3]]}")
+    
+    targ_image = wrong_preds_sorted[i][0].permute(1, 2, 0) # H,W,C -> C,H,W
+        
+    plt.subplot(1, 5, i+1)
+    plt.imshow(targ_image)
+    plt.axis(False)
+        
+    title = f"{class_names[wrong_preds_sorted[i][3]]}"
+    plt.title(title, c="r")
+
+print(wrong_preds_sorted[0][0].shape)
+
+new_img_path = Path("data") / "pizza.jpg"
+
+pred_and_plot_image(model, new_img_path, class_names)
+
+results = engine.train(model, 
+                       train_dataloader2, 
+                       test_dataloader2, 
+                       optimizer, 
+                       loss_fn, 
+                       5, 
+                       device)
+
+newurl = "https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi_20_percent.zip"
+
+from going_modular import get_data
+
+images_path = get_data.download_data(newurl, 
+                                     target_file="pizza_steak_sushi_20.zip", 
+                                     target_directory="pizza_steak_sushi_20")
+
+train_dir = images_path / "train"
+test_dir = images_path / "test"
+train_dataloader2, test_dataloader2, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                                 test_dir, 
+                                                                                 auto_transforms, 
+                                                                                 batch_size=32)
+
+results = engine.train(model, 
+                       train_dataloader2, 
+                       test_dataloader2, 
+                       optimizer, 
+                       loss_fn, 
+                       5, 
+                       device)
+
+==>going_modular/classification_metrics.py<==
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Nov 12 18:36:57 2023
+
+@author: leslietetteh
+"""
+
+from torchvision import datasets, transforms
+from tqdm.auto import tqdm
+import torch
+
+def plot_confusion_matrix(model: torch.nn.Module,
+                          test_dir: str,
+                          transform: transforms,
+                          dataloader,
+                          device: torch.device):
+    test_data = datasets.ImageFolder(root=test_dir,
+                                     transform=transform)
+    
+    class_names = test_data.classes
+    
+    y_preds = []
+    model.eval()
+    with torch.inference_mode():
+        for X, y in tqdm(dataloader, desc="Making predictions"):
+            X, y = X.to(device), y.to(device)
+            y_logit = model(X).squeeze()
+            y_pred = y_logit.argmax(dim=1)
+            y_preds.append(y_pred.cpu())
+    
+    y_preds_tensor = torch.cat(y_preds)
+    target_tensor = torch.tensor(test_data.targets)
+    
+    from torchmetrics import ConfusionMatrix
+    from mlxtend.plotting import plot_confusion_matrix
+    
+    confmat = ConfusionMatrix(task="multiclass", num_classes=len(class_names))
+    confmat_tensor = confmat(preds=y_preds_tensor, target=target_tensor)
+     
+    fig, ax = plot_confusion_matrix(conf_mat=confmat_tensor.numpy(),
+                                    class_names=class_names,
+                                    figsize=(10,7))
+
+	
