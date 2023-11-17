@@ -16495,4 +16495,285 @@ def plot_confusion_matrix(model: torch.nn.Module,
                                     class_names=class_names,
                                     figsize=(10,7))
 
+==>07_experiment_tracking.py<==
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 15 18:15:50 2023
+
+@author: leslietetteh
+"""
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov 14 19:58:53 2023
+
+@author: leslietetteh
+"""
+
+import torch
+import torchvision
+import matplotlib.pyplot as plt
+from torch import nn
+from torchvision import transforms
+from torchinfo import summary
+from going_modular import data_setup, engine, predict
+from pathlib import Path
+
+BATCH_SIZE = 32
+NUM_EPOCHS = [5, 10]
+MODELS = ["effnetb0", "regnet800mf"]
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def set_seeds(seed: int=42):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    
+image_path = Path("data") / "pizza_steak_sushi"
+train_dir = image_path / "train"
+
+image_path2 = Path("data") / "pizza_steak_sushi_20"
+test_dir = image_path2 / "test"
+train_dir2 = image_path2 / "train"
+
+effnet_weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
+effnet_transform = effnet_weights.transforms()
+
+regnet_weights = torchvision.models.RegNet_Y_800MF_Weights.IMAGENET1K_V2.DEFAULT
+regnet_transform = regnet_weights.transforms()
+
+effnet_train_dataloader10, effnet_test_dataloader, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                                               test_dir, 
+                                                                                               effnet_transform, 
+                                                                                               BATCH_SIZE)
+
+effnet_train_dataloader20, effnet_test_dataloader, class_names = data_setup.create_dataloaders(train_dir2, 
+                                                                                               test_dir, 
+                                                                                               effnet_transform, 
+                                                                                               BATCH_SIZE)
+
+regnet_train_dataloader10, regnet_test_dataloader, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                                               test_dir, 
+                                                                                               regnet_transform, 
+                                                                                               BATCH_SIZE)
+
+regnet_train_dataloader20, regnet_test_dataloader, class_names = data_setup.create_dataloaders(train_dir2, 
+                                                                                               test_dir, 
+                                                                                               regnet_transform, 
+                                                                                               BATCH_SIZE)
+
+train_dataloaders = {"regnet_10_percent": regnet_train_dataloader10,
+                     "regnet_20_percent": regnet_train_dataloader20,
+                     "effnet_10_percent": effnet_train_dataloader10,
+                     "effnet_20_percent": effnet_train_dataloader20}
+
+def create_effnetb0():
+    model = torchvision.models.efficientnet_b0(pretrained=False)
+    model.load_state_dict(torch.load('efficientnet_b0_rwightman-3dd342df.pth'))    
+    model = model.to(device)
+    
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    set_seeds()
+    model.classifier = nn.Sequential(nn.Dropout(p=0.2, inplace=True),
+                                     nn.Linear(in_features=1280, 
+                                               out_features=len(class_names))).to(device)
+
+    model.name = "effnetb0"
+    print(f"Created {model.name} model")
+    return model
+
+def create_regnet800mf():    
+    model = torchvision.models.regnet_y_800mf(pretrained=False)
+    model.load_state_dict(torch.load('regnet_y_800mf-58fc7688.pth'))
+    model = model.to(device)
+
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    set_seeds()    
+    model.fc = nn.Linear(in_features=784, 
+                         out_features=len(class_names), 
+                         bias=True)
+
+    model.name = "regnet800mf"
+    print(f"Created {model.name} model")
+    return model
+
+#to track experiments, we'll use Tensorboard, to interact with it we'll use SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
+#writer = SummaryWriter()
+
+from going_modular.engine import train_step, test_step
+from typing import Dict, List, Tuple
+from tqdm.auto import tqdm
+
+def train(model: torch.nn.Module,
+          train_dataloader: torch.utils.data.DataLoader,
+          test_dataloader: torch.utils.data.DataLoader,
+          optimizer: torch.optim.Optimizer,
+          loss_fn: torch.nn.Module,
+          epochs: int,
+          device: torch.device,
+          writer: torch.utils.tensorboard.writer.SummaryWriter) -> Dict[str, List[float]]:
+    """Trains and tests a PyTorch model.
+    
+    Passes a target PyTorch model through train_step() and test_step()
+    functions for a number of epochs, training and testing the model in
+    the same epoch loop.
+    
+    Calculates, prints and stores evaluation metrics throughout.
+    
+    Args:
+        model: A PyTorch model to be tested
+        train_dataloader: A DataLoader instance for the model to be trained on
+        test_dataloader: A DataLoader instance for the model to be tested on.
+        optimizer: A PyTorch optimizer to help minimize the loss function.
+        loss_fn: A PyTorch loss function to calculate loss on the test data
+        epochs: An integer indicating how many epochs to train for.
+        device: A target device to compute on (e.g. "cuda" or "cpu")
+        
+    Returns:
+        A dictionary of training and testing loss aas well as training
+        and testing accuracy metris. Each metric adds a value to a list
+        for each epoch, in the form:
+            {train_loss: [...],
+             train_acc: [...],
+             test_loss: [...],
+             test_acc: [...]}
+        For example if training for epochs=2:
+            {train_loss: [2.0616, 1.6573],
+             train_acc: [0.3945, 0.4356],
+             test_loss: [2.0345, 1,7384],
+             test_acc: [0.3678, 0.4321]}
+    """
+    results = {"train_loss": [],
+               "train_acc": [],
+               "test_loss": [],
+               "test_acc": []}
+    
+    for epoch in tqdm(range(epochs)):
+        train_loss, train_acc = train_step(model=model,
+                                           dataloader=train_dataloader,
+                                           loss_fn=loss_fn,
+                                           optimizer=optimizer,
+                                           device=device)
+        
+        test_loss, test_acc = test_step(model=model, 
+                                        dataloader=test_dataloader, 
+                                        loss_fn=loss_fn, 
+                                        device=device)
+        
+        print(f"Epochs: {epoch} | Train Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.2f}% | Test Loss: {test_loss:.3f} | Test Acc: {test_acc*100:.2f}%")
+        
+        results["train_loss"].append(train_loss)
+        results["train_acc"].append(train_acc)
+        results["test_loss"].append(test_loss)
+        results["test_acc"].append(test_acc)
+               
+        if writer:
+            #New: Experiment tracking
+            writer.add_scalars(main_tag="Loss", 
+                               tag_scalar_dict={"train_loss": train_loss,
+                                                "test_loss": test_loss},
+                               global_step=epoch)
+            writer.add_scalars(main_tag="Accuracy", 
+                               tag_scalar_dict={"train_acc": train_acc,
+                                                "test_acc": test_acc},
+                               global_step=epoch)
+            writer.add_graph(model=model,
+                             input_to_model=torch.randn(32, 3, 224, 224).to(device))
+        
+            #close writer
+            writer.close()
+            
+    return results
+
+from datetime import datetime
+import os
+
+# send experiments to directory runs/YYYY-MM-DD/experiment_name/model_name/extra
+def create_writer(experiment_name: str,
+                  model_name: str,
+                  extra: str = None):
+    """Creates a torch.utils.tensorboard.writer.Summaryriter() instance tracking
+    to a specific directory"""
+        
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    
+    if extra:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name, extra)
+    else:
+        log_dir = os.path.join("runs", timestamp, experiment_name, model_name)
+    
+    return SummaryWriter(log_dir=log_dir)
+
+from going_modular import utils
+
+set_seeds()
+
+experiment_number = 0
+
+for dataloader_name, train_dataloader in train_dataloaders.items():
+    for epochs in NUM_EPOCHS:
+        if dataloader_name[:3] == "eff":
+            model = create_effnetb0()
+            test_dataloader = effnet_test_dataloader
+        elif dataloader_name[:3] == "reg":
+            model = create_regnet800mf()
+            test_dataloader = regnet_test_dataloader
+            
+        experiment_number += 1
+        
+        print(f"Experiment number: {experiment_number}")
+        print(f"Model: {model.name}")
+        print(f"DataLoader: {dataloader_name}")
+        print(f"Number of epochs: {epochs}")
+        
+        loss_fn = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=0.001)
+        
+        train(model, 
+              train_dataloader, 
+              test_dataloader, 
+              optimizer, 
+              loss_fn, 
+              epochs, 
+              device, 
+              create_writer(dataloader_name, 
+                            model.name, 
+                            f"{epochs}_epochs"))
+        
+        save_filepath = f"07_{model.name}_{dataloader_name}_{epochs}_epochs.pth"
+        utils.save_model(model, 
+                         "models", 
+                         save_filepath)
+        print("-"*50 + "\n")        
+    
+import random
+
+num_images_to_plot = 3       
+test_image_path_list = list(Path(test_dir).glob("*/*.jpg")) 
+test_image_path_sample = random.sample(population=test_image_path_list,
+                                       k=num_images_to_plot)
+
+best_model_path = "models/07_effnetb0_effnet_20_percent_10_epochs.pth"
+
+best_model = create_effnetb0()
+best_model.load_state_dict(torch.load(best_model_path))
+
+effnetb0_model_size = Path(best_model_path).stat().st_size // (1024 * 1024)
+print(f"EfficientNetB0 feature extractor model size: {effnetb0_model_size} MB")
+
+from going_modular.predict import pred_and_plot_image
+
+for image_path in test_image_path_sample:
+    pred_and_plot_image(best_model, image_path, class_names, device)
+
+custom_image_path = Path("data/pizza.jpg") 
+
+pred_and_plot_image(best_model, 
+                    custom_image_path, 
+                    class_names, 
+                    device)    
 	
