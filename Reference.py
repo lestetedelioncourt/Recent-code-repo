@@ -16777,3 +16777,560 @@ pred_and_plot_image(best_model,
                     class_names, 
                     device)    
 	
+==>08_paper_replicating.py<==
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 20 18:15:04 2023
+
+@author: leslietetteh
+"""
+
+import torch
+import torchvision
+import matplotlib.pyplot as plt
+from torchinfo import summary
+from going_modular import data_setup, engine, utils
+from helper_functions import download_data, set_seeds, plot_loss_curves
+from pathlib import Path
+from torchvision import transforms
+from torch import nn
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+train_dir = Path("data") / "pizza_steak_sushi" / "train"
+test_dir = Path("data") / "pizza_steak_sushi" / "test"
+
+IMG_SIZE = 224
+BATCH_SIZE = 32
+
+manual_transform = transforms.Compose([transforms.Resize((IMG_SIZE, IMG_SIZE)),
+                                        transforms.ToTensor()])
+
+train_dataloader, test_dataloader, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                                 test_dir, 
+                                                                                 manual_transform, 
+                                                                                 manual_transform, 
+                                                                                 BATCH_SIZE)
+
+image_batch, label_batch = next(iter(train_dataloader))
+
+image, label = image_batch[0], label_batch[0]
+plt.imshow(image.permute(1, 2, 0))
+plt.title(class_names[label])
+plt.axis(False)
+
+#Input shape (3, 224, 224)
+#Output shape (196, 768)
+
+image_permuted = image.permute(1, 2, 0)
+
+patch_size = 16
+plt.figure(figsize = (patch_size, patch_size))
+plt.imshow(image_permuted[:patch_size, :, :])
+
+#Setup code to plot top row as patches
+img_size = 224
+patch_size = 16
+num_patches = img_size/patch_size
+assert img_size % patch_size == 0, "Image size must be divisible by patch size"
+
+#figs, axs = plt.subplots(nrows=1,
+#                         ncols= img_size // patch_size,
+#                         sharex=True,
+#                         sharey=True,
+#                         figsize=(patch_size, patch_size))
+#
+## Iterate through number of patches in the top row
+#for i, patch in enumerate(range(0, img_size, patch_size)):
+#    axs[i].imshow(image_permuted[:patch_size, patch:patch+patch_size, :])
+#    axs[i].set_xlabel(i+1)
+#    axs[i].set_xticks([])
+#    axs[i].set_yticks([])
+#    
+#fig, axs = plt.subplots(nrows=img_size // patch_size,
+#                        ncols=img_size // patch_size,
+#                        figsize=(num_patches, num_patches),
+#                        sharex=True,
+#                        sharey=True)
+#
+#for i, patch_height in enumerate(range(0, img_size, patch_size)):
+#    for j, patch_width in enumerate(range(0, img_size, patch_size)):
+#        axs[i, j].imshow(image_permuted[patch_height:patch_height+patch_size,
+#                                        patch_width:patch_width+patch_size,
+#                                        :])
+#        #set up label information
+#        axs[i, j].set_ylabel(i+1, 
+#                             rotation="horizontal",
+#                             horizontalalignment="right",
+#                             verticalalignment="center")
+#        axs[i, j].set_xlabel(j+1)
+#        axs[i, j].set_xticks([])
+#        axs[i, j].set_yticks([])
+#        axs[i, j].label_outer()
+#        
+#fig.suptitle(f"{class_names[label]} -> Patchified")
+#plt.show()
+        
+#we could create the image patches and image patch embeddings in a 
+#single step using `nn.Conv2d()` by setting the kernel_size and stride
+#to patch_size 
+
+conv2d = nn.Conv2d(in_channels=3, # for colour images
+                   out_channels=768, # D size from Table 1 for ViT-Base
+                   kernel_size=patch_size,
+                   stride=patch_size,
+                   padding=0)
+
+plt.imshow(image.permute(1, 2, 0))
+plt.title(class_names[label])
+plt.axis(False)
+
+image_out_of_conv = conv2d(image.unsqueeze(0))
+print(image_out_of_conv.shape) # [batch_size, embedding_dim, feature_map_height, feature_map_width]
+#[1, 768, 14, 14]
+
+#plot random convolutional feature maps (embeddings)
+import random
+
+random_indices = random.sample(range(0, 768), k=5) # creates 5 random indices
+print(f"Showing random convolutional feature maps from indices: {random_indices}")
+
+#Create plot
+fig, axs = plt.subplots(nrows=1, ncols=5, figsize=(12, 12))
+
+
+#Plot random image feature maps
+for i, idx in enumerate(random_indices):
+    image_conv_feature_map = image_out_of_conv[:, idx, :, :] #index on output tensor of conv2d layer
+    axs[i].imshow(image_conv_feature_map.squeeze().detach().numpy()) #remove batch dimension, and remove from grad tracking/switch to numpy for matplotlib
+    #If don't use .detach().numpy() receive RuntimeError: Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead.
+    axs[i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+    
+#Get a single feature map in tensor form
+single_feature_map = image_out_of_conv[:, 0, :, :]
+
+#Right now we've got a series of convolutional feature maps (patch embeddings)
+#that we want to flatten into a sequence of patch embeddings to satisfy
+#the criteria of the ViT Transformer Encoder [1, 768, 14, 14] -> [1, 768, 196]
+
+flatten_layer = nn.Flatten(start_dim=2,
+                           end_dim=3)
+
+#print(flatten_layer(image_out_of_conv).shape) #torch.Size([1, 768, 196])
+
+
+print(f"Original image shape: {image.shape}")
+
+# Turn image into feature maps
+image_out_of_conv = conv2d(image.unsqueeze(0))
+print(f"Image feature map (patches) shape {image_out_of_conv.shape}")
+
+# Flatten the feature maps
+image_out_of_conv_flattened = flatten_layer(image_out_of_conv)
+print(f"Flattened image feature map shape: {image_out_of_conv_flattened.shape}")
+
+image_out_of_conv_flattened_reshaped = image_out_of_conv_flattened.permute(0, 2, 1)
+print(f"{image_out_of_conv_flattened_reshaped.shape} -> batch_size, number_of_patches, embedding_dimension or (batch, seq, features)") 
+
+#Get a single flattened feature map
+single_flattened_feature_map = image_out_of_conv_flattened_reshaped[:, :, 0]
+
+#Plot the flattened feature map visually
+plt.figure(figsize=(22, 22))
+plt.imshow(single_flattened_feature_map.detach().numpy())
+plt.title(f"Flattened feature map shape: {single_flattened_feature_map.shape}")
+plt.axis(False)
+
+class PatchEmbedding(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 patch_size: int = 16,
+                 embedding_dim: int = 768):
+        super().__init__()
+        
+        self.patch_size = patch_size
+        
+        self.patcher = nn.Conv2d(in_channels=in_channels,
+                                 out_channels=embedding_dim,
+                                 kernel_size=patch_size,
+                                 stride=patch_size,
+                                 padding=0)
+        
+        self.flatten = nn.Flatten(start_dim=2,
+                                  end_dim=3)
+        
+    def forward(self, x):
+        image_resolution = x.shape[-1]
+        assert image_resolution % patch_size == 0, f"Image size must be divisble by patch_size. Image shape: {image_resolution}, patch size: {patch_size} "
+        
+        x_patched = self.patcher(x)
+        x_flattened = self.flatten(x_patched)
+        
+        return x_flattened.permute(0, 2, 1)
+    
+set_seeds()
+
+patchify = PatchEmbedding(in_channels=3,
+                          patch_size=16,
+                          embedding_dim=768)
+
+print(f"Input image size: {image.unsqueeze(0).shape}")
+patch_embedded_image = patchify(image.unsqueeze(0))
+print(f"Output patch embedding sequence shape: {patch_embedded_image.shape}")
+
+### Creating the class token embedding
+
+#Want to prepend a learnable class token to the start of the patch embedding
+
+#1. Get the batch size and embedding dimension
+batch_size = patch_embedded_image.shape[0]
+embedding_dimension = patch_embedded_image.shape[-1]
+
+#wanna create class token embedding as a learnable parameter that shares the same size
+#as the embedding dimension
+class_token = nn.Parameter(torch.randn(batch_size, 1, embedding_dimension),
+                           requires_grad=True)
+print(f"Class token: {class_token.shape}")
+
+#Add the class token embedding to the front of the patch embedding
+patch_embedded_image_with_class_embedding = torch.cat((class_token, patch_embedded_image),
+                                                      dim=1) # number of patches dimension
+
+print(f"patch embedded image with class embedding shape: {patch_embedded_image_with_class_embedding.shape} : (batch_size, class_token + number of patches, embedding dimensions")
+
+### Creating the position embedding
+
+# Want to create a series of 1D learnable position embeddings and to add them to the
+# sequence of patch embeddings
+
+#Calculate N (number_of_patches)
+number_of_patches = int((224 * 224) / patch_size**2)
+
+#Get the embedding dimension
+embedding_dimension = patch_embedded_image_with_class_embedding.shape[-1]
+
+position_embedding = nn.Parameter(torch.ones(1,
+                                             number_of_patches+1,
+                                             embedding_dimension),
+                                  requires_grad=True)
+
+print(f"Position embedding shape: {position_embedding.shape}")
+patch_and_position_embedding = patch_embedded_image_with_class_embedding + position_embedding
+print(f"Patch and position embdedding shape: {patch_and_position_embedding.shape}")
+#values increase by one, but the shape stays the same
+
+###Replicating Equation 1 from ViT paper - Putting it all together
+patch_size = 16
+height, width = image.shape[1], image.shape[2]
+x = image.unsqueeze(0)
+
+patch_embedding_layer = PatchEmbedding()
+
+patch_embedding = patch_embedding_layer(x)
+batch_size = patch_embedding.shape[0]
+embedding_dimension = patch_embedding.shape[-1]
+class_token = nn.Parameter(torch.randn(batch_size, 1, embedding_dimension), 
+                           requires_grad=True)
+
+patch_embedding_class_token = torch.cat((class_token, patch_embedding), dim=1)
+
+number_of_patches = int(height * width) // patch_size ** 2
+position_embedding = nn.Parameter(torch.randn(1, number_of_patches+1, embedding_dimension),
+                                  requires_grad=True)
+
+patch_and_position_embedding = patch_embedding_class_token + position_embedding
+
+###Multihead self-attention: which part of a sequence should pay the most attention to itself
+#In our case, we have a series of embedded image patches - which patch significantly 
+#relates to another patch.
+#We want our neural network (ViT) to learn this relationship/representation
+
+class MultiHeadSelfAttentionBlock(nn.Module):
+    """Creates a multi-head self-attention block"""
+    def __init__(self, 
+                 embedding_dim: int = 768, #Embedding dimension from Table-1 for ViT base
+                 num_heads: int = 12, #Heads from table-1 for Vit Base
+                 attn_dropout: int = 0):
+        super().__init__()
+        
+        #Create the norm layer (LayerNorm)
+        self.layer_norm = nn.LayerNorm(normalized_shape=embedding_dim)
+        
+        #Create MSA layer
+        self.multihead_attention = nn.MultiheadAttention(embed_dim=embedding_dim, 
+                                                         num_heads=num_heads,
+                                                         dropout=attn_dropout,
+                                                         batch_first=True) # (batch, seq, feature) instead of (seq, batch, feature)
+        
+    def forward(self, x):
+        x = self.layer_norm(x)
+        attn_output, _ = self.multihead_attention(query=x, key=x, value=x, need_weights=False)
+        #need_weights will return weights in addition to output so set to False
+        
+        return attn_output
+    
+# Create an instance MSA block
+multihead_self_attention_block = MultiHeadSelfAttentionBlock()
+
+#Pass patch and position image embedding sequence through MSA block
+
+patched_image_through_msa_block = multihead_self_attention_block(patch_and_position_embedding) + patch_and_position_embedding
+        
+print(f"Output shape of MSA block: {patched_image_through_msa_block.shape}")
+
+###Multilayer perceptron (MLP block)
+#The MLP contains two layers with a GELU non-linearity
+#MLP number of hidden units == MLP size in Table 1
+# Linear layer == dense layer == fully-connected layer
+
+class MLPBlock(nn.Module):
+    def __init__(self,
+                 embedding_dim: int = 768,
+                 mlp_size: int = 3072, # from table 1
+                 dropout: float = 0.1): # from table 3
+        super().__init__()
+        
+        #Create the norm layer (LN)
+        self.layer_norm = nn.LayerNorm(normalized_shape=embedding_dim)
+        
+        #Create the MLP
+        self.mlp = nn.Sequential(
+            nn.Linear(in_features=embedding_dim, 
+                      out_features=mlp_size),
+            nn.GELU(),
+            nn.Dropout(p=dropout),
+            nn.Linear(in_features=mlp_size, 
+                      out_features=embedding_dim),
+            nn.Dropout(p=dropout))
+        
+    def forward(self, x):
+        x = self.layer_norm(x)
+        x = self.mlp(x)
+        #return x
+        return self.mlp(self.layer_norm(x))
+
+#Create an instance of MLPBlock
+mlp_block = MLPBlock()
+
+patched_image_through_mlp_block = mlp_block(patched_image_through_msa_block) + patched_image_through_msa_block
+
+print(f"Output shape of MLP block: {patched_image_through_mlp_block.shape}")
+
+###Creating the Transformer Encoder
+#This block is a combination of alternating blocks of MSA (eq. 2) and MLP blocks (eq 3.)
+#There are residual connections for each block
+# Encoder - turn a sequence into learnable representation (can be backpropagated)
+# Decoder - go from learned representation back to some sort of sequence
+# Residual connections - Add a layer(s) input to its subsequent output, this enables the
+# creation of deeper networs (prevents weights getting too small)
+
+class TransformerEncoderBlock(nn.Module):
+    def __init__(self,
+                 embedding_dim: int = 768,
+                 num_heads: int = 12,
+                 mlp_size: int = 3072,
+                 mlp_dropout: float = 0.1,
+                 attn_dropout: float = 0.0):
+        super().__init__()
+        
+        self.msa_block = MultiHeadSelfAttentionBlock(embedding_dim=embedding_dim,
+                                                    num_heads=num_heads,
+                                                    attn_dropout=attn_dropout)
+        
+        self.mlp_block = MLPBlock(embedding_dim=embedding_dim,
+                                  mlp_size=mlp_size,
+                                  dropout=mlp_dropout)
+        
+    def forward(self, x):
+        x = self.msa_block(x) + x
+        x = self.mlp_block(x) + x
+        return x
+    
+transformer_encoder_block = TransformerEncoderBlock()
+
+print(transformer_encoder_block)
+
+print(summary(model=transformer_encoder_block, 
+              input_size=(1, 197, 768), 
+              col_names=("input_size", "output_size", "num_params", "trainable"),
+              col_width=20,
+              row_settings=["var_names"]))
+
+#Because of the popularity of the Transformer, PyTorch has created
+# nn.Transformer, nn.TransformerEncoder, nn.TransformerEncoder
+#We will create the same as above with nn.TransformerEncoderLayer()
+
+torch_transformer_encoder_layer = nn.TransformerEncoderLayer(d_model=768, # embedding size 
+                                                             nhead=12,
+                                                             dim_feedforward=3072,
+                                                             dropout=0.1,
+                                                             activation="gelu",
+                                                             batch_first=True,
+                                                             norm_first=True)
+
+print(torch_transformer_encoder_layer)
+
+print(summary(model=torch_transformer_encoder_layer, 
+              input_size=(1, 197, 768), 
+              col_names=("input_size", "output_size", "num_params", "trainable"),
+              col_width=20,
+              row_settings=["var_names"]))
+
+## Putting it all together to create ViT
+
+class ViT(nn.Module):
+    def __init__(self,
+                 img_size: int = 224,
+                 in_channels: int = 3,
+                 patch_size: int = 16,
+                 num_transformer_layers: int = 12,
+                 embedding_dim: int = 768,
+                 mlp_size: int = 3072,
+                 num_heads: int = 12,
+                 attn_dropout: float = 0.0,
+                 mlp_dropout: float = 0.1,
+                 embedding_dropout: float = 0.1,
+                 num_classes: int = 3):
+        super().__init__()
+        
+        assert img_size % patch_size == 0, f"Image size must be divisble by patch size, image size: {img_size}, patch size: {patch_size}"
+        
+        self.num_patches = (img_size * img_size) // patch_size**2
+        
+        self.class_embedding = nn.Parameter(data = torch.randn(1, 1, embedding_dim),
+                                            requires_grad=True)
+        
+        self.position_embedding = nn.Parameter(data=torch.randn(1,
+                                                                self.num_patches+1,
+                                                                embedding_dim),
+                                               requires_grad=True)
+        
+        self.embedding_dropout = nn.Dropout(p=embedding_dropout)
+        
+        # patch embedding layer
+        self.patch_embedding = PatchEmbedding(in_channels=in_channels,
+                                              patch_size=patch_size,
+                                              embedding_dim=embedding_dim)
+        
+        # *[] syntax below creates list of 12 TransformerEncoderBlock(s) and passes all to nn.Sequential() 
+        self.transformer_encoder = nn.Sequential(*[TransformerEncoderBlock(embedding_dim=embedding_dim,
+                                                                           num_heads=num_heads,
+                                                                           mlp_size=mlp_size,
+                                                                           mlp_dropout=mlp_dropout) for _ in range(num_transformer_layers)])
+        
+        #Create classifier head
+        self.classifier = nn.Sequential(
+            nn.LayerNorm(normalized_shape=embedding_dim),
+            nn.Linear(in_features=embedding_dim,
+                      out_features=num_classes)
+        )
+        
+    def forward(self, x):
+        # Get the batch size
+        batch_size = x.shape[0]
+        
+        #Create class token embedding and expand it to match the batch size
+        class_token = self.class_embedding.expand(batch_size, -1, -1) #-1 means to infer dimension 
+        # (1, 1, 768) -> (32, 1, 768)
+        
+        #Create the patch embedding (equation 1)
+        x = self.patch_embedding(x)
+        
+        # Concat class token embedding and patch embedding (equation 1)
+        x = torch.cat((class_token, x), dim=1)
+        
+        # Add position embedding to class token and patch embedding (equation 1)
+        x = self.position_embedding + x
+        
+        # Apply dropout to patch embedding ("directly after adding positional-to-patch embeddings")
+        x = self.embedding_dropout(x)
+        
+        # Pass position and patch embedding to the Transformer Encoder (equation 2 & 3)
+        x = self.transformer_encoder(x)
+        
+        # Put 0th index logit through classifier (equation 4)
+        x = self.classifier(x[:, 0])
+        
+        return x
+    
+vit = ViT()
+
+print(vit)
+print(summary(model=vit, 
+              input_size=(1, 3, 224, 224), 
+              col_names=("input_size", "output_size", "num_params", "trainable"),
+              col_width=20,
+              row_settings=["var_names"]))
+
+### Creating an optimizer
+#Paper uses the Adam optimizer using a weight decay of 0.1, & beta1/beta2: 0.9 and 0.999 respectively
+#weight decay is a regularization technique which prevents overfitting by adding a small
+#penalty to the loss function (in our case + 0.1)
+optimizer = torch.optim.Adam(vit.parameters(),
+                             lr=0.001) 
+
+loss_fn = nn.CrossEntropyLoss()
+
+from going_modular import engine
+from helper_functions import plot_loss_curves
+
+#results = engine.train(vit, train_dataloader, test_dataloader, optimizer, loss_fn, 10, device)
+#plot_loss_curves(results)
+
+pretrained_vit_weights = torchvision.models.ViT_B_16_Weights.DEFAULT
+
+pretrained_vit = torchvision.models.vit_b_16(pretrained=False).to(device)
+pretrained_vit.load_state_dict(torch.load('vit_b_16-c867db91.pth'))
+
+print(pretrained_vit)
+
+#Freeze the base parameters
+for parameter in pretrained_vit.parameters():
+    parameter.requires_grad = False
+    
+#Update the classifier head
+pretrained_vit.heads = nn.Linear(in_features=768, out_features=len(class_names))
+
+print(pretrained_vit)
+print(summary(model=pretrained_vit, 
+              input_size=(1, 3, 224, 224), 
+              col_names=("input_size", "output_size", "num_params", "trainable"),
+              col_width=20,
+              row_settings=["var_names"]))
+
+vit_transform = pretrained_vit_weights.transforms()
+
+train_dataloader_pretrained, test_dataloader_pretrained, class_names = data_setup.create_dataloaders(train_dir, 
+                                                                                                     test_dir, 
+                                                                                                     vit_transform, 
+                                                                                                     vit_transform, 
+                                                                                                     32)
+
+optimizer = torch.optim.Adam(pretrained_vit.parameters(),
+                             lr=0.001) 
+
+pretrained_vit_results = engine.train(pretrained_vit, 
+                                      train_dataloader_pretrained, 
+                                      test_dataloader_pretrained, 
+                                      optimizer, 
+                                      loss_fn, 
+                                      10, 
+                                      device)
+
+plot_loss_curves(pretrained_vit_results)
+
+utils.save_model(pretrained_vit, "models", "08_pretrained_vit_feature_extractor_pizza_steak_sushi.pth")
+
+pretrained_vit_model_size = Path("models/08_pretrained_vit_feature_extractor_pizza_steak_sushi.pth").st_size // (1024 * 1024)
+print(f"Pretrained ViT feature extractor model size {pretrained_vit_model_size} MB")
+
+## 11. Predicting on a custom image
+
+from going_modular.predict import pred_and_plot_image
+
+custom_image_path = Path("data") / "pizza.jpg"
+
+pred_and_plot_image(pretrained_vit, 
+                    custom_image_path, 
+                    class_names, 
+                    device)
