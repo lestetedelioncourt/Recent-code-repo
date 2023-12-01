@@ -17334,3 +17334,99 @@ pred_and_plot_image(pretrained_vit,
                     custom_image_path, 
                     class_names, 
                     device)
+
+==>Possible Fast weight alteration to attention mechanism 1<==
+class Head(nn.Module):
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        # Fast weights initialization
+        self.fast_key = nn.Linear(n_embd, head_size, bias=False)
+        self.fast_query = nn.Linear(n_embd, head_size, bias=False)
+        self.fast_value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        # Initialize a decay factor for fast weights
+        self.fast_weight_decay = 0.9
+
+    def forward(self, x, update_fast_weights=False):
+        B, T, C = x.shape
+        k = self.key(x) + self.fast_key(x)  # Incorporating fast weights
+        q = self.query(x) + self.fast_query(x)
+        v = self.value(x) + self.fast_value(x)
+
+        wei = (q @ k.transpose(-2, -1)) * C**-0.5
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))
+        wei = F.softmax(wei, dim=-1)
+        
+        out = wei @ v
+
+        if update_fast_weights:
+            # Update fast weights here based on some criteria or external signal
+            # This could be a complex function based on recent inputs, error signals, etc.
+            self.update_fast_weights(x)
+
+        return out
+
+    def update_fast_weights(self, x):
+        # Implement the logic for fast weight updates here
+        # For simplicity, let's assume a decay-based update
+        self.fast_key.weight.data *= self.fast_weight_decay
+        self.fast_query.weight.data *= self.fast_weight_decay
+        self.fast_value.weight.data *= self.fast_weight_decay
+        # Additional logic to modify fast weights based on x can be added here
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, num_heads, head_size):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+
+    def forward(self, x, update_fast_weights=False):
+        return torch.cat([h(x, update_fast_weights) for h in self.heads], dim=-1)
+
+ ==>Possible fast weigh alteration to attention mechanism 2<==
+ import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class DynamicWeightAdjustment(nn.Module):
+    # An additional network for dynamic weight adjustment
+    def __init__(self, input_size, output_size):
+        super().__init__()
+        self.adjustment_layer = nn.Linear(input_size, output_size)
+
+    def forward(self, x):
+        return self.adjustment_layer(x)
+
+class Head(nn.Module):
+    def __init__(self, head_size, n_embd, block_size):
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+
+        # Fast weight mechanism for dynamic adaptation
+        self.fast_weights = nn.Parameter(torch.randn(head_size, head_size))
+
+        # Dynamic weight adjustment network
+        self.weight_adjuster = DynamicWeightAdjustment(n_embd, head_size)
+
+    def forward(self, x):
+        B, T, C = x.shape
+
+        # Adjust weights dynamically
+        weight_adjustments = self.weight_adjuster(x)  # (B, T, head_size)
+
+        # Apply dynamic adjustments to the key, query, and value
+        k = self.key(x + weight_adjustments)  # (B, T, C)
+        q = self.query(x + weight_adjustments)  # (B, T, C)
+        v = self.value(x + weight_adjustments)  # (B, T, C)
+
+        wei = q @ k.transpose(-2, -1) * C ** -0.5  # (B, T, C) @ (B, C, T) => (B, T, T)
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf'))  # B, T, T
+        wei = F.softmax(wei, dim=-1)  # (B, T, T)
+
+        out = wei @ v  # (B, T, T) @ (B, T, C) => (B, T, C)
+        return out
