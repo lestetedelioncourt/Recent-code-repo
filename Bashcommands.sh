@@ -146,6 +146,9 @@
  1132 useradd -m -g users leslie   # -g flag specifies the group, which in this case is users
  1133 usermod -G ssh_keys ltetteh  # can add secondary group association for user. however group ownership of created items belong to primary group id (can be changed)
  1133 usermod -a -G tcpdump opus   # appends user to supplementary group (without removing other group associations e.g. sudo) 
+     1133a sudo usermod -a -G dialout your-username
+	   sudo usermod -a -G tty your-username
+    # commands above needed to allow a user to query a serial port (at least on Ubuntu 22.04 LTS default configuration)
  1134 useradd -N -m user  # creates with no individual group, simply the one defined by -g option or created as the default. -m defines home directory
  1136 man 5 gshadow  # manual entry for /etc/gshadow
  1137 man 5 group  # manual entry for /etc/groups
