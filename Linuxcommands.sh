@@ -1231,6 +1231,23 @@
   # In the case of Intel chips, port I/O access is handled by the Controller Hub (ICH/PCH). The I/O map is divided into Fixed and Variable address ranges. Fixed ranges cannot
 	# be moved, but in some cases can be disabled. Variable ranges can be moved (The BIOS and/or other PCI devices or ACPI can adjust these values), and also be disabled.
   180. gcc <timerfile> -o <timerexec> -lrt  # in order to create an executable using posix timer apis must link with rt library via lrt 
+  181. sudo chvt N 		# where N represents the terminal number to change terminals
+  182. hostnamectl 		# prints Linux system information including architecture i.e. x86-64 or ARM
+  # Using 'cscope -d'
+  183-a. find . -name "*.c" -o -name "*.h" > cscope.files # recursively finds files ending in .c and .h in the current directory and saves their paths to a file named cscope.files
+  183-b. cscope -b -q -k # -b tells cscope to build the database without launching the cscope interface, -q creates an inverted index for quicker symbol lookup, and -k is used to 
+						# prevent cscope from including the standard C library headers. This process will create a cscope.out database file, along with cscope.in.out and 
+						# cscope.po.out if you used the -q flag, which can be used by cscope to navigate the source code.
+  183-c. cscope -d 		# The -d flag tells cscope to use the existing database without re-indexing the source files.
+  # The kernel keeps track of I/O ports assigned to each hardware device by means of "resources" (struct resource)
+  # To get exclusive access to I/O Ports:
+  #   struct resource *request_region(unsigned long first, unsigned long n, const char *name);
+  # Header File: #include <linux/ioport.h>
+  # Return Value: non-NULL if the allocation succeeds, NULL on failure
+  # To release a reserved region one must use the release_region() function
+  #   void release_region(unsigned long start, unsigned long n);
+  # request_region is a bookkeeping routine, to keep track of which drivers are using which port addresses. A single port doesn't have to be readable and at the same time writeable
+  # A port can be read-only or write-only
   
   
   
