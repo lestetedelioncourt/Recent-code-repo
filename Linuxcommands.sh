@@ -48,7 +48,10 @@
  - attach <pid>		# following commands will generate a coredump file called core.<pid>
    generate-core-file
    detach
- - 
+ - delete_entry_timer_cb
+ - rt_delete_rt_entry
+ - rt_find_rt_entry
+ - rt_dump_rt_table
 	
  From command line 
  001. gdb --args ./binaryfile 3  	# allows the passing in of commandline arguments
@@ -401,6 +404,9 @@
 		> ./hello.ko: ELF 64-bit LSB relocatable, x86-64, version 1 (SYSV), BuildID[sha1]=30361e0a85963318730fbbd5ab9194a040d707d2, with debug_info, not stripped
  071. objdump --section-headers ./hello.ko			# An ELF file consists of several named sections, some of them are basic parts of an object file, for example the .text contains executable code that a loader loads   
  072. objdump --section-headers --section=.modinfo ./hello.ko		# will dump the section specified
+ 072a. readelf -a hello.ko     # Display information about ELF files,s.  The options control what particular information to display i.e. -a == all
+ 072b. readelf -d libfile.so   # will display the necessary dependencies of libfile.so 
+
  # printk is initialised using a ring uffer with a size of __LOG_BUF_LEN bytes which is (1 << CONFIG_LOG_BUF_SHIFT) this can be found via
  073. cat /boot/config-`uname -r` | grep CONFIG_LOG_BUF_SHIFT		# output in this case is "CONFIG_LOG_BUF_SHIFT=18"
  # To increase the buffer size 
@@ -969,14 +975,13 @@
 	# writer process cannot acquire one, which may mean long wait processes - this is known as 'writer starvation'
   # Effort has been put into developing synchronization primitives that avoid locks. Lock free and wait synchronization plays a mjaor role in RTOS where time guarantees must
 	# be given. The new synchronization mechanisms in 2.6 kernel are Sequence Lock, and Read Copy Update (RCU)
-  # Sequence Locks give the writer a higher priority when compared to the reader, which means the writer is allowed to modify the shared data, even when thre are readers in
+  # Sequence Locks give the writer a higher priority when compared to the reader, which means the writer is allowed to modify the shared data, even when there are readers in
 	# the critial section. If a write access took place while the data was read, the reader data is invalid and it must be read again. Identification of write accesses is 
 	# realised with a counter. If another writer arrives , the writer uses a spinlock for mutual exclusion and hence will not interfere with the other writer.
-  # A sequence lock uses a S equence Counter 9integer) and a spin lock. The data structure it uses is called seqlock_t and it is found in <linux/seqlock.h>. It is as follows:
+  # A sequence lock uses a Sequence Counter (integer) and a spin lock. The data structure it uses is called seqlock_t and it is found in <linux/seqlock.h>. It is as follows:
 	# typedef struct seqcount {
 	# 	unsigned sequence;
-	# } seqcount_t;
-	#
+	# } seqcount_t;#
 	# typedef struct {
 	# 	struct seqcount seqcount;
 	# 	spinlock_t lock;
@@ -1086,18 +1091,22 @@
 	# a running kernel version. Copying the configuration file of your present Linux distribution is the safest approach for the very first kernel install on any system.
   135. cat /boot/config-`uname -r` | less -N  # Contains the your current distro's configuration (For Ubuntu 20.04 is 11,242 lines long!)
   # Running the following command will generate a kernel configration file based on the current configuration of your Linux distribution:
-  136. make oldconfig V=1   # V=1 turns on verbose output
+  136a. make oldconfig V=1   # V=1 turns on verbose output
+  136b. make help    # gives a listing of all make targets
   # In order to build the Linux kernel
   137. sudo make -j8  # 8 indicating the number of threads (dependent on number of processsors) to use
   # There are a list of key-codes on the left hand side referring to part of the compilation process. Ome are as follows:
 	# CC: - Compiles the C file into a designated object file
 	# CC [M]: - CC: means compiling a core part of the kernel, CC [M]: when compiling it into a module
-	# LD: - File listed is being linked from a numbe`r of object files from the linker (LD
-  138. sudo make ARCH=arm CROSS_COMPILE=/usr/local/bin/arm-linux  # ARCH=<archictecture|x86_64|arm|etc>, CC=<compiler>|CROSS_COMPILE=<cross compile tollchain>
+	# LD: - File listed is being linked from a number of object files from the linker (LD
+  # The kernel build system allows you to specify a different architecture from teh current system with the ARCH= argument, it also allows you to specify the specific compiler to use
+  # for the build by using the CC= argument, or a cross-compile toolchain using th CROSS_COMPILE argument
+  138a. sudo ARCH=x86_64 defconfig  # building an x86_64 kernel with default configuration
+  138b. sudo make ARCH=arm CROSS_COMPILE=/usr/local/bin/arm-linux  # ARCH=<archictecture|x86_64|arm|etc>, CC=<compiler>|CROSS_COMPILE=<cross compile tollchain>
   139. cd linux_source_directory && make help | less -N   # provides all the targets available for make, states generic targets, which are built on the normal make command such as vmlinux
   # Typical make commands
-  140. make defconfig   # creates a .config file with default options from the ARCH supplied defconfig. If on x86 this is for example <source dir>/arch/x86/configs/x86_64_defconfig
-						# If on an ARM machine this would be stored in <source dir>/arch/arm/configs/multi_v7_defconfig. For diff architecture then be "make ARCH=arm defconfig"
+  140. make defconfig   # creates a .config file with default options from the ARCH supplied defconfig. If for x86 this is for example <source dir>/arch/x86/configs/x86_64_defconfig
+						# If for an ARM machine this would be stored in <source dir>/arch/arm/configs/multi_v7_defconfig. For diff architecture then be "make ARCH=arm defconfig"
   141. ls <linux source>/arch/${ARCH}/configs/*defconfig*	# There are quite a range of default configurations within the arm config folder and these can be specified by giving the 
 															# full filename of the default configuration file, i.e.e make ARCH=arm imx_v6_v7_defconfig
   142. vi <linux source>/arch/arm/Makefile 					# contains build flags for the generic make command 
@@ -1107,11 +1116,11 @@
 			# stores those options which differ from the build machine's default configuration options. If an option isn't mentioned in defconfig, the buil;d system puts that option
 			# into .config using it''s default value specified in the corrsponding KBUILD_DEFCONFIG or Kconfig
   144. make config 	# creates text-based configuration, options are prompted one after another, and all options need to be answered - access to former (answered) options not possible
-  145. make menuconfig	# has a menu drven user interface which allows users to navigate forward and backward directly between features, allows loading and saving of files with
+  145. sudo apt install libncurses5-dev -y # necessary for using make menuconfig
+  146. make menuconfig	# has a menu drven user interface which allows users to navigate forward and backward directly between features, allows loading and saving of files with
 						# names different from .config, it provides a search fesature, and uses the ncurses library for the GUI refresh, if ncurses is not installed the menuconfig 
 						# option fails. 
-  146. sudo apt install libncurses5-dev  # install ncurses library
-  147. make savedefconfig  # with create a defconfig file within the current working directory. Will only contain values that differ from the default values.	
+  147. make savedefconfig  # will create a defconfig file within the current working directory. Will only contain values that differ from the default values.	
   148. ./scripts/diffconfig <file1>  <file2>  # a diffing tool, built as a script within the source directory for the working code.
   149. ls -a | grep config.old   # generated when a new configuration file is genrated. Former configuration file is renamed to config.old
   150. sudo make clean    # will clean all folders and remove the System map, kallsyms an dtmp_vmlinux System.map and vmlinux and the vm linux object. However does not remove
@@ -1125,7 +1134,8 @@
 									# static kernel into the /boot directory and name it based on the kernel version. Any needed ramdisk images wil be automatically created					 
 									# using the modules that have just been installed during the modules_install phase. After this the kernel is succesfully installed and you 
 									# safely reboot and try out your new kernel image.
-  154. sudo make O=destdir menuconfig 	# The 'O=' option allows you to place the output of your kernel build elsewhere, so that you do not disturb the original source tree
+  154a. sudo make O=destir  # a. build, b. configure
+  154b. sudo make O=destdir menuconfig 	# The 'O=' option allows you to place the output of your kernel build elsewhere, so that you do not disturb the original source tree
   # The advantage of the above technique is that several users can be sharing the same kernel source tree. Even if there is only one user, that user can be working with 
 	# multiple configurations, perhaps even multiple architectures, simultaneously. This approach leaves your source tree clear to, perhaps, continue searching for strings or
 	# phrases without having to wade through all of the object files that are generated as part of a build. All make commands must be run from the top of the source tree.
@@ -1227,18 +1237,19 @@
 			# void release_region(unsigned long start,
 								  unsigned long n);
   179. sudo cat /proc/ioports | less -N		# will provide info about all the I/O addresses currently assigned to I/O devices. This will not list all the X86 I/O Ports which
-											# can be found in the chipset documentation (Section 9.3 I/O Map). 
+											# can be found in the chipset documentation (Section 9.3 I/O Map). It only lists I/O Ports and regions that have been claimed by the
+											# kernel using request_region. It's not the complete list I/O ports/devices available, just those claimed by various drivers.
   # In the case of Intel chips, port I/O access is handled by the Controller Hub (ICH/PCH). The I/O map is divided into Fixed and Variable address ranges. Fixed ranges cannot
 	# be moved, but in some cases can be disabled. Variable ranges can be moved (The BIOS and/or other PCI devices or ACPI can adjust these values), and also be disabled.
   180. gcc <timerfile> -o <timerexec> -lrt  # in order to create an executable using posix timer apis must link with rt library via lrt 
   181. sudo chvt N 		# where N represents the terminal number to change terminals
   182. hostnamectl 		# prints Linux system information including architecture i.e. x86-64 or ARM
   # Using 'cscope -d'
-  183-a. find . -name "*.c" -o -name "*.h" > cscope.files # recursively finds files ending in .c and .h in the current directory and saves their paths to a file named cscope.files
-  183-b. cscope -b -q -k # -b tells cscope to build the database without launching the cscope interface, -q creates an inverted index for quicker symbol lookup, and -k is used to 
+  183a. find . -name "*.c" -o -name "*.h" > cscope.files # recursively finds files ending in .c and .h in the current directory and saves their paths to a file named cscope.files
+  183b. cscope -b -q -k # -b tells cscope to build the database without launching the cscope interface, -q creates an inverted index for quicker symbol lookup, and -k is used to 
 						# prevent cscope from including the standard C library headers. This process will create a cscope.out database file, along with cscope.in.out and 
 						# cscope.po.out if you used the -q flag, which can be used by cscope to navigate the source code.
-  183-c. cscope -d 		# The -d flag tells cscope to use the existing database without re-indexing the source files.
+  183c. cscope -d 		# The -d flag tells cscope to use the existing database without re-indexing the source files.
   # The kernel keeps track of I/O ports assigned to each hardware device by means of "resources" (struct resource)
   # To get exclusive access to I/O Ports:
   #   struct resource *request_region(unsigned long first, unsigned long n, const char *name);
@@ -1249,5 +1260,973 @@
   # request_region is a bookkeeping routine, to keep track of which drivers are using which port addresses. A single port doesn't have to be readable and at the same time writeable
   # A port can be read-only or write-only
   
+  # ports 70-71 represent the real time clock. This is denoted in /proc/iopots as '0070-0071 : rtc_cmos  - Port 0x70 is the Address port, 0x71 is Data port 
+																					0070-0071 : rtc0'
+  # This is an integrated circuit that maintains the date and the time of day, even when the computer is switched-off and unplugged
+  # In addition it includes allarm functionality and can generate interrupts at specified times of the day, can generate interrupts periodically, and it includes at least 50 
+  # non-volatile one-byte registers, which are usually used by the BIOS to store the PC's configuration
+  # Each register has an address, some registers are read only and some are read-write. First 10 registers reserved for time related functionality, following 4 reserved for control of the RTC
+  # To read/write a register of the RTC requires always:
+	# 1. Writing the address of the register to the RTC_ADDR_REG (0x70)
+	# 2. Reading/Writing one byte from/to the RTC_DATA_REG (0x71)
+  # Here are the first 14 addresses
+    #	0x00: Seconds - The current second.
+    #	0x01: Seconds Alarm - An alarm setting for seconds.
+    #	0x02: Minutes - The current minute.
+    #	0x03: Minutes Alarm - An alarm setting for minutes.
+    #	0x04: Hours - The current hour.
+    #	0x05: Hours Alarm - An alarm setting for hours.
+    #	0x06: Day of the Week - The current day of the week (1 to 7).
+    #	0x07: Date of the Month - The current date of the month.
+    #	0x08: Month - The current month.
+    #	0x09: Year - The current year.
+    #	0x0A: Register A - Control register for the RTC, including update-in-progress flag.
+    #	0x0B: Register B - Control register that can enable the clock, set 24-hour mode, etc.
+    #	0x0C: Register C - RTC status register that includes flags for periodic interrupts, alarms, etc.
+    #	0x0D: Register D - RTC status register that indicates if the RTC power has been lost.
+    #
+    #	ADDRESS LOCATION    FUNCTION              DECIMAL RANGE     BINARY DATA MODE RANGE      BCD DATA MODE RANGE
+    #	0                   Seconds               0-59              00-3B                      00-59
+    #	1                   Seconds Alarm         0-59              00-3B                      00-59
+    #	2                   Minutes               0-59              00-3B                      00-59
+    #	3                   Minutes Alarm         0-59              00-3B                      00-59
+    #	4                   Hours, 12-hour Mode   1-12              01-0CAM, 81-8CPM           01-12AM, 81-92PM
+    #						Hours, 24-hour Mode   0-23              00-17                      00-23
+    #	5                   Hours Alarm, 12-hour  1-12              01-0CAM, 81-8CPM           01-12AM, 81-92PM
+    #						Hours Alarm, 24-hour  0-23              00-17                      00-23
+    #	6                   Day of the Week       1-7               01-07                      01-07
+    #	7                   Date of the Month     1-31              01-1F                      01-31
+    #	8                   Month                 1-12              01-0C                      01-12
+    #	9                   Year                  0-99              00-63                      00-99
+    #
+    #   Status Register B
+    #   
+    #   Bit Position  | Interpretation
+    #   -----------------------------------
+    #   7             | Enable Cycle Update
+    #   6             | Enable Periodic Interrupt
+    #   5             | Enable Alarm Interrupt
+    #   4             | Enable Update-End Interrupt
+    #   3             | Enable Square Wave Output
+    #   2             | Data Mode: 0 - BCD / 1 - Binary
+    #   1             | 12/24 Hour Mode: 0 - 12 Hour / 1 - 24 Hour
+    #   0             | Daylight saving enabled: 1 enabled / 0 disabled
+  184. sudo hwclock --debug  The --debug flag instructs hwclock to provide verbose output, detailing each step it takes to access and read the hardware clock
+  #In recent versions of the kernel --debug has been deprecated. Use the --verbose flag instead
+  185. sudo hwclock --verbose
+		>>hwclock from util-linux 2.37.2
+		>>System Time: 1706397205.990811
+		>>Trying to open: /dev/rtc0
+		>>Using the rtc interface to the clock.
+		>>Assuming hardware clock is kept in UTC time.
+		>>Waiting for clock tick...
+		>>...got clock tick
+		>>Time read from Hardware Clock: 2024/01/27 23:13:26
+		>>HW clock time : 2024/01/27 23:13:26 = 1706397206 seconds since 1969
+		>>Time since last adjustment is 1706397206 seconds
+		>>Calculated Hardware Clock drift is 0.000000 seconds
+		>>2024-01-27 23:13:25.590523+00:00
   
+  # A keyboard consists of a large matrix of keys, monitored by an onboard processor, which monitors which keys are being pressed and sends data to the host, and
+  # takes care of all the debouncing. The motherboard contains a keyboard controller in charge of decoding all of the data received from the keyboard and informing
+  # software what's going on. An Intel 8042 compatible microcontroller is used as the PC's keyboard controller. In modern PCs is integrated into motherboard's chipset.
+  186. dmesg | grep 8042  # no keyboard connected
+		>> [    0.751063] i8042: PNP: No PS/2 controller found.
+		>> [    0.751066] i8042: Probing ports directly.
+		>> [    0.752472] i8042: No controller found
+  187. dmesg | grep 8042 # keyboard detected
+		>> [    1.897453] i8042: PNP: PS/2 Controller [PNP0303:PS2K,PNP0f03:PS2M] at 0x60,0x64 irq 1,12
+		>> [    1.900197] serio: i8042 KBD port at 0x60,0x64 irq 1
+		>> [    1.900203] serio: i8042 AUX port at 0x60,0x64 irq 12
+		>> [    1.907073] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input2
+		>> [    3.287501] input: ImExPS/2 Generic Explorer Mouse as /devices/platform/i8042/serio1/input/input4
+  # Keyboard's processor monitors keyboard's matrix of keys, sending "scan codes" separated into "make" (sent when key is pressed or held down) and "break" (sent when a key 
+  # is released). Each key is assigned a unique "make" code and "break" code.
+  188. showkey --scancodes  # shows the make and break codes for each key press	
+  # "Typematic" refers to what occurs after you hold a key down. When you first press a key the character will immediately appear on the screen, after a short delay, a stream
+  # of characters will appear in rapid succession until the key is released. The "typematic delay" is the delay between the first and second character. The "typematic rate" is
+  # the number of characters that appear on screen per second after the typematic delay. 
+  # Typematic delay can range from 0.25 seconds to 1.00 second. Typematic rate can range from 2.0 cps to 30.0 cps
+  # When reset keyboards perform a BAT (Basic Assurance Test) and load the following defaults: Typematic delay 500ms, Typematic rate 10.9cps
+  # When entering BAT, the keyboard enables its three LED indicators, and turns them off when BAT has completed. Success code (0xAA) or Error (0xFC) then sent to host.
+  # The Keyboard has two I/O Ports 0x60 and 0x64. Read and writes may access different internal registers. It has three registers: 
+	# 1. The Data Byte is used for reading data received from PS/2, or writing data to a PS/2 device (Read/Write)
+	# 2. Command Byte is when the CPU writes to port 0x64 (Write)
+	# 3. Status Byte is when CPU reads from port 0x64 (Read)
+  # Keyboard controler accepts commands and processes them. To send a command to the controller write the command byte to port 0x64: arguments, if any, must be passed using address 0x60
+  # Results are returned on port 0x60. Should always test the Output Buffer Full flag before writing commands or parameters to 8042
+	# 0x20 - Sending this data as an instruction indicates to read the Command Byte (Returns Command bBte)
+	# 0x60 - Sending this data as an instruction writes the Command Byte, stores parameter as Command Byte
+	
+		>> AT Compatible
+		>> =============
+		>> 	MSB					LSB
+		>> 	------------------------------------------
+		>> 	|- | XLAT | PC | _EN | OVR | SYS | - |INT|
+		>> 	------------------------------------------
+		>> 
+		>> PS/2 Compatible
+		>> ==================	
+		>> 
+		>> 
+		>> 	--------------------------------------------
+		>> 	|- | XLAT |_EN2 | _EN |    | SYS |INT2 |INT|
+		>> 	--------------------------------------------
+		>> 
+		>> 
+		>> 
+		>> INT (Input Buffer Full Interrupt) - When set, IRQ 1 is generated when data is available in
+		>> the input buffer.
+		>> 	0: IBF Interrupt Disabled - You must poll STATUS<IBF> to read input.
+		>> 	1: IBF Interrupt Enabled - Keyboard driver at software int 0x09 handles input.
+		>> 
+		>> SYS (System Flag) - Used to manually set/clear SYS flag in Status register.
+		>> 	0: Power-on value - Tells POST to perform power-on tests/initialization.
+		>> 	1: BAT code received - Tells POST to perform "warm boot" tests/initiailization.
+		>> 
+		>> OVR (Inhibit Override) - Overrides keyboard's "inhibit" switch on older motherboards.
+		>> 	0:Inhibit switch enabled - Keyboard inhibited if pin P17 is high.
+		>> 	1: Inhibit switch disabled - Keyboard not inhibited even if P17 = high.
+		>> 
+		>> _EN (Disable keyboard) - Disables/enables keyboard interface.
+		>> 	0: Enable - Keyboard interface enabled.
+		>> 	1: Disable - All keyboard communication is disabled.
+		>> 
+		>> PC ("PC Mode") - ???Enables keyboard interface somehow???
+		>> 	0: Disable - ???
+		>> 	1: Enable - ???
+		>> 
+		>> XLAT (Translate Scan Codes) - Enables/disables translation to set 1 scan codes.
+		>> 	0: Translation disabled - Data appears at input buffer exactly as read from keyboard
+		>> 	1: Translation enabled - Scan codes translated to set 1 before put in input buffer
+		>> 
+		>> INT2 (Mouse Input Buffer Full Interrupt) - When set, IRQ 12 is generated when mouse
+		>> data is available.
+		>> 	0: Auxillary IBF Interrupt Disabled -
+		>> 	1: Auxillary IBF Interrupt Enabled -
+		>> 
+		>> _EN2 (Disable Mouse) - Disables/enables mouse interface.
+		>> 	0: Enable - Auxillary PS/2 device interface enabled
+		>> 	1: Disable - Auxillary PS/2 device interface disabled
+		
+		>> Status Register (Read 0x64h)
+		>> ==============================
+		>> 
+		>> Bit	Meaning
+		>> 0	Output buffer status 
+		>> 	0 = empty -  Okay to write to port 0x60
+		>> 	1 = full  - Don't write to port 0x60
+		>> 
+		>> 1	Input buffer status 
+		>> 	0 = empty - No unread input at port 0x60
+		>> 	 1 = full - New input can be read from port 0x60
+		>> 
+		>> 2	System Flag
+		>> 	1 =  System has already beed initialized.
+		>> 	0 = System is in power-on reset.
+		>> 3	Command/data
+		>> 	0 = data available at port 60h
+		>> 	1 = command available at port 64h
+		>> 
+		>> 4	Keyboard Active
+		>> 	0 = disabled
+		>> 	1 = enabled
+		>> 
+		>> 5	Error Detected
+		>> 	0 = No Error
+		>> 	1 = Error in transmission
+		>> 
+		>> 6	Time-out error 
+		>> 	0 = no error
+		>> 	1 = time-out error
+		>> 
+		>> 7	Parity error 
+		>> 	0 = no error
+		>> 	1 = parity error
+
+  # PC-compatible systems have 64K I/O ports, all can be controlled from user space. Before you access any ports, permission to do so. Permission for I/O ports on Linux is controlled by two functions
+	# ioperm() - controls access permissions to permissions mentioned in the parameter
+	# iopl() - changes I/O privilege level of calling process, allowing among other things, unrestricted access to all ports
+  # Only the super-user can invoke both these functions
+	# int ioperm(unsigned long from, unsigned long num, int turn_on);
+  # ioperm() sets the port access permission bits for the calling thread for num bits starting from portaddress 'from'.
+  # if turn_on is nonzero, then permission for the specified bits is enabled. if turn_on is zero, the permission for the specified bits is disabled
+	# Example: ioperm(0x200, 3, 1) would give access to ports 0x200 through 0x202 (a total of 3 ports)
+  # inb(), outb(), inw() and outw() have macro equivalents inb_p(), outb_p(), inw_p() and outw_p(), but do an additional short  (one microsecond) delay after port access 
+  # if user space application does not use ioperm() or iopl() to access I/O ports, it will cause the application to have a segmentation fault
+    # int iopl(int level);
+  # iopl() changes the I/O privilege level of the caling process, as specified by the two least significant bits in level, the I/O privilege level of a normal process is 0
+  # The keyboard controller has a pin which goes to the reset pin of the CPU. A Command Byte of 0xFE means "pulse the reset line down for 6ms"
+  
+  # 8254 PIT on Keyboard Controller perfoms timing and counting functions using three 16-bit counters. Timer channel 2 of 8254 is assigned to PC Speaker on PCs. Timer chip has 4 I/O Ports
+	# Port 0x40: Counter 0
+	# Port 0x41: Counter 1
+	# Port 0x42: Counter 2
+	# Port 0x43: Control Word Register (shared)
+  # To program a timer, an instruction must be written in 0x43
+	>> outb(0xb6, 0x43);
+	# 0xb6 = 10 11 011 0 
+	# 10 -> Counter 2
+	# 11 -> First LSB then MSB
+	# 011 -> Timer Mode (Square Wave)
+	# After this write the counter value in 0x42 
+  # Another way to access I/O ports is to open() /dev/port for reading and/or writing. Slower han iper/iopl as code flow has to pass through a kernel driver
+	
+  # Most widely supported form of IO is memory mapped IO. A part of the CPUS address space is interpreted as access to devices. Some architectures define devices to be at a fixed address, but most have some method
+  # of discovering devices. The advantage of memory mapped I/O is that it keeps the instruction set small. An I/O address space is created in the CPU because the address space of processors was limited.
+  # Total address space is still 64KB, even after moving from 16-bit registers to 64-bit registers.
+  # Examples of I/O Memory
+	# Holding Video Data
+	# Ethernet Packets
+	# Device Registers
+  # There are functions equivalent to request_region() and release_region(), but for I/O memory
+	# struct resource *request_mem_region(unsigned_long_start, unsigned long len, char* name);
+	# void release_mem_region(unsigned long start, unsigned long len);
+  # request_mem_region: informs kernel that your driver is going to use this range of I/O addresses, and prevents other drivers from using it throught request_mem_region
+  # The kernel runs in virtual address space, and like user space the kernel accesses memory through page tables. When the kernel needs to access memory mapped I/O devices, it must set up page table mapping.
+	# void *ioremap(unsigned long phys addr, unsigned long size);
+	# void iounmap(void *addr);
+  # A successful call to ioremap() returns a kernel virtual address corresponding to the start of a requested physical address range - the return address is not meant to be dereferenced directly though for (what
+  # are mostly architecture specific regions). Ther are functions to read and write data using memory mapped by ioremap()
+	# unsigned int ioread8(void *addr);
+	# unsigned int ioread16(void *addr);
+	# unsigned int ioread32(void *addr);
+	# void iowrite8(u8 value, void *addr);
+	# void iowrite16(u16 value, void *addr);
+	# void iowrite32(u32 value, void *addr);
+  189. sudo cat /proc/iomem  # provides a map of memory ranges used by various devices and drivers in the system
+  # Memory mapped IO registers will have side effects so the user must force the compiler to avoid these optimizations by using the 'volatile' keyword, and can also avoid hardware caching by using 'barriers'. ioread 
+  # functions internally perform the aforementioned operations. This is why we do not access addresses directly by dereferencing and instead use ioread(). This can be found by using cscope -d on the linux kernel
+  
+  # The hardware random number generator is a device that generates random numbers from a physical process, the Intel 82802 Firmware Hub chip included a hardware random number generator. The random number generator is 
+  # dedicated hardware that uses system thermal noise to generate random and indeterministic alues
+  # The hardware status register is used to determine whether or not an RNG device is present on the Firmware Hub and, if so, whether it is enabled for use. Its physical address is 0xFFBC015F
+  # It can be bitmasked with the values 0x40, which checks if bit 6 is 1 (read only) which indicates whether an RNG is present on the Firmware Hub device. It can also be bitmasked with the value 0x01 which checks the 0
+  # bit to see whether RNG is enabled. If set to 1, the RNG will generate random data.
+  # The RNG Status register at physical address 0xFFBC0160 determines whether or not the RNG Data register contains valid random data. The RNG Data register should never be read until the RNG Status register indicates 
+  # that the RNG Data register is valid. Each time the RNG Data register is read, the RNG status nit is cleared, and it remains cleared until the RNG Data Register is filled with new random data.
+  # Bit Mask								Description
+	============================================================================
+	0x01									(Bit 0 - read-only) Data Available:
+											If this bit is read as 1, the RNG Data register contains valid random data
+											If this bit is read as 0, the RNG Data register contains invalid data
+	
+  # The RNG Data Register is at address 0xFFBC0161, and it contains a byte of random data	
+
+  # The Linux kernel provides the function ioport_map() whcih maps I/O ports and makes them appear as I/O memory. It also contains the unmapping function ioport_unmap()
+	# void *ioport_map(unsigned long port, unsigned int count);
+	# void ioport_unmap(void *addr);
+  # NB: I/O Ports must still be allocated with request_region() before they can be remapped in this way.
+	
+  # /dev/mem is a character device file that is an image of the main memory of the computer, byte addresses in /dev/mem are interpreted as physical memory addresses, '
+  190. man 4 mem    # provides more information.
+  191. hexdump -C /dev/mem   # allows analysis of system memory contents (provides direct access to physical memory)
+  192. cat /dev/mem | strings  # allows analysis of the strings contained within the binary file
+  193. cat /dev/mem | string -n 20    # allows analysis of strings greater than 20 characters
+  194. cat /boot/config-`uname -r` | grep CONFIG_STRICT_DEVMEM   # kernel configuration option which limits the areas accesssible via /dev/mem. It is enabled by default on x86 and ARM kernel builds
+																 # with this option disabled, the root user from user space can access all kernel and user-space memory through /dev/mem
+  # devmem is a small program that reads and writes from physical memory using /dev/mem. Usage: devmem ADDRESS [WIDTH [VALUE]], ADDRESS Address to act upon, WIDTH (8/16/...), VALUE Data to be written
+  195. devmem 0x00000000 8     # reads 8 bits from memory location
+  # UART0 is mapped to 0x101f1000, the code that emulates the serial port from within qemu implements a subset of the functionalities of the PL011 PrimeICell UART from ARM. 
+  # The UARTDR register that is used to transmit (when writing in the register) and receive (when reading) bytes; this regiter is place at offset 0x0
+  196. sudo apt install devmem2 -y  # for Ubuntu
+  #In order to dump PC BiOS data to a file
+  197. grep ROM /proc/iomem s# Starting Address = 0xf0000 = 960KB, Ending Address = 0xfffff = 1024KB
+  198. sudo dd if=/dev/mem of=pcbios.bin bs=1k skip=960 count=64
+  199. cat pcbios.bin | strings -n 20
+  # The System Management BIOS (SMBIOS) is a standard developed by DMTF (Distributed Management Task Force). The purpose of this standard is to allow the operating system to retrieve information about the PC
+  # The specification addresses how motherboard and system vendors present management information about their products ina standard format by extending the BIOS interface on Intel Architectures
+  # Info such as make, model, serial number, BIOS version, processor, memory configuration, etc.
+  # On boot SMBIOS will put a table somewhere in memory. The SMBIOS Entry Point table is located in System ROM, somewhere betweenn addresses 0xF0000 and 0xFFFFF and must be on a 16-byte boundary.
+  # To find the specific start of the table it necessary to search that region of memory for the string "_SM_"
+  200. hexdump -C /dev/mem | grep "_SM_"  # will find the start of the SMBIOS Entry Point Table
+  # The entry point table has the following structure for SMBIOS 2 and below (the structure is different for SMBIOS 3):
+		>>  struct SMBIOSEntryPoint {
+		>>  	char EntryPointString[4];    //This is _SM_
+		>>  	uchar Checksum;              //This value summed with all the values of the table, should be 0 (overflow)
+		>>  	uchar Length;                //Length of the Entry Point Table. Since version 2.1 of SMBIOS, this is 0x1F
+		>>  	uchar MajorVersion;          //Major Version of SMBIOS
+		>>  	uchar MinorVersion;          //Minor Version of SMBIOS
+		>>  	ushort MaxStructureSize;     //Maximum size of a SMBIOS Structure (we will se later)
+		>>  	uchar EntryPointRevision;    //...
+		>>  	char FormattedArea[5];       //...
+		>>  	char EntryPointString2[5];   //This is _DMI_
+		>>  	uchar Checksum2;             //Checksum for values from EntryPointString2 to the end of table
+		>>  	ushort TableLength;          //Length of the Table containing all the structures
+		>>  	uint TableAddress;	     //Address of the Table
+		>>  	ushort NumberOfStructures;   //Number of structures in the table
+		>>  	uchar BCDRevision;           //Unused
+		>>  };
+  # TableAddress contains the address of the table that contains all the structures with information about the PC.
+  # All of the structures are located from [TableAddress] to [TableAddress + TableLength]. 
+  # The structures are located directly adjacent to each other in memory, with a new structure beginning as soon as another one ends.
+  # Each structure is composed of a header, a structure specific table, and a string table.
+  # The format of the header is as follows.
+		>> struct SMBIOSHeader {
+		>> 	uchar Type;
+		>> 	uchar Length;
+		>> 	ushort Handle;
+		>> };
+  # Located at TableAddress is a SMBIOS header. 
+  # The value of Type indicates what element the structure contains information about.
+  # Length indicates the size of header + data table.
+  # The strings are not included in the length.
+  # Immediately after the end of the header is the data.
+  # At the end of the data table (Address + Length), the strings section starts.
+  # Each string is NULL terminated and is limited to 64 characters. 
+  # Strings are referenced within tables by using an index into the string table 
+  # The first string begins immediately after the data, and the second string begins immediately after that, etc.
+  # The string section itself is terminated by two consecutive zero bytes. 
+  # The next table begins immediately after the end of the string section.
+  # Header types are:
+	# Code	Description
+	# 0		BIOS Information
+	# 1		System Information
+	# 2		Mainboard Information
+	# 3		Enclosure/Chasis Information
+	# 4		Processor Information
+	# 7		Cache Information
+	# 9		System Slots Information
+	# 16	Physical Memory Array
+	# 17	Memory Device Information
+	# 19	Memory Array Mapped Address
+	# 20	Memory Device Mapped Address (optional as of SMBIOS 2.5)
+	# 32	System Boot Information
+  201. hexdump -C -s 0xe1000 /dev/mem | less  # starts hexdump at location specified
+  # dmidecode is a tool for dumping a computer's SMBIOS/DMI table contents in a human-readable format. When you run dmidecode it will try to locate the DMI table. 
+  # It will first try to read the DMI table from sysfs. If failed it will try to read memory directly from /dev/mem. If it succeeds in locating a valid DMI table, it'll parse this table and display it
+  202a. dmidecode -s bios-version   		# -s, --string KEYWORD
+  202b. dmidecode -s bios-vendor			# -s, --string KEYWORD
+  202c. dmidecode -s system-manufacturer	# -s, --string KEYWORD
+  202d. dmidecode -s system-serial-number	# -s, --string KEYWORD
+  203. dmidecode --no-sysfs					# Do not attempt to read DMI data from sysfs files
+  204. dmidecode
+		>> # dmidecode 3.2
+		>> /sys/firmware/dmi/tables/smbios_entry_point: Permission denied
+		>> Scanning /dev/mem for entry point.
+		>> /dev/mem: Permission denied
+  205. sudo hexdump -C /sys/firmware/dmi/tables/smbios_entry_point
+		>> 00000000  5f 53 4d 5f 7d 1f 02 05  ff 00 00 00 00 00 00 00  |_SM_}...........|
+		>> 00000010  5f 44 4d 49 5f 58 c2 01  00 10 0e 00 0a 00 25     |_DMI_X........%|
+		>> 0000001f
+  206. sudo dmidecode
+		>> # dmidecode 3.2
+		>> Getting SMBIOS data from sysfs.
+		>> SMBIOS 2.5 present.
+		>> 10 structures occupying 450 bytes.
+		>> Table at 0x000E1000.
+		>> 
+		>> Handle 0x0000, DMI type 0, 20 bytes
+		>> BIOS Information
+		>> 	Vendor: innotek GmbH
+		>> 	Version: VirtualBox
+		>> 	Release Date: 12/01/2006
+		>> 	Address: 0xE0000
+		>> 	Runtime Size: 128 kB
+		>> 	ROM Size: 128 kB
+		>> 	Characteristics:
+		>> 		ISA is supported
+		>> 		PCI is supported
+		>> 		Boot from CD is supported
+		>> 		Selectable boot is supported
+		>> 		8042 keyboard services are supported (int 9h)
+		>> 		CGA/mono video services are supported (int 10h)
+		>> 		ACPI is supported
+		>> 
+		>> Handle 0x0001, DMI type 1, 27 bytes
+		>> System Information
+		>> 	Manufacturer: innotek GmbH
+		>> 	Product Name: VirtualBox
+		>> 	Version: 1.2
+		>> 	Serial Number: 0
+		>> 	UUID: 817774d2-a644-ac4f-b1e3-af0c346decd2
+		>> 	Wake-up Type: Power Switch
+		>> 	SKU Number: Not Specified
+		>> 	Family: Virtual Machine
+		>> 
+		>> Handle 0x0008, DMI type 2, 15 bytes
+		>> Base Board Information
+		>> 	Manufacturer: Oracle Corporation
+		>> 	Product Name: VirtualBox
+		>> 	Version: 1.2
+		>> 	Serial Number: 0
+		>> 	Asset Tag: Not Specified
+		>> 	Features:
+		>> 		Board is a hosting board
+		>> 	Location In Chassis: Not Specified
+		>> 	Chassis Handle: 0x0003
+		>> 	Type: Motherboard
+		>> 	Contained Object Handles: 0
+		>> 
+		>> Handle 0x0003, DMI type 3, 13 bytes
+		>> Chassis Information
+		>> 	Manufacturer: Oracle Corporation
+		>> 	Type: Other
+		>> 	Lock: Not Present
+		>> 	Version: Not Specified
+		>> 	Serial Number: Not Specified
+		>> 	Asset Tag: Not Specified
+		>> 	Boot-up State: Safe
+		>> 	Power Supply State: Safe
+		>> 	Thermal State: Safe
+		>> 	Security Status: None
+		>> 
+		>> Handle 0x0007, DMI type 126, 42 bytes
+		>> Inactive
+		>> 
+		>> Handle 0x0005, DMI type 126, 15 bytes
+		>> Inactive
+		>> 
+		>> Handle 0x0006, DMI type 126, 28 bytes
+		>> Inactive
+		>> 
+		>> Handle 0x0002, DMI type 11, 7 bytes
+		>> OEM Strings
+		>> 	String 1: vboxVer_6.1.30
+		>> 	String 2: vboxRev_148432
+		>> 
+		>> Handle 0x0008, DMI type 128, 8 bytes
+		>> OEM-specific Type
+		>> 	Header and Data:
+		>> 		80 08 08 00 F7 15 26 00
+		>> 
+		>> Handle 0xFEFF, DMI type 127, 4 bytes
+		>> End Of Table
+  207. sudo dmidecode -s bios-versions
+		>> Invalid string keyword: bios-versions
+		>> Valid string keywords are:
+		>>   bios-vendor
+		>>   bios-version
+		>>   bios-release-date
+		>>   system-masnufacturer
+		>>   system-product-name
+		>>   system-version
+		>>   system-serial-number
+		>>   system-uuid
+		>>   system-family
+		>>   baseboard-manufacturer
+		>>   baseboard-product-name
+		>>   baseboard-version
+		>>   baseboard-serial-number
+		>>   baseboard-asset-tag
+		>>   chassis-manufacturer
+		>>   chassis-type
+		>>   chassis-version
+		>>   chassis-serial-number
+		>>   chassis-asset-tag
+		>>   processor-family
+		>>   processor-manufacturer
+		>>   processor-version
+		>>   processor-frequency
+  208. sudo biosdecode
+		>> # biosdecode 3.2
+		>> ACPI 2.0 present.
+		>> 	OEM Identifier: VBOX  
+		>> 	RSD Table 32-bit Address: 0xDFFF0000
+		>> 	XSD Table 64-bit Address: 0x00000000DFFF0030
+		>> BIOS32 Service Directory present.
+		>> 	Revision: 0
+		>> 	Calling Interface Address: 0x000FDA00
+		>> PCI Interrupt Routing 1.0 present.
+		>> 	Router Device: 00:01.0
+		>> 	Exclusive IRQs: None
+		>> 	Compatible Router: 8086:7000
+		>> 	Device: 00:01, on-board
+		>> 	Device: 00:02, slot 1
+		>> 	Device: 00:03, slot 2
+		>> 	Device: 00:04, slot 3
+		>> 	Device: 00:05, slot 4
+		>> 	Device: 00:06, slot 5
+		>> 	Device: 00:07, slot 6
+		>> 	Device: 00:08, slot 7
+		>> 	Device: 00:09, slot 8
+		>> 	Device: 00:0a, slot 9
+		>> 	Device: 00:0b, slot 10
+		>> 	Device: 00:0c, slot 11
+		>> 	Device: 00:0d, slot 12
+		>> 	Device: 00:0e, slot 13
+		>> 	Device: 00:0f, slot 14
+		>> 	Device: 00:10, slot 15
+		>> 	Device: 00:11, slot 16
+		>> 	Device: 00:11, slot 16
+		>> 	Device: 00:12, slot 17
+		>> 	Device: 00:13, slot 18
+		>> 	Device: 00:14, slot 19
+		>> 	Device: 00:15, slot 20
+		>> 	Device: 00:16, slot 21
+		>> 	Device: 00:17, slot 22
+		>> 	Device: 00:18, slot 23
+		>> 	Device: 00:19, slot 24
+		>> 	Device: 00:1a, slot 25
+		>> 	Device: 00:1b, slot 26
+		>> 	Device: 00:1c, slot 27
+		>> 	Device: 00:1d, slot 28
+		>> 	Device: 00:1e, slot 29
+		>> SMBIOS 2.5 present.
+		>> 	Structure Table Length: 450 bytes
+		>> 	Structure Table Address: 0x000E1000
+		>> 	Number Of Structures: 10
+		>> 	Maximum Structure Size: 255 bytes
+  # Peripheral devices in the early PCs used fixed I/O ports and fixed memory addresses
+	# Video memory address-range: 0xA0000-0xBFFFF 
+	# Programmable timer i/o-ports:  0x40-0x43
+	# Keyboard and mouse i/o-ports:  0x60-0x64
+	# Real-Time Clock’s i/o-ports:	0x70-0x71
+	# Hard Disk controller’s i/o-ports:  0x01F0-01F7
+	# Graphics controller’s i/o-ports:  0x03C0-0x3CF
+	# Serial-port controller’s i/o-ports: 0x03F8-0x03FF
+	# Parallel-port controller’s i/o-ports: 0x0378-0x037A 
+  # Intel introduced a new bus standar PCI in the early 1990s. One of the goals of PCi was to create a flexible scheme for allocating addresses that future peripherals could use
+  # A PCI device can have up to three address spaces
+	# a) Configuration space: I/O ports 0x0CF8-0x0CFF dedicated to accessing PCI Configuration Space (Required)
+	# b) I/O space (optional)
+	# c) Memory space (optional)
+  # NB: Every PCI device must implement the PCI configuration register dictated by the PCI specification. Otherwise, the device will not be regarded as a valid PCI device
+  # Each PCI device is idientified by: Bus Number, Device Number, Function Number. Each Bus hosts up to 32 devices. Each device can have multi-functionality. There are 8 possible functions per device
+  # Each PCi device has a set of register referred to as configuration space. Its size is 256 bytes. The first 64 bytes (0x00 - 0x3f) are standardized. The next 192 bytes (0x40 - 0xff) are vendor specific
+  # Registers 0x00, 0x01 are defined by PCI spec as vendor ID (16-Bit), Registers 0x02, 0x03 are defined by PCI spec as product ID (16-bit).
+  # Vendor ID identifies the manufacturer of the device. Allocated by the PCI SIG to ensure each is unique. Device ID identifies the particular device, set by the vendor
+	# +--------------------------------------------------------------+
+	# | Bits    | 31-16                 | 15-0                       |
+	# +---------+-----------------------+----------------------------+
+	# | 00h     | Device ID             | Vendor ID                  |
+	# +---------+-----------------------+----------------------------+
+	# | 04h     | Status                | Command                    |
+	# +---------+-----------------------+----------------------------+
+	# | 08h     | Class Code            | Revision ID                |
+	# +---------+-----------------------+----------------------------+
+	# | 0Ch     | BIST  | Header Type   | Lat. Timer | Cache Line S. |
+	# +---------+-----------------------+----------------------------+
+	# | 10h     | Base Address Registers                             |
+	# +---------+----------------------------------------------------+
+	# | 14h     | Base Address Registers                             |
+	# +---------+----------------------------------------------------+
+	# | 18h     | Base Address Registers                             |
+	# +---------+----------------------------------------------------+
+	# | 1Ch     | Base Address Registers                             |
+	# +---------+----------------------------------------------------+
+	# | 20h     | Base Address Registers                             |
+	# +---------+----------------------------------------------------+
+	# | 24h     | Cardbus CIS Pointer                                |
+	# +---------+----------------------------------------------------+
+	# | 28h     | Subsystem ID          | Subsystem Vendor ID        |
+	# +---------+-----------------------+----------------------------+
+	# | 2Ch     | Expansion ROM Base Address                         |
+	# +---------+----------------------------------------------------+
+	# | 30h     | Reserved                           | Cap. Pointer  |
+	# +---------+-----------------------+----------------------------+
+	# | 34h     | Reserved                                           |
+	# +---------+----------------------------------------------------+
+	# | 38h     | Reserved                                           |
+	# +---------+----------------------------------------------------+
+	# | 3Ch     | Max Lat.|Interrupt Pin | Min Gnt.  |Interrupt Line |
+	# +---------+----------------------------------------------------+
+  # How do you access registers present in the Configuration space? Accessiing these registers is like accessing RTC(CMOS) memory. PCI Index Port - 0xCF8, PCI Data Port 0xCFC
+	# PCI Index Port (0xCF8)
+	# ============================
+	# 	31									                                      0
+	# 	---------------------------------------------------------------------------
+	# 	| |Reserved |Bus Number |Device Number|Function Number|Register Number|0|0|
+	# 	---------------------------------------------------------------------------
+	# 			       B	        D		     F		         Offset
+	# Bit 31 when set, all reads and writes to CONFIG_DATA are PCI Configuration transactions
+	# Bits 30:24 are read-only and must return 0 when read - Reserved - 
+	# Bits 23:16 select a specific Bus in the system (up to 256 buses) - Bus Number -  
+	# Bits 15:11 specify a Device on the given Bus (up to 32 devices) - Device Number -  
+	# Bits 10:8 Specify the function of a device (up to 8 devices) - Function Number - 
+	# Bits 7:0 Select an offset within the Configuration Space (256 bytes) - Register Number - 
+	# Addresses are often given in B/D/F, Offset notation (also written as B:D:F, Offset) 
+	# PCI Data Port (0xCFC)
+	# ======================
+	# Read and Write to 0xCFC with Bit 31 enabled in 0xCF8 results in PCI configuration transaction.
+	# If the Bit 31 is not enabled, according to PCI Spec, transaction is forwarded out as Port I/O
+  209. sudo cat /proc/ioports
+		>> 0cf8-0cff : PCI conf1
+  210. lspci  # Used to find Bus, Device and Function of a PCI Device. Each line st7arts with the PCI bus address formatted as bus:slot.function
+		>> 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+		>> 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+		>> 00:01.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01)
+		>> 00:02.0 VGA compatible controller: VMware SVGA II Adapter
+		>> 00:04.0 System peripheral: InnoTek Systemberatung GmbH VirtualBox Guest Service
+		>> 00:05.0 Multimedia audio controller: Intel Corporation 82801AA AC'97 Audio Controller (rev 01)
+		>> 00:06.0 USB controller: Apple Inc. KeyLargo/Intrepid USB
+		>> 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
+		>> 00:08.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+		>> 00:0d.0 SATA controller: Intel Corporation 82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode] (rev 02)
+  211. lspci -n # Displays PCI vendor code, and the device code only as numbers (i.e. teensy: vendor ID VID_16C0 and product ID PID_0483, 16C0:0483)
+		>> 00:00.0 0600: 8086:1237 (rev 02)
+		>> 00:01.0 0601: 8086:7000
+		>> 00:01.1 0101: 8086:7111 (rev 01)
+		>> 00:02.0 0300: 15ad:0405
+		>> 00:04.0 0880: 80ee:cafe
+		>> 00:05.0 0401: 8086:2415 (rev 01)
+		>> 00:06.0 0c03: 106b:003f
+		>> 00:07.0 0680: 8086:7113 (rev 08)
+		>> 00:08.0 0200: 8086:100e (rev 02)
+		>> 00:0d.0 0106: 8086:2829 (rev 02)
+  212. lspci -nn  # displays both the description and the number
+		>> 00:00.0 Host bridge [0600]: Intel Corporation 440FX - 82441FX PMC [Natoma] [8086:1237] (rev 02)
+		>> 00:01.0 ISA bridge [0601]: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II] [8086:7000]
+		>> 00:01.1 IDE interface [0101]: Intel Corporation 82371AB/EB/MB PIIX4 IDE [8086:7111] (rev 01)
+		>> 00:02.0 VGA compatible controller [0300]: VMware SVGA II Adapter [15ad:0405]
+		>> 00:04.0 System peripheral [0880]: InnoTek Systemberatung GmbH VirtualBox Guest Service [80ee:cafe]
+		>> 00:05.0 Multimedia audio controller [0401]: Intel Corporation 82801AA AC'97 Audio Controller [8086:2415] (rev 01)
+		>> 00:06.0 USB controller [0c03]: Apple Inc. KeyLargo/Intrepid USB [106b:003f]
+		>> 00:07.0 Bridge [0680]: Intel Corporation 82371AB/EB/MB PIIX4 ACPI [8086:7113] (rev 08)
+		>> 00:08.0 Ethernet controller [0200]: Intel Corporation 82540EM Gigabit Ethernet Controller [8086:100e] (rev 02)
+		>> 00:0d.0 SATA controller [0106]: Intel Corporation 82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode] [8086:2829] (rev 02)
+  213. lspci -k # displays the name of the kernel driver
+		>> 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+		>> 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+		>> 00:01.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01)
+		>> 	Kernel driver in use: ata_piix
+		>> 	Kernel modules: pata_acpi
+		>> 00:02.0 VGA compatible controller: VMware SVGA II Adapter
+		>> 	Subsystem: VMware SVGA II Adapter
+		>> 	Kernel driver in use: vmwgfx
+		>> 	Kernel modules: vmwgfx
+		>> 00:04.0 System peripheral: InnoTek Systemberatung GmbH VirtualBox Guest Service
+		>> 	Kernel driver in use: vboxguest
+		>> 	Kernel modules: vboxguest
+		>> 00:05.0 Multimedia audio controller: Intel Corporation 82801AA AC'97 Audio Controller (rev 01)
+		>> 	Subsystem: Dell 82801AA AC'97 Audio Controller
+		>> 	Kernel driver in use: snd_intel8x0
+		>> 	Kernel modules: snd_intel8x0
+		>> 00:06.0 USB controller: Apple Inc. KeyLargo/Intrepid USB
+		>> 	Kernel driver in use: ohci-pci
+		>> 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
+		>> 	Kernel driver in use: piix4_smbus
+		>> 	Kernel modules: i2c_piix4
+		>> 00:08.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+		>> 	Subsystem: Intel Corporation PRO/1000 MT Desktop Adapter
+		>> 	Kernel driver in use: e1000
+		>> 	Kernel modules: e1000
+		>> 00:0d.0 SATA controller: Intel Corporation 82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode] (rev 02)
+		>> 	Kernel driver in use: ahci
+		>> 	Kernel modules: ahci
+  214. lspci -x # Display configuration space
+		>> 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+		>> 00: 86 80 37 12 00 00 00 00 02 00 00 06 00 00 00 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 
+		>> 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+		>> 00: 86 80 00 70 07 00 00 02 00 00 01 06 00 00 80 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 
+		>> 00:01.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01)
+		>> 00: 86 80 11 71 07 00 00 00 01 8a 01 01 00 40 00 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 01 d0 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 
+		>> 00:02.0 VGA compatible controller: VMware SVGA II Adapter
+		>> 00: ad 15 05 04 07 00 00 00 00 00 00 03 00 40 00 00
+		>> 10: 11 d0 00 00 08 00 00 e0 00 00 00 f0 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 ad 15 05 04
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0a 01 00 00
+		>> 
+		>> 00:04.0 System peripheral: InnoTek Systemberatung GmbH VirtualBox Guest Service
+		>> 00: ee 80 fe ca 03 00 00 00 00 00 80 08 00 00 00 00
+		>> 10: 21 d0 00 00 00 00 40 f0 08 00 80 f0 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0b 01 00 00
+		>> 
+		>> 00:05.0 Multimedia audio controller: Intel Corporation 82801AA AC'97 Audio Controller (rev 01)
+		>> 00: 86 80 15 24 05 00 80 02 01 00 01 04 00 40 00 00
+		>> 10: 01 d1 00 00 01 d2 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 77 01
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0b 01 00 00
+		>> 
+		>> 00:06.0 USB controller: Apple Inc. KeyLargo/Intrepid USB
+		>> 00: 6b 10 3f 00 06 00 10 00 00 10 03 0c 00 40 00 00
+		>> 10: 00 40 80 f0 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0a 01 00 00
+		>> 
+		>> 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
+		>> 00: 86 80 13 71 01 00 80 02 08 00 80 06 00 00 80 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 09 01 00 00
+		>> 
+		>> 00:08.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+		>> 00: 86 80 0e 10 07 00 30 02 02 00 00 02 00 40 00 00
+		>> 10: 00 00 82 f0 00 00 00 00 41 d2 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 86 80 1e 00
+		>> 30: 00 00 00 00 dc 00 00 00 00 00 00 00 0b 01 ff 00
+		>> 
+		>> 00:0d.0 SATA controller: Intel Corporation 82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode] (rev 02)
+		>> 00: 86 80 29 28 07 00 10 00 02 01 06 01 00 40 00 00
+		>> 10: 49 d2 00 00 51 d2 00 00 59 d2 00 00 61 d2 00 00
+		>> 20: 71 d2 00 00 00 00 84 f0 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 70 00 00 00 00 00 00 00 0b 01 00 00
+  215. lspci -v
+		>> 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+		>> 	Flags: fast devsel
+		>> 
+		>> 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+		>> 	Flags: bus master, medium devsel, latency 0
+		>> 
+		>> 00:01.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01) (prog-if 8a [ISA Compatibility mode controller, supports both channels switched to PCI native mode, supports bus mastering])
+		>> 	Flags: bus master, fast devsel, latency 64
+		>> 	Memory at 000001f0 (32-bit, non-prefetchable) [virtual] [size=8]
+		>> 	Memory at 000003f0 (type 3, non-prefetchable) [virtual]
+		>> 	Memory at 00000170 (32-bit, non-prefetchable) [virtual] [size=8]
+		>> 	Memory at 00000370 (type 3, non-prefetchable) [virtual]
+		>> 	I/O ports at d000 [virtual] [size=16]
+		>> 	Kernel driver in use: ata_piix
+		>> 	Kernel modules: pata_acpi
+		>> 
+		>> 00:02.0 VGA compatible controller: VMware SVGA II Adapter (prog-if 00 [VGA controller])
+		>> 	Subsystem: VMware SVGA II Adapter
+		>> 	Flags: bus master, fast devsel, latency 64, IRQ 18
+		>> 	I/O ports at d010 [size=16]
+		>> 	Memory at e0000000 (32-bit, prefetchable) [size=128M]
+		>> 	Memory at f0000000 (32-bit, non-prefetchable) [size=2M]
+		>> 	Expansion ROM at 000c0000 [virtual] [disabled] [size=128K]
+		>> 	Kernel driver in use: vmwgfx
+		>> 	Kernel modules: vmwgfx
+		>> 
+		>> 00:04.0 System peripheral: InnoTek Systemberatung GmbH VirtualBox Guest Service
+		>> 	Flags: fast devsel, IRQ 20
+		>> 	I/O ports at d020 [size=32]
+		>> 	Memory at f0400000 (32-bit, non-prefetchable) [size=4M]
+		>> 	Memory at f0800000 (32-bit, prefetchable) [size=16K]
+		>> 	Kernel driver in use: vboxguest
+		>> 	Kernel modules: vboxguest
+		>> 
+		>> 00:05.0 Multimedia audio controller: Intel Corporation 82801AA AC'97 Audio Controller (rev 01)
+		>> 	Subsystem: Dell 82801AA AC'97 Audio Controller
+		>> 	Flags: bus master, medium devsel, latency 64, IRQ 21
+		>> 	I/O ports at d100 [size=256]
+		>> 	I/O ports at d200 [size=64]
+		>> 	Kernel driver in use: snd_intel8x0
+		>> 	Kernel modules: snd_intel8x0
+		>> 
+		>> 00:06.0 USB controller: Apple Inc. KeyLargo/Intrepid USB (prog-if 10 [OHCI])
+		>> 	Flags: bus master, fast devsel, latency 64, IRQ 22
+		>> 	Memory at f0804000 (32-bit, non-prefetchable) [size=4K]
+		>> 	Kernel driver in use: ohci-pci
+		>> 
+		>> 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
+		>> 	Flags: medium devsel, IRQ 9
+		>> 	Kernel driver in use: piix4_smbus
+		>> 	Kernel modules: i2c_piix4
+		>> 
+		>> 00:08.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+		>> 	Subsystem: Intel Corporation PRO/1000 MT Desktop Adapter
+		>> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
+		>> 	Memory at f0820000 (32-bit, non-prefetchable) [size=128K]
+		>> 	I/O ports at d240 [size=8]
+		>> 	Capabilities: <access denied>
+		>> 	Kernel driver in use: e1000
+		>> 	Kernel modules: e1000
+		>> 
+		>> 00:0d.0 SATA controller: Intel Corporation 82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode] (rev 02) (prog-if 01 [AHCI 1.0])
+		>> 	Flags: bus master, fast devsel, latency 64, IRQ 21
+		>> 	I/O ports at d248 [size=8]
+		>> 	I/O ports at d250 [size=4]
+		>> 	I/O ports at d258 [size=8]
+		>> 	I/O ports at d260 [size=4]
+		>> 	I/O ports at d270 [size=16]
+		>> 	Memory at f0840000 (32-bit, non-prefetchable) [size=8K]
+		>> 	Capabilities: <access denied>
+		>> 	Kernel driver in use: ahci
+		>> 	Kernel modules: ahci
+  216. lspci -vvxxx
+		>> 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+		>> 	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 00: 86 80 37 12 00 00 00 00 02 00 00 06 00 00 00 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 
+		>> 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+		>> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 0
+		>> 00: 86 80 00 70 07 00 00 02 00 00 01 06 00 00 80 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 
+		>> 00:01.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01) (prog-if 8a [ISA Compatibility mode controller, supports both channels switched to PCI native mode, supports bus mastering])
+		>> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 64
+		>> 	Region 0: Memory at 000001f0 (32-bit, non-prefetchable) [virtual] [size=8]
+		>> 	Region 1: Memory at 000003f0 (type 3, non-prefetchable) [virtual]
+		>> 	Region 2: Memory at 00000170 (32-bit, non-prefetchable) [virtual] [size=8]
+		>> 	Region 3: Memory at 00000370 (type 3, non-prefetchable) [virtual]
+		>> 	Region 4: I/O ports at d000 [virtual] [size=16]
+		>> 	Kernel driver in use: ata_piix
+		>> 	Kernel modules: pata_acpi
+		>> 00: 86 80 11 71 07 00 00 00 01 8a 01 01 00 40 00 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 01 d0 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 
+		>> 00:02.0 VGA compatible controller: VMware SVGA II Adapter (prog-if 00 [VGA controller])
+		>> 	Subsystem: VMware SVGA II Adapter
+		>> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 64
+		>> 	Interrupt: pin A routed to IRQ 18
+		>> 	Region 0: I/O ports at d010 [size=16]
+		>> 	Region 1: Memory at e0000000 (32-bit, prefetchable) [size=128M]
+		>> 	Region 2: Memory at f0000000 (32-bit, non-prefetchable) [size=2M]
+		>> 	Expansion ROM at 000c0000 [virtual] [disabled] [size=128K]
+		>> 	Kernel driver in use: vmwgfx
+		>> 	Kernel modules: vmwgfx
+		>> 00: ad 15 05 04 07 00 00 00 00 00 00 03 00 40 00 00
+		>> 10: 11 d0 00 00 08 00 00 e0 00 00 00 f0 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 ad 15 05 04
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0a 01 00 00
+		>> 
+		>> 00:04.0 System peripheral: InnoTek Systemberatung GmbH VirtualBox Guest Service
+		>> 	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Interrupt: pin A routed to IRQ 20
+		>> 	Region 0: I/O ports at d020 [size=32]
+		>> 	Region 1: Memory at f0400000 (32-bit, non-prefetchable) [size=4M]
+		>> 	Region 2: Memory at f0800000 (32-bit, prefetchable) [size=16K]
+		>> 	Kernel driver in use: vboxguest
+		>> 	Kernel modules: vboxguest
+		>> 00: ee 80 fe ca 03 00 00 00 00 00 80 08 00 00 00 00
+		>> 10: 21 d0 00 00 00 00 40 f0 08 00 80 f0 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0b 01 00 00
+		>> 
+		>> 00:05.0 Multimedia audio controller: Intel Corporation 82801AA AC'97 Audio Controller (rev 01)
+		>> 	Subsystem: Dell 82801AA AC'97 Audio Controller
+		>> 	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 64
+		>> 	Interrupt: pin A routed to IRQ 21
+		>> 	Region 0: I/O ports at d100 [size=256]
+		>> 	Region 1: I/O ports at d200 [size=64]
+		>> 	Kernel driver in use: snd_intel8x0
+		>> 	Kernel modules: snd_intel8x0
+		>> 00: 86 80 15 24 05 00 80 02 01 00 01 04 00 40 00 00
+		>> 10: 01 d1 00 00 01 d2 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 28 10 77 01
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0b 01 00 00
+		>> 
+		>> 00:06.0 USB controller: Apple Inc. KeyLargo/Intrepid USB (prog-if 10 [OHCI])
+		>> 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 64
+		>> 	Interrupt: pin A routed to IRQ 22
+		>> 	Region 0: Memory at f0804000 (32-bit, non-prefetchable) [size=4K]
+		>> 	Kernel driver in use: ohci-pci
+		>> 00: 6b 10 3f 00 06 00 10 00 00 10 03 0c 00 40 00 00
+		>> 10: 00 40 80 f0 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 0a 01 00 00
+		>> 
+		>> 00:07.0 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 08)
+		>> 	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Interrupt: pin A routed to IRQ 9
+		>> 	Kernel driver in use: piix4_smbus
+		>> 	Kernel modules: i2c_piix4
+		>> 00: 86 80 13 71 01 00 80 02 08 00 80 06 00 00 80 00
+		>> 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 00 00 00 00 00 00 00 00 09 01 00 00
+		>> 
+		>> 00:08.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+		>> 	Subsystem: Intel Corporation PRO/1000 MT Desktop Adapter
+		>> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 64 (63750ns min)
+		>> 	Interrupt: pin A routed to IRQ 16
+		>> 	Region 0: Memory at f0820000 (32-bit, non-prefetchable) [size=128K]
+		>> 	Region 2: I/O ports at d240 [size=8]
+		>> 	Capabilities: <access denied>
+		>> 	Kernel driver in use: e1000
+		>> 	Kernel modules: e1000
+		>> 00: 86 80 0e 10 07 00 30 02 02 00 00 02 00 40 00 00
+		>> 10: 00 00 82 f0 00 00 00 00 41 d2 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 86 80 1e 00
+		>> 30: 00 00 00 00 dc 00 00 00 00 00 00 00 0b 01 ff 00
+		>> 
+		>> 00:0d.0 SATA controller: Intel Corporation 82801HM/HEM (ICH8M/ICH8M-E) SATA Controller [AHCI mode] (rev 02) (prog-if 01 [AHCI 1.0])
+		>> 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx-
+		>> 	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+		>> 	Latency: 64
+		>> 	Interrupt: pin A routed to IRQ 21
+		>> 	Region 0: I/O ports at d248 [size=8]
+		>> 	Region 1: I/O ports at d250 [size=4]
+		>> 	Region 2: I/O ports at d258 [size=8]
+		>> 	Region 3: I/O ports at d260 [size=4]
+		>> 	Region 4: I/O ports at d270 [size=16]
+		>> 	Region 5: Memory at f0840000 (32-bit, non-prefetchable) [size=8K]
+		>> 	Capabilities: <access denied>
+		>> 	Kernel driver in use: ahci
+		>> 	Kernel modules: ahci
+		>> 00: 86 80 29 28 07 00 10 00 02 01 06 01 00 40 00 00
+		>> 10: 49 d2 00 00 51 d2 00 00 59 d2 00 00 61 d2 00 00
+		>> 20: 71 d2 00 00 00 00 84 f0 00 00 00 00 00 00 00 00
+		>> 30: 00 00 00 00 70 00 00 00 00 00 00 00 0b 01 00 00
+  217. lspci -s 00:08.0 -kvx
+		>> 00:08.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ethernet Controller (rev 02)
+		>> 	Subsystem: Intel Corporation PRO/1000 MT Desktop Adapter
+		>> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 16
+		>> 	Memory at f0820000 (32-bit, non-prefetchable) [size=128K]
+		>> 	I/O ports at d240 [size=8]
+		>> 	Capabilities: <access denied>
+		>> 	Kernel driver in use: e1000
+		>> 	Kernel modules: e1000
+		>> 00: 86 80 0e 10 07 00 30 02 02 00 00 02 00 40 00 00
+		>> 10: 00 00 82 f0 00 00 00 00 41 d2 00 00 00 00 00 00
+		>> 20: 00 00 00 00 00 00 00 00 00 00 00 00 86 80 1e 00
+		>> 30: 00 00 00 00 dc 00 00 00 00 00 00 00 0b 01 ff 00
+  # when configuration accessattempts to select a device that does not exist, the host bridge will access without error, dropping all data on writes and returning all ones on reads
+  218. lspci -h # returns available commands  
+  # Base Address Registers (BARs) hold the memory addresses used by the device. PCI Configuration Registers provide space for jupt to 6 BARs. Each BAR is 32-bits wide to support 32-bit address space locations. 
+  # Concatenating two 32-bit BARs provides 64-bit adddressing capability. Each region consists of either memory or I/O locations. To identify whether an address is I/O or memory mapped, check the value of the lowest bit:
+	# Lowest Bit = 0 --> Memory Mapped
+	# Lowest Bit = 1 --> I/O Mapped
+  # Memory Space BAR
+  # ===============
+	# 	31 - 4			 3		2-1    0
+	# ---------------------------------------------------------------
+	# |16-BYTE  Aligned Base Address | Prefetchable |Type   |Always 0|
+	# ----------------------------------------------------------------
+    # Type Field: 0x00	BAR is 32-bit wide and can be mapped into 32-bit address space
+    # Type Field: 0x02	BAR is 64-bit wide and can be mapped into 64-bit address space
+  # IO Space BAR 
+  # ============
+	# 	31-2			            1	         0
+	# ------------------------------------------------------
+	# |4 BYTE Aligned Base Address | Reserved |  Always 1  |
+	# ------------------------------------------------------
+  # When you want to retrieve the actual base address of a BAR, be sure to mask the lower bits. For 32-bit Memory Space BARs, you calculate (BAR[x] & 0xFFFFFFF0), 
+  # For 64-Bit Memory Space BARs you calculate (BAR[x] & 0xFFFFFFF0) + ((BAR[x+1] & 0xFFFFFFFF) << 32)). For I/O Space BARs, you calculate (BAR[x] & 0xFFFFFFFC)
+  # A Base Address is half the information that's needed - we need to get the size of the device. 
+	# 1. you must save the original value of the BAR
+	# 2. write a value of all 1's to the register
+	# 3. then read it back
+	# 4. restore the original value
+  # The amount of memory can then be determined by masking the information bits, performing a bitwise NOT ('~' in C) and incrementing the value by 1
+  # The PCI Express bus extends the Configuration Space from 256 bytes to 4096 bytes. This extended configuration space *cannot* be accessed using the legacy PCI method (through ports 0xCF8 and 0xCFC)
+  # The enhanced configuration mechanism makes use of memoy mapped address space range(s) to access PCI configuration space. On x86 and x64 platforms, the addtess of each memory area is determined by the ACPI 'MCFG' table
+  219. sudo hexdump -C /sys/firmware/acpi/tables/MCFG 
+  220. ls -l /sys/firmware/acpi/tables/  # On VirtualBox no MCFG present
+		>> total 0
+		>> drwxr-xr-x 4 root root    0 Feb 10 17:58 ./
+		>> drwxr-xr-x 5 root root    0 Feb 10 17:58 ../
+		>> -r-------- 1 root root  108 Feb 10 18:51 APIC
+		>> drwxr-xr-x 2 root root    0 Feb 10 18:51 data/
+		>> -r-------- 1 root root 8997 Feb 10 18:51 DSDT
+		>> drwxr-xr-x 2 root root    0 Feb 10 18:51 dynamic/
+		>> -r-------- 1 root root  244 Feb 10 17:59 FACP
+		>> -r-------- 1 root root   64 Feb 10 18:51 FACS
+		>> -r-------- 1 root root  460 Feb 10 18:51 SSDT
   
