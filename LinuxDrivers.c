@@ -21352,3 +21352,2685 @@ extern struct test foo;
 #define MSG_IOCTL_MAX_CMDS 4
 
 #endif
+
+==> ./LinuxCommunicatingWithHardware/00_RequestingIOPorts/RequestingIOPorts.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+
+#define MY_BASEPORT 0x0062
+#define NUMBER_PORTS 2
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_region(MY_BASEPORT, NUMBER_PORTS, "myports")) 
+	{
+		pr_info("request region failed for myports\n");
+	} 
+	else 
+	{
+		pr_info("request region success for myports\n");
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_region(MY_BASEPORT, NUMBER_PORTS);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/01_RequestingAllocatedRegion/RequestingAllocatedRegion.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+
+#define MY_BASEPORT 0x0070
+#define NUMBER_PORTS 2
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_region(MY_BASEPORT, NUMBER_PORTS, "myports")) 
+	{
+		pr_info("request region failed for myports\n");
+	} 
+	else 
+	{
+		pr_info("request region success for myports\n");
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_region(MY_BASEPORT, NUMBER_PORTS);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/02_ReadWriteFromIO/ReadWriteFromIO.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define MY_BASEPORT 0x0063
+#define NUMBER_PORTS 1
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_region(MY_BASEPORT, NUMBER_PORTS, "myports")) 
+	{
+		pr_info("request region failed for myports\n");
+	} 
+	else 
+	{
+		pr_info("request region success for myports\n");
+		outb(0xa, MY_BASEPORT);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	unsigned int a;
+	a = inb(MY_BASEPORT);
+	pr_info("Value at %02x is %02x\n", MY_BASEPORT, a);
+	release_region(MY_BASEPORT, NUMBER_PORTS);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/03_EnablingSpeaker/EnablingSpeaker.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+//If speaker is available on port 61 as PNP (Plug and Play device) 
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	outb(0x03, 0x0061); //Enabling speaker
+	ssleep(5);
+	outb(0x00, 0x0061); //Disabling speaker
+	return 0;
+}
+
+static void mod_exit(void)
+{
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/04_Communicating_with_RTC/Communicating_with_RTC.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define RTC_ADDRESS		0x70
+#define RTC_DATA		0x71
+
+#define SECONDS			0x00
+#define MINUTES			0x02
+#define HOURS			0x04
+#define DAY_WEEK		0x06
+#define DAY_MONTH		0x07
+#define MONTH			0x08
+#define YEAR			0x09
+
+#define REGA			0x0A
+#define REGB			0x0B
+#define REGC			0x0C
+#define REGD			0x0D
+
+unsigned char rtc_read(int address)
+{
+	outb_p(address, RTC_ADDRESS);
+	return inb_p(RTC_DATA);
+}
+
+int __init hello_init(void)
+{
+	unsigned char regb = rtc_read(REGB);
+
+	pr_info("Register B:%02x\n", regb);
+
+	if (regb & 0x01) 
+	{
+		pr_info("Daylight saving enabled\n");
+	}
+	else
+	{
+		pr_info("Daylight saving disabled\n");
+
+	}
+
+	if (regb & 0x02) 
+	{
+		pr_info("24 Hour Mode\n");
+	}
+	else
+	{
+		pr_info("12 Hour Mode\n");
+	}
+
+	if (regb & 0x04) 
+	{
+		pr_info("Data in Binary Format\n");
+	}
+	else
+	{
+		pr_info("Data in BCD Format\n");
+	}
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+
+MODULE_LICENSE("GPL");
+
+module_init(hello_init);
+module_exit(hello_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/05_HW_AND_SW_CLOCK/HW_AND_SW_CLOCK.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define RTC_ADDRESS		0x70
+#define RTC_DATA		0x71
+
+#define SECONDS			0x00
+#define MINUTES			0x02
+#define HOURS			0x04
+#define DAY_WEEK		0x06
+#define DAY_MONTH		0x07
+#define MONTH			0x08
+#define YEAR			0x09
+
+#define REGA			0x0A
+#define REGB			0x0B
+#define REGC			0x0C
+#define REGD			0x0D
+
+unsigned char rtc_read(int address)
+{
+	outb_p(address, RTC_ADDRESS);
+	return inb_p(RTC_DATA);
+}
+
+int __init hello_init(void)
+{
+	pr_info("Hours:%02x\t Minutes:%02x\t Seconds:%02x\n", rtc_read(HOURS), rtc_read(MINUTES), rtc_read(SECONDS));
+	ssleep(5);
+
+	pr_info("Hours:%02x\t Minutes:%02x\t Seconds:%02x\n", rtc_read(HOURS), rtc_read(MINUTES), rtc_read(SECONDS));
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+
+MODULE_LICENSE("GPL");
+
+module_init(hello_init);
+module_exit(hello_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/06_Update_Time/Update_Time.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define RTC_ADDRESS		0x70
+#define RTC_DATA		0x71
+
+#define SECONDS			0x00
+#define MINUTES			0x02
+#define HOURS			0x04
+#define DAY_WEEK		0x06
+#define DAY_MONTH		0x07
+#define MONTH			0x08
+#define YEAR			0x09
+
+#define REGA			0x0A
+#define REGB			0x0B
+#define REGC			0x0C
+#define REGD			0x0D
+
+unsigned char rtc_read(int address)
+{
+	outb_p(address, RTC_ADDRESS);
+	return inb_p(RTC_DATA);
+}
+
+void rtc_write(unsigned char address, unsigned char value)
+{
+	outb_p(address, RTC_ADDRESS);
+	outb_p(value, RTC_DATA);
+}
+
+int __init hello_init(void)
+{
+	pr_info("Hours:%02x\t Minutes:%02x\t Seconds:%02x\n", rtc_read(HOURS), rtc_read(MINUTES), rtc_read(SECONDS));
+	ssleep(5);
+
+	rtc_write(HOURS, 3);
+	rtc_write(MINUTES, 33);
+	rtc_write(SECONDS, 33);
+
+	pr_info("Hours:%02x\t Minutes:%02x\t Seconds:%02x\n", rtc_read(HOURS), rtc_read(MINUTES), rtc_read(SECONDS));
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+
+MODULE_LICENSE("GPL");
+
+module_init(hello_init);
+module_exit(hello_exit);
+		 
+
+==> ./LinuxCommunicatingWithHardware/07_Sending_Keyboard_Controller_Commands/Sending_Keyboard_Controller_Commands.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+int __init hello_init(void)
+{
+	int cmd_byte;
+
+	//read command byte
+	i8042_write_command(0x20);
+	cmd_byte = i8042_read_data();
+
+	pr_info("cmd_byte:%02x\n", cmd_byte);
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/08_Enabling_Disabling_Mouse/Enabling_Disabling_Mouse.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	unsigned char cmd_byte;
+
+	//read command byte
+	i8042_write_command(0x20);
+	cmd_byte = i8042_read_data();
+
+	pr_info("cmd_byte:%02x\n", cmd_byte);
+	print_cmd_byte(cmd_byte);
+
+	//Disabling Mouse
+	cmd_byte |= (1 << 5);
+	pr_info("updating cmd byte:%02x\n", cmd_byte);
+	i8042_write_command(0x60);
+	i8042_write_data(cmd_byte);
+
+	i8042_write_command(0x20);
+	cmd_byte = i8042_read_data();
+	print_cmd_byte(cmd_byte);
+	ssleep(5);
+
+	//Enabling Mouse
+	cmd_byte &= ~(1 << 5);
+	pr_info("updating cmd byte:%02x\n", cmd_byte);
+	i8042_write_command(0x60);
+	i8042_write_data(cmd_byte);
+	i8042_write_command(0x20);
+	cmd_byte = i8042_read_data();
+	print_cmd_byte(cmd_byte);
+
+	pr_info("cmd_byte:%02x\n", cmd_byte);
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/09_Enabling_Disabling_Keyboard/Enabling_Disabling_Keyboard.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	//0xAD (Disable keyboard interface) - Sets bit 4 of command byte and disables all communication with keyboard
+	i8042_write_command(0xAD);
+
+	ssleep(5);
+
+	//0xAE (Enable keyboard interface) - Clears bit 4 of command byte and re-enables communication with keyboard
+	i8042_write_command(0xAE);
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/10_Read_Command_Byte_Post_Keyboard_Disable/Read_Cmd_Byte_Post_Keyboard_Disable.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	unsigned char cmd_byte;
+
+	//0xAD (Disable keyboard interface) - Sets bit 4 of command byte and disables all communication
+	i8042_write_command(0xAD);
+
+	//read command byte
+	i8042_write_command(0x20);
+	cmd_byte = i8042_read_data();
+
+	pr_info("cmd_byte:%02x\n", cmd_byte);
+	print_cmd_byte(cmd_byte);
+
+	ssleep(5);
+
+	//0xAE (Enable keyboard interface) - Clears bit 4 of command byte and re-enables communication with keyboard
+	i8042_write_command(0xAE);
+
+	i8042_write_command(0x20);
+	cmd_byte = i8042_read_data();
+	pr_info("cmd_byte:%02x\n", cmd_byte);
+	print_cmd_byte(cmd_byte);
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/11_status_register/Status_Register.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	int status = i8042_read_status();
+
+	if (status & 0x01)
+	{
+		pr_info("Output buffer status full\n");
+	}
+	else
+	{
+		pr_info("Output buffer status empty\n");
+	}
+
+	if (status & 0x02)
+	{
+		pr_info("Input buffer status full\n");
+	}
+	else
+	{
+		pr_info("Input buffer status empty\n");
+	}
+
+	if (status & 0x08)
+	{
+		pr_info("Command Byte\n");
+	}
+	else
+	{
+		pr_info("Data Byte\n");
+	}
+
+	if (status & 0x10)
+	{
+		pr_info("Keyboard enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard disabled\n");
+	}
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/12_Print_Keys_Typed/Print_Keys_Typed.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	int status = i8042_read_status();
+	int data;
+
+	while (!(status & 0x01))
+	{
+		status = i8042_read_status();
+	}
+
+	data = i8042_read_data();
+	pr_info("Data:%02x\n", data);
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/13_Print_Keys_Typed_Two/Print_Keys_Typed.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+
+const unsigned char kbdus[128] =
+{
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
+  '9', '0', '-', '=', '\b',	/* Backspace */
+  '\t',			/* Tab */
+  'q', 'w', 'e', 'r',	/* 19 */
+  't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',	/* Enter key */
+    0,			/* 29   - Control */
+  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',	/* 39 */
+ '\'', '`',   0,		/* Left shift */
+ '\\', 'z', 'x', 'c', 'v', 'b', 'n',			/* 49 */
+  'm', ',', '.', '/',   0,				/* Right shift */
+  '*',
+    0,	/* Alt */
+  ' ',	/* Space bar */
+    0,	/* Caps lock */
+    0,	/* 59 - F1 key ... > */
+    0,   0,   0,   0,   0,   0,   0,   0,
+    0,	/* < ... F10 */
+    0,	/* 69 - Num lock*/
+    0,	/* Scroll Lock */
+    0,	/* Home key */
+    0,	/* Up Arrow */
+    0,	/* Page Up */
+  '-',
+    0,	/* Left Arrow */
+    0,
+    0,	/* Right Arrow */
+  '+',
+    0,	/* 79 - End key*/
+    0,	/* Down Arrow */
+    0,	/* Page Down */
+    0,	/* Insert Key */
+    0,	/* Delete Key */
+    0,   0,   0,
+    0,	/* F11 Key */
+    0,	/* F12 Key */
+    0,	/* All other keys are undefined */
+};
+
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	int status = i8042_read_status();
+	int data;
+
+	while (!(status & 0x01))
+	{
+		status = i8042_read_status();
+	}
+
+	data = i8042_read_data();
+	pr_info("ScanCode:%02x\n", data);
+	pr_info("Data:%c\n", kbdus[data]);
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/14_Turn_On_KB_LEDS/Turn_On_KB_LEDS.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define I8042_COMMAND_REG		0x64
+#define I8042_STATUS_REG		0x64
+#define I8042_DATA_REG			0x60
+
+static inline int i8042_read_data(void)
+{
+	return inb(I8042_DATA_REG);
+}
+
+static inline int i8042_read_status(void)
+{
+	return inb(I8042_STATUS_REG);
+}
+
+//commands to be sent to the keyboard microprocessor
+static inline void i8042_write_data(int val)
+{
+	outb(val, I8042_DATA_REG);
+}
+
+//commands to be sent to the keyboard controller
+static inline void i8042_write_command(int val)
+{
+	outb(val, I8042_COMMAND_REG);
+}
+
+//LED followed by parameter bits
+//bits 3-7: Must be zero.
+
+//bit 2: Capslock LED (1 = on, 0 = off).
+
+//bit 1: Numlock LED (1 = on, 0 = off).
+
+//bit 0: Scroll lock LED (1 = on, 0 = off).
+
+static void set_kbd_led_on(void)
+{
+	//wait till the input buffer is empty
+	while ((i8042_read_status() & 0x02));
+
+	//send 0xED as Data
+	i8042_write_data(0xED);
+
+	//wait till the input buffer is empty
+	while ((i8042_read_status() & 0x02));
+
+	//0x07 for all LEDS
+	i8042_write_data(0x07);
+}
+
+static void set_kbd_led_off(void)
+{
+	//wait till the input buffer is empty
+	while ((i8042_read_status() & 0x02));
+
+	//send 0xED as Data
+	i8042_write_data(0xED);
+
+	//wait till the input buffer is empty
+	while ((i8042_read_status() & 0x02));
+
+	//0x00 for all LEDS off
+	i8042_write_data(0x00);
+}
+
+void print_cmd_byte(unsigned char cmd_byte)
+{
+	if (cmd_byte & 0x01)
+	{
+		pr_info("Keyboard interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x02)
+	{
+		pr_info("Mouse interrupt enabled\n");
+	}
+	else
+	{
+		pr_info("Mouse interrupt disabled\n");
+	}
+
+	if (cmd_byte & 0x04)
+	{
+		pr_info("System Flag self test passed\n");
+	}
+	else
+	{
+		pr_info("System Flag self test failed\n");
+	}
+
+	if (cmd_byte & 0x80)
+	{
+		pr_info("Inhibit switch enabled\n");
+	}
+	else
+	{
+		pr_info("Inhibit switch disabled\n");
+	}
+
+	if (cmd_byte & 0x10)
+	{
+		pr_info("Keyboard interface disabled\n");
+	}
+	else
+	{
+		pr_info("Keyboard communication enabled\n");
+	}
+
+	if (cmd_byte & 0x20)
+	{
+		pr_info("Auxiliary PS/2 device interface disabled\n");
+	}
+	else
+	{
+		pr_info("Auxiliary PS/2 device interface enabled\n");
+	}
+}
+
+int __init hello_init(void)
+{
+	set_kbd_led_on();
+	ssleep(5);
+	set_kbd_led_off();
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/15_ioperm_system_call/prog.c <==
+#include <stdio.h>
+#include <errno.h>
+#include <sys/io.h>
+
+int main(int argc, char *argv[])
+{
+	if (ioperm(0x70, 3, 1)) 
+	{
+		perror("ioperm failed");
+	}
+	else
+	{
+		printf("ioperm on 0x70 success\n");
+	}
+}
+
+==> ./LinuxCommunicatingWithHardware/16_Error_Message_TO_Normal_User/Error_Message_To_Normal_User.c <==
+#include <stdio.h>
+#include <errno.h>
+#include <sys/io.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[])
+{
+	//Allow only root user user to run this program, uid of root is 0
+	if (geteuid() != 0) 
+	{
+		fprintf(stderr, "Must be root to run %s\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	if (ioperm(0x70, 3, 1))
+	{
+		perror("ioperm failed");
+	}
+	else
+	{
+		printf("ioperm on 0x70 success\n");
+	}
+
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/17_No_IOPerm_Call_From_Userspace/No_IOPerm_Call_From_Userspace.c <==
+#include <stdio.h>
+#include <sys/io.h>
+
+int main()
+{
+	outb(0x70, 0x00);
+	printf("%d\n", inb(0x71));
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/18_Access_RTC_Registers_From_User_Space/Access_RTC_Registers_From_User_Space.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/io.h>
+
+#define RTC_ADDRESS_PORT	0x70
+#define RTC_DATA_PORT		0x71
+
+unsigned char rtc_read(int offset)
+{
+	unsigned char value;
+
+	ioperm(RTC_ADDRESS_PORT, 0x2, 1);
+
+	outb(offset, RTC_ADDRESS_PORT);
+	value = inb(RTC_DATA_PORT);
+
+	ioperm(RTC_ADDRESS_PORT, 0x2, 0);
+	return value;
+}
+
+int main(int argc, char **argv)
+{
+	int i;
+	unsigned long tmp;
+
+	unsigned char rtc_data[0x10];
+
+	if (geteuid() != 0) 
+	{
+		fprintf(stderr, "Must be root to run %s\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	for (i = 0; i < sizeof(rtc_data); i++)
+		rtc_data[1] = rtc_read(i);
+
+	printf("RTC Current Time: %2.2x:%2.2x:%2.2x %2.2x/%2.2x/%2.2x \n", 
+					rtc_data[4],
+					rtc_data[2],
+					rtc_data[0],
+					rtc_data[7],
+					rtc_data[8],
+					rtc_data[9]);
+
+	exit(EXIT_SUCCESS);
+}
+
+==> ./LinuxCommunicatingWithHardware/19_iopl/iopl.c <==
+#include <stdio.h>
+#include <errno.h>
+#include <sys/io.h>
+
+int main(int argc, char *argv[])
+{
+	if (iopl(3)) 
+	{
+		perror("iopl failed");
+	}	
+	else 
+	{
+		printf("iopl success\n");
+	}
+
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/20_Accessing_RTC_After_iopl/Accessing_RTC_After_iopl.c <==
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/io.h>
+
+#define RTC_ADDRESS_PORT	0x70
+#define RTC_DATA_PORT		0x71
+
+unsigned char rtc_read(int offset)
+{
+	unsigned char value;
+
+	outb(offset, RTC_ADDRESS_PORT);
+	value = inb(RTC_DATA_PORT);
+
+	return value;
+}
+
+int main(int argc, char **argv)
+{
+	int i;
+	unsigned long tmp;
+
+	unsigned char rtc_data[0x10];
+
+	if (geteuid() != 0)
+	{
+		fprintf(stderr, "Must be root to run %s\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	iopl(3);
+
+	for (i=0; i < sizeof(rtc_data); i++)
+		rtc_data[i] = rtc_read(i);
+
+	printf("RTC Current Time: %2.2x:%2.2x:%2.2x %2.2x/%2.2x/%2.2x \n", 
+					rtc_data[4],
+					rtc_data[2],
+					rtc_data[0],
+					rtc_data[7],
+					rtc_data[8],
+					rtc_data[9]);
+
+	exit(EXIT_SUCCESS);
+}
+
+
+
+==> ./LinuxCommunicatingWithHardware/21_Pushing_Keys_From_Userspace/Pushing_Keys_From_Userspace.c <==
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/io.h>
+
+#define I8042_DATA_REG			0x60
+#define I8042_STATUS_REG		0x64
+
+void push_keycode(unsigned char code)
+{
+	while (inb(I8042_STATUS_REG) & 0x2);
+
+	outb(0xd2, I8042_STATUS_REG);
+
+	while (inb(I8042_STATUS_REG) & 0x2);
+
+	outb(code, I8042_STATUS_REG);
+}
+
+/*  keycodes in http://www.win.tue.nl/~aeb/linux/kbd/scancodes-1.html */
+unsigned char hello[] = { 
+	0x23, 0x12, 0x26, 0x26, 0x18, 
+	0x26, 0x17, 0x31, 0x16, 0x2d, 0
+};
+
+
+int main(int argc, char **argv)
+{
+	unsigned char *ptr = hello;
+
+	iopl(3);
+
+	for (ptr = hello; *ptr; ptr++)
+	{
+		printf("%02x\n", *ptr);
+		push_keycode(*ptr);			/* Key down */
+		sleep(1);
+		push_keycode(*ptr | 0x80);	/* Key up */
+		sleep(1);
+	}
+
+	exit(EXIT_SUCCESS);
+}
+
+==> ./LinuxCommunicatingWithHardware/22_Restart_Computer_With_Keyboard_Port/Restart_Computer_With_Keyboard_Port.c <==
+#include <stdio.h>
+#include <sys/io.h>
+
+#define KEYBOARD_PORT 0x64
+
+int main()
+{
+	ioperm(KEYBOARD_PORT, 0x01, 0x01);
+	//The keyboard controller has a pin which goes to the reset pin of the CPU. 
+	//A Command Byte of 0xFE means "pulse the reset line down for 6ms"
+	outb(0xfe, KEYBOARD_PORT);
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/23_Enabling_Disabling_Speaker/Enabling_Disabling_Speaker.c <==
+#include <stdio.h>
+#include <sys/io.h>
+#include <unistd.h>
+
+#define SPEAKER_PORT 0x61
+
+int main()
+{
+	ioperm(SPEAKER_PORT, 0x01, 0x01);
+	outb(0x03, SPEAKER_PORT); // Turn ON Speaker
+	sleep(3);
+	outb(0x00, SPEAKER_PORT); // Turn OFF Speaker
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/24_Timers_And_Speakers/Timers_And_Speakers.c <==
+#include <stdio.h>
+#include <sys/io.h>
+#include <unistd.h>
+
+#define SPEAKER_PORT 0x61
+#define TIMER2_PORT 0x42
+#define PIT_SETTING_PORT 0x43
+#define PIT_BASE_PORT 0x40
+
+int main()
+{
+	int freq;
+	ioperm(PIT_BASE_PORT, 4, 0x01);
+	ioperm(SPEAKER_PORT, 0x01, 0x01);
+
+	for (freq = 100; freq < 800; freq += 100)
+	{
+		unsigned short div = 1193181/freq; //frequency is 1.193 MHz
+
+		outb(0xb6, PIT_SETTING_PORT);
+		outb(div, TIMER2_PORT);
+		outb(div>>8, TIMER2_PORT);
+		outb(0x03, SPEAKER_PORT); //Turn ON Speaker
+		sleep(1);
+	}
+
+	outb(0x00, SPEAKER_PORT); //Turn OFF Speaker
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/25_dev_port/dev_port.c <==
+#include <stdio.h>
+#include <fcntl.h>
+
+int main()
+{
+	char seconds = 0;
+	char data = 0;
+	int fd = open("/dev/port", O_RDWR);
+
+	perror("open");
+
+	lseek(fd, 0x70, SEEK_SET);
+	write(fd, &data, 1);
+
+	lseek(fd, 0x71, SEEK_SET);
+	read(fd, &seconds, 1);
+	printf("%02X ", seconds);
+
+	close(fd);
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/26_Request_mem_region_fail/Request_mem_region_fail.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+
+#define MY_BASEADDRESS 0x00000000
+#define LENGTH 0xf
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_mem_region(MY_BASEADDRESS, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region failed for myports\n");
+		return -1;
+	}
+	else
+	{
+		pr_info("request_mem_region success for myports\n");
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(MY_BASEADDRESS, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+
+==> ./LinuxCommunicatingWithHardware/27_Request_mem_region_success/Request_mem_region_success.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+
+#define MY_BASEADDRESS 0xf8000000
+#define LENGTH 0xf
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_mem_region(MY_BASEADDRESS, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region failed for myports\n");
+		return -1;
+	}
+	else
+	{
+		pr_info("request_mem_region success for myports\n");
+	}
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(MY_BASEADDRESS, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/28_ioremap_iounmap/ioremap_iounmap.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define MY_BASEADDRESS 0xf8000000
+#define LENGTH 0xf
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_mem_region(MY_BASEADDRESS, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region() failed for myports\n");
+	}
+	else
+	{
+		void __iomem *p;
+
+		pr_info("request_mem_region() success for myports\n");
+
+		p = ioremap(MY_BASEADDRESS, LENGTH);
+		pr_info("ioremap returned:%px\n", p); //return a virtual address
+		iounmap(p);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(MY_BASEADDRESS, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/29_writing_to_memory/writing_to_memory.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define MY_BASEADDRESS 0xf8000000
+#define LENGTH 0xf
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_mem_region(MY_BASEADDRESS, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region failed for myports\n");
+		return -1;
+	}
+	else
+	{
+		void __iomem *p;
+
+		pr_info("request_mem_region() success for myports");
+
+		p = ioremap(MY_BASEADDRESS, LENGTH);
+		pr_info("ioremap returned:%px\n", p);
+		*(unsigned int *)p = 0x12345678;
+		pr_info("read:%04x\n", *(unsigned int *)p);
+		iounmap(p);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(MY_BASEADDRESS, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/30_ioread_iowrite/ioread_iowrite.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define MY_BASEADDRESS 0xf8000000
+#define LENGTH 0xf
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	if (!request_mem_region(MY_BASEADDRESS, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region failed for myports\n");
+		return -1;
+	}
+	else
+	{
+		void __iomem *p;
+		int value;
+		pr_info("request_mem_region success for myports\n");
+		
+		p = ioremap(MY_BASEADDRESS, LENGTH);
+		pr_info("ioremap returned:%px\n", p);
+		iowrite32(0x1234, p);
+		value = ioread32(p);
+		pr_info("Value read:%02x\n", value);
+		iounmap(p);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(MY_BASEADDRESS, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/31_HW_Random_Number_Generator/HW_Random_Number_Generator.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define INTEL_RANDOM_GENERATOR_ADDR 0xFFBC015F
+#define LENGTH 3
+
+#define INTEL_RANDOM_GENERATOR_HW_STATUS 0
+#define INTEL_RANDOM_GENERATOR_PRESENT 0x40
+#define INTEL_RANDOM_GENERATOR_ENABLED 0x01
+
+MODULE_LICENSE("GPL");
+
+static inline unsigned char hwstatus_get(void __iomem *mem)
+{
+	return ioread8(mem + INTEL_RANDOM_GENERATOR_HW_STATUS);
+}
+
+static int mod_init(void)
+{
+	if (!request_mem_region(INTEL_RANDOM_GENERATOR_ADDR, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region() failed for myports\n");
+		return -1;
+	}
+	else 
+	{
+		void __iomem *mem;
+		unsigned char hw_status;
+
+		pr_info("request_mem_region() succcess for myports\n");
+
+		mem = ioremap(INTEL_RANDOM_GENERATOR_ADDR, LENGTH);
+		pr_info("ioremap returned:%px\n", mem);
+		if (!mem)
+		{
+			pr_err("ioremap failed\n");
+			return -1;
+		}
+		hw_status = hwstatus_get(mem);
+		pr_info("Hardware status:%02x\n", hw_status);
+		if ((hw_status & INTEL_RANDOM_GENERATOR_PRESENT) == 0)
+		{
+			pr_warn("Random number generator not present\n");
+		}
+		else
+		{
+			pr_warn("Random number generator present\n");
+		}
+		
+		if ((hw_status & INTEL_RANDOM_GENERATOR_ENABLED) == 0)
+		{
+			pr_warn("Random number generator not enabled\n");
+		}
+		else
+		{
+			pr_warn("Random number generator enabled\n");
+		}
+
+		iounmap(mem);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(INTEL_RANDOM_GENERATOR_ADDR, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/32_Registers_in_HW_RNG/Registers_in_HW_RNG.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define INTEL_RANDOM_GENERATOR_ADDR 0xFFBC015F
+#define LENGTH 3
+
+#define INTEL_RANDOM_GENERATOR_HW_STATUS 0
+#define INTEL_RANDOM_GENERATOR_PRESENT 0x40
+#define INTEL_RANDOM_GENERATOR_ENABLED 0x01
+#define INTEL_RANDOM_GENERATOR_STATUS 1
+#define INTEL_RANDOM_GENERATOR_DATA_PRESENT 0x01
+#define INTEL_RANDOM_GENERATOR_DATA 2
+
+MODULE_LICENSE("GPL");
+
+static inline unsigned char hwstatus_get(void __iomem *mem)
+{
+	return ioread8(mem + INTEL_RANDOM_GENERATOR_HW_STATUS);
+}
+
+static void read_random_data(void __iomem *mem)
+{
+	int data = 0x00;
+	int i;
+
+	for (i = 0; i < 20; i++)
+	{
+		data = !!(ioread8(mem + INTEL_RANDOM_GENERATOR_STATUS) & INTEL_RANDOM_GENERATOR_DATA_PRESENT);
+
+		if (data) break;
+		udelay(10);
+	}
+
+	pr_info("Data:%02x\n", data);
+
+	if (data)
+	{
+		unsigned char random_data;
+		random_data = ioread8(mem + INTEL_RANDOM_GENERATOR_DATA);
+		pr_info("Random Data:%02x\n", random_data);
+	}
+}
+
+static int mod_init(void)
+{
+	if (!request_mem_region(INTEL_RANDOM_GENERATOR_ADDR, LENGTH, "myports"))
+	{
+		pr_info("request_mem_region() failed for myports\n");
+		return -1;
+	}
+	else 
+	{
+		void __iomem *mem;
+		unsigned char hw_status;
+
+		pr_info("request_mem_region() succcess for myports\n");
+
+		mem = ioremap(INTEL_RANDOM_GENERATOR_ADDR, LENGTH);
+		pr_info("ioremap returned:%px\n", mem);
+		if (!mem)
+		{
+			pr_err("ioremap failed\n");
+			return -1;
+		}
+		hw_status = hwstatus_get(mem);
+		pr_info("Hardware status:%02x\n", hw_status);
+		if ((hw_status & INTEL_RANDOM_GENERATOR_PRESENT) == 0)
+		{
+			pr_warn("Random number generator not present\n");
+		}
+		else
+		{
+			pr_warn("Random number generator present\n");
+		}
+		
+		if ((hw_status & INTEL_RANDOM_GENERATOR_ENABLED) == 0)
+		{
+			pr_warn("Random number generator not enabled\n");
+		}
+		else
+		{
+			pr_warn("Random number generator enabled\n");
+			read_random_data(mem);
+		}
+
+		iounmap(mem);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	release_mem_region(INTEL_RANDOM_GENERATOR_ADDR, LENGTH);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/33_Ports_Access_As_IO_Memory/Ports_Access_As_IO_Memory.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+MODULE_LICENSE("GPL");
+
+#define MY_BASEPORT 0x061
+#define NUMBER_PORTS 1
+static u8 __iomem *base_iomem;
+
+static int mod_init(void)
+{
+	if (!request_region(MY_BASEPORT, NUMBER_PORTS, "myport"))
+	{
+		pr_info("request region failed for myport\n");
+	}
+	else
+	{
+		pr_info("request region success for myport\n");
+		base_iomem = ioport_map(MY_BASEPORT, NUMBER_PORTS);
+		iowrite8(0x03, base_iomem);
+		ssleep(5);
+		iowrite8(0x00, base_iomem);
+	}
+
+	return 0;
+}
+
+static void mod_exit(void)
+{
+	ioport_unmap(base_iomem);
+	release_region(MY_BASEPORT, NUMBER_PORTS);
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/34_implementation_of_devmem/Implementation_of_devmem.c <==
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[])
+{
+	int fd;
+	char ch = 'a';
+	void *mem;
+
+	fd = open("/dev/mem", O_RDWR | O_SYNC);
+
+	if (fd < 0)
+	{
+		perror("open failed\n");
+		return -1;
+	}
+
+	mem = mmap(NULL, 0xfff, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0x101f1000);
+	if (mem == (void*) -1)
+	{
+		perror("mmap failed\n");
+		close(fd);
+		return -2;
+	}
+
+	*(unsigned char*)mem = ch;
+
+	munmap(mem, 0xfff);
+	close(fd);
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/35_RTC_On_QEMU_ARM/RTC_On_QEMU_ARM.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <asm/io.h>
+
+#define RTC_BASEADDRESS 0x101e8000
+#define LENGTH 0xf 
+
+MODULE_LICENSE("GPL");
+
+static int mod_init(void)
+{
+	void __iomem *p;
+	u32 seconds;
+
+	p = ioremap(RTC_BASEADDRESS, LENGTH);
+	pr_info("ioremap returned:%px\n", p);
+
+	//read data register which increments every second
+	seconds = ioread32(p);
+	pr_info("seconds:%04x\n", seconds);
+	ssleep(5);
+	seconds = ioread32(p);
+	pr_info("seconds:%04x\n", seconds);
+	
+	return 0;
+}
+
+static void mod_exit(void)
+{
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+==> ./LinuxCommunicatingWithHardware/37_smbios_entry_point_table/smbios_entry_point_table.c <==
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+/** SMBIOS entry point scan region start address */
+#define SMBIOS_ENTRY_START 0xf0000
+
+/** SMBIOS entry point scan region length */
+#define SMBIOS_ENTRY_LEN 0x10000
+
+void find_smbios_entry(u_int8_t *mem_mapped)
+{
+	size_t fp;
+
+	/* Try to find SMBIOS */
+	for (fp=0; fp<=0xFFF0; fp+=16)
+	{
+		if (memcmp(mem_mapped+fp, "_SM_", 4) == 0 && fp<=0xFFE0)
+		{
+			printf("smbios found at offset:%02lx\n", SMBIOS_ENTRY_START + fp);
+		}
+	}
+}
+
+int main(int argc, char *argv[])
+{
+	int fd;
+	u_int8_t *entry_mem;
+
+	fd = open("/dev/mem", O_RDWR);
+
+	if (fd < 0)
+	{
+		perror("open failed:\n");
+		return -1;
+	}
+
+	/* Map the region potentially containing the SMBIOS entry point */
+	entry_mem = mmap(NULL, SMBIOS_ENTRY_LEN, PROT_READ, MAP_SHARED, fd, SMBIOS_ENTRY_START);
+
+	if (entry_mem == MAP_FAILED)
+	{
+		perror("mmap failed\n");
+		close(fd);
+		return -2;
+	}
+
+	/* Scan for the SMBIOS entry point */
+	find_smbios_entry(entry_mem);
+
+	/* Unmap the entry point region (no longer required) */
+	munmap(entry_mem, SMBIOS_ENTRY_LEN);
+
+	close(fd);
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/38_parsing_entry_point_table/Parsing_Entry_Point_Table.c <==
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+/**
+ *
+ * SMBIOS entry point
+ *
+ * This is the single table which describes the list of SMBIOS
+ * structures. It is located by scanning through the BIOS segment
+ */
+struct smbios_entry 
+{
+	/** Signature - Must be equal to SMBIOS_SIGNATURE */
+	u_int32_t signature;
+	/** Checksum */
+	u_int8_t checksum;
+	/** Length */
+	u_int8_t len;
+	/** Major version */
+	u_int8_t major;
+	/** Minor version */
+	u_int8_t minor;
+	/** Maximum structure size */
+	u_int16_t max;
+	/** Entry point revision */
+	u_int8_t revision;
+	/** Formatted area */
+	u_int8_t formatted[5];
+	/** DMI Signature */
+	u_int8_t dmi_signature[5];
+	/** DMI checksum */
+	u_int8_t dmi_checksum;
+	/** Structure table length */
+	u_int16_t smbios_len;
+	/** Structure table address */
+	u_int32_t smbios_address;
+	/** Number of SMBIOS structures */
+	u_int16_t smbios_count;
+	/** BCD revision */
+	u_int8_t bcd_revision;
+} __attribute__ (( packed ));
+
+/** SMBIOS entry point scan region start address */
+#define SMBIOS_ENTRY_START 0xf0000
+
+/** SMBIOS entry point scan region length */
+#define SMBIOS_ENTRY_LEN 0x10000
+
+void print_smbios_table(u_int8_t *addr)
+{
+	struct smbios_entry *entry = (struct smbios_entry*)addr;
+	printf("smbios address:%02x\n", entry->smbios_address);
+}
+
+void find_smbios_entry(u_int8_t *mem_mapped)
+{
+	size_t fp;
+
+	/* Try to find SMBIOS */
+	for (fp=0; fp<=0xFFF0; fp+=16)
+	{
+		if(memcmp(mem_mapped+fp, "_SM_", 4)==0 && fp<=0xFFE0)
+		{
+			printf("smbios found at offset:%02lx\n", SMBIOS_ENTRY_START + fp);
+			print_smbios_table(mem_mapped+fp);
+		}
+	}
+}
+
+int main(int argc, char *argv[])
+{
+	int fd;
+	u_int8_t *entry_mem;
+
+	fd = open("/dev/mem", O_RDWR);
+
+	if (fd < 0)
+	{
+		perror("open failed:\n");
+		return -1;
+	}
+
+	/* Map the region potentially containing the SMBIOS entry point */
+	entry_mem = mmap(NULL, SMBIOS_ENTRY_LEN, PROT_READ, MAP_SHARED, fd, SMBIOS_ENTRY_START);
+
+	if (entry_mem == MAP_FAILED)
+	{
+		perror("mmap failed\n");
+		close(fd);
+		return -2;
+	}
+
+	/* Scan for the SMBIOS entry point */
+	find_smbios_entry(entry_mem);
+
+	/* Unmap the entry point region (no longer required) */
+	munmap(entry_mem, SMBIOS_ENTRY_LEN);
+
+	close(fd);
+	return 0;
+}
+
+==> ./LinuxCommunicatingWithHardware/39_Access_Configuration_Address_Space/Access_Configuration_Address_Space.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define PCI_INDEX_PORT 0xcf8
+#define PCI_DATA_PORT 0xcfc
+
+unsigned short read_pci_config_short(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	return inw(0xcfc + (offset&2));
+    //If the offset is even (LSB is 0), the operation reads from the register at 0xcfc.
+    //If the offset is odd (LSB is 1), the operation reads from the register at 0xcfc + 2.
+	//a simple way to switch between reading adjacent 16-bit registers without modifying the original offset value.
+}
+
+int __init hello_init(void)
+{
+	unsigned short vendor_id;
+	unsigned short device_id;
+
+	vendor_id = read_pci_config_short(0, 0, 0, 0);
+	device_id = read_pci_config_short(0, 0, 0, 2);
+	pr_info("Vendor id:%02x\t Device Id:%02x\n", vendor_id, device_id);
+
+	vendor_id = read_pci_config_short(0, 1, 0, 0);
+	device_id = read_pci_config_short(0, 1, 0, 2);
+	pr_info("Vendor id:%02x\t Device Id:%02x\n", vendor_id, device_id);
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/40_print_full_address_space/print_full_address_space.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+
+#define PCI_INDEX_PORT 0xcf8
+#define PCI_DATA_PORT 0xcfc
+
+unsigned char bus_number = 0;
+unsigned char slot_number = 1;
+unsigned char function_number = 0;
+
+module_param(bus_number, byte, 0);
+module_param(slot_number, byte, 0);
+module_param(function_number, byte, 0);
+
+unsigned short read_pci_config_short(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	outl(0x8000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	return inw(0xcfc + (offset&2));
+}
+
+unsigned char read_pci_config_byte(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	unsigned char v;
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	v = inb(0xcfc + (offset&3));
+	return v;
+}
+
+void print_configuration_space(unsigned char bus, unsigned char slot, unsigned char func)
+{
+	unsigned char pci_config_space[256];
+	unsigned short i;
+	
+	for (i = 0; i < 256; i++)
+		pci_config_space[i] = read_pci_config_byte(bus, slot, func, i);
+
+	print_hex_dump_bytes("", DUMP_PREFIX_NONE, pci_config_space, 256);
+}
+
+
+int __init hello_init(void)
+{
+	pr_info("Printing Configuration space of :%d:%d:%d\n", bus_number, slot_number, function_number);
+	print_configuration_space(bus_number, slot_number, function_number);
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/41_read_device_doesnt_exist/read_device_doesnt_exist.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define PCI_INDEX_PORT 0xcf8
+#define PCI_DATA_PORT 0xcfc
+
+unsigned short read_pci_config_short(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	outl(0x8000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	return inw(0xcfc + (offset&2));
+}
+
+int __init hello_init(void)
+{
+	unsigned short vendor_id;
+	unsigned short device_id;
+
+	vendor_id = read_pci_config_short(3, 1, 0, 0);
+	device_id = read_pci_config_short(3, 1, 0, 2);
+	pr_info("Vendor id:%02x\t Device id:%02x\n", vendor_id, device_id);
+
+	return 0;
+}	
+
+void __init hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+
+==> ./LinuxCommunicatingWithHardware/42_Base_Address_Registers/Base_Address_Registers.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define PCI_INDEX_PORT 0xcf8
+#define PCI_DATA_PORT 0xcfc
+
+unsigned short read_pci_config_short(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	return inw(0xcfc + (offset&2));
+}
+
+unsigned int read_pci_config(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	unsigned int v;
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	v = inl(0xcfc);
+	return v;
+}
+
+int __init hello_init(void)
+{
+	//00:02.0 VMware SVGA II Adapter
+	unsigned int bar_register = read_pci_config(0, 2, 0, 0x10);
+	pr_info("bar register:%02x\n", bar_register);
+
+	if (bar_register & 0x01)
+		pr_info("I/O mapped I/O\n");
+	else 
+	{
+		pr_info("Memory Mapped I/O\n");
+		if (((bar_register >> 1) & 0x03) == 0x00)
+			pr_info("32-bit address space\n");
+		else
+			pr_info("64-bit address space\n");
+	}
+
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/43_Base_Address_of_BAR/Base_Address_of_BAR.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define PCI_INDEX_PORT 0xcf8
+#define PCI_DATA_PORT 0xcfc
+
+unsigned short read_pci_config_short(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	outl(0x80000000 | (bus << 16) | (slot << 11) | (func << 8) | offset, 0xcf8);
+	return inw(0xcfc + (offset&2));
+}
+
+unsigned int read_pci_config(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{	
+	unsigned int v;
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	v = inl(0xcfc);
+	return v;
+}
+
+int __init hello_init(void)
+{
+	u64 address;
+	//00:02.0 VMware SVGA II Adapter
+	unsigned int bar_register = read_pci_config(0, 2, 0, 0x10);
+	pr_info("bar register:%02x\n", bar_register);
+
+	if (bar_register & 0x01)
+	{
+		pr_info("I/O Mapped I/O\n");
+		address = (bar_register & 0xFFFFFFFC);
+	}
+	else
+	{
+		pr_info("Memory Mapped I/O\n");
+		if (((bar_register >> 1) & 0x03) == 0x00)
+		{
+			pr_info("32-bit Address space\n");
+			address = (bar_register & 0xFFFFFFF0U);
+		}
+		else
+		{
+			unsigned long int bar_registerl = read_pci_config(0, 2, 0, 0x14);
+			pr_info("64-bit address space\n");
+			pr_info("bar register2:%02lx\n", bar_registerl);
+			address = (bar_register & 0xFFFFFFF0U) + ((bar_registerl & 0xFFFFFFFFU) << 32);
+		}
+	}
+	pr_info("BAR Address Register:%02llx\n", address);
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
+==> ./LinuxCommunicatingWithHardware/44_Find_Memory_Used_By_PCI_Device/Find_Memory_Used_BY_PCI_Device.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/ioport.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+#define PCI_INDEX_PORT 0xcf8
+#define PCI_DATA_PORT 0xcfc
+
+unsigned short read_pci_config_short(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	return inw(0xcfc +(offset & 2));
+}
+
+unsigned int read_pci_config(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset)
+{
+	unsigned int v;
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	v = inl(0xcfc);
+	return v;
+}
+
+void write_pci_config(unsigned char bus, unsigned char slot, unsigned char func, unsigned char offset, unsigned int val)
+{
+	outl(0x80000000 | (bus<<16) | (slot<<11) | (func<<8) | offset, 0xcf8);
+	outl(val, 0xcfc);
+}
+
+int __init hello_init(void)
+{
+	u64 address;
+	//02:01.0 Ethernet controller
+	unsigned int bar_register = read_pci_config(2, 1, 0, 0x10);
+	pr_info("bar register:%02x\n", bar_register);
+
+	if (bar_register & 0x01)
+	{
+		pr_info("I/O Mapped I/O\n");
+		address = (bar_register&0xfffffffc);
+	}
+	else
+	{
+		pr_info("Memory Mapped I/O\n");
+		if (((bar_register >> 1) & 0x03) == 0x00)
+		{		
+			pr_info("32-BIT Address space\n");
+			address = (bar_register & 0xFFFFFFF0U);
+		}
+		else
+		{
+			// To get the size of the device. 
+			// 1. you must save the original value of the BAR
+			// 2. write a value of all 1's to the register
+			// 3. then read it back
+			// 4. restore the original value
+			// The amount of memory can then be determined by masking the information bits, 
+			// performing a bitwise NOT ('~' in C) and incrementing the value by 1
+			unsigned long int bar_register1 = read_pci_config(2, 1, 0, 0x14);
+			unsigned int size, size_bar_register1, size_bar_register2;
+
+			pr_info("64-bit address space\n");
+			pr_info("bar register2:%02lx\n", bar_register1);
+			address = (bar_register & 0xFFFFFFF0U) + ((bar_register1 & 0xFFFFFFFFU) << 32);
+
+			//write all ones
+			write_pci_config(0, 8, 0, 0x10, 0xffffffff);
+			write_pci_config(0, 8, 0, 0x14, 0xffffffff);
+
+			//read it
+			size_bar_register1 = read_pci_config(0, 8, 0, 0x10);
+			size_bar_register2 = read_pci_config(0, 8, 0, 0x14);
+
+			//restore the original value
+			write_pci_config(0, 8, 0, 0x10, bar_register);
+			write_pci_config(0, 8, 0, 0x14, bar_register1);
+
+			pr_info("size bar_register1:%02x\n", size_bar_register1);
+			pr_info("size bar_register2:%02x\n", size_bar_register2);
+
+			//Masking
+			pr_info("size_bar_register1:%02x\n", ~size_bar_register1);
+			pr_info("size_bar_register2:%02x\n", ~size_bar_register2);
+
+			//clear the lowest 4 bits (prefetchable, address size, types)
+			size_bar_register1 &= ~15;
+			pr_info("size_bar_register1:%02x\n", ~size_bar_register1);
+			size = ~size_bar_register1 + 1;
+			pr_info("size:%02x\n", size);
+		}
+	}
+
+	pr_info("Base Address Register:%02llx\n", address);
+	return 0;
+}
+
+void __exit hello_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(hello_init);
+module_exit(hello_exit);
+
