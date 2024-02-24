@@ -235,9 +235,6 @@ clean:
 	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
 	gcc userapp
 
-
-
-
 ==> LinuxCharacterDeviceDrivers/sec2/19_offsetupdatesolution/Makefile <==
 obj-m := offset_update.o
 
@@ -251,3 +248,12 @@ clean:
 	rm userapp1
 	rm userapp2
 	rm userapp3
+
+==> InterruptsAndBottomHalves/15_disabling_specific_irq_line/Makefile <==
+obj-m := disabling_specific_irq_line.o
+obj-m += eth_interrupt.o
+
+all:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) modules
+clean:
+	make -C /lib/modules/`uname -r`/build M=$(PWD) clean
