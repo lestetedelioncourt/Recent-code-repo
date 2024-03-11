@@ -2,7 +2,7 @@
    45  zip -r ../foodvision_big.zip * -x "*.pyc" "*.ipynb" "*__pycache__*" "*ipynb_checkpoints*"
    46  sed -i '1573,1588{/^[ ]*$/d}' Linuxcommands.txt
    47  sed -i '/^$/{N;/^\n$/d;}' Geminiconversation.txt  #delete consecutive blank lines
-   48  your_command | sed 's/\x1b\[[0-9;]*m//g' > output.txt  # removes formatting from stdout output being written to file
+   48  your_command | sed 's/\x1b\[[0-9;]*m//g' > output.txt  # removes formatting from stdout output being written to file, '\x1b': Represents the escape character in hexadecimal, '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
   208  chmod u=rwx, g=rx, o= /home/ltetteh  #equal rewrites permissions can also be group ug=rwx, or ug+rx
