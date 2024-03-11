@@ -1,12 +1,15 @@
    44  #netstat -an | grep 3389
    45  zip -r ../foodvision_big.zip * -x "*.pyc" "*.ipynb" "*__pycache__*" "*ipynb_checkpoints*"
    46  sed -i '1573,1588{/^[ ]*$/d}' Linuxcommands.txt
-   	# {N;/^\n$/d;}: This is a block of commands that gets executed when the pattern /^$/ is matched.
+   47  sed -i '/^[[:space:]]*$/{N;/^\n[[:space:]]*$/d;}' Geminiconversation.txt  #delete consecutive blank lines and lines only containing whitespace
+   	# {N;/^\n[[:space:]]*$/d;}: This is a block of commands that gets executed when the pattern /^[[:space:]]*$/ is matched.
    		# 'N': Adds a newline to the pattern space (i.e., the working buffer), then appends the next line of input to the pattern space. If there is no more input, N does nothing.
-    		# '/^\n$/': After the N command, this pattern matches if the pattern space consists of a single newline character (meaning the current line being processed is empty and was followed by another empty line).
+    		# '/^\n[[:space:]]*$/': After the N command, this pattern matches if the pattern space consists of a single newline character (meaning the current line being processed is empty and was followed by another empty line).
       		# 'd': Deletes the pattern space; since the pattern space is output by default, deleting it effectively removes the matched lines from the output.
-   47  sed -i '/^[ ]*$/{N;/^\n$/d;}' Geminiconversation.txt  #delete consecutive blank lines
-   48  your_command | sed 's/\x1b\[[0-9;]*m//g' > output.txt  # removes formatting from stdout output being written to file, '\x1b': Represents the escape character in hexadecimal, '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.
+   48  your_command | sed 's/\x1b\[[0-9;]*m//g' > output.txt  
+   	# removes formatting from stdout output being written to file, 
+    		# '\x1b': Represents the escape character in hexadecimal, 
+      		# '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
   208  chmod u=rwx, g=rx, o= /home/ltetteh  #equal rewrites permissions can also be group ug=rwx, or ug+rx
