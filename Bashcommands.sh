@@ -7,7 +7,7 @@
     		# '/^\n[[:space:]]*$/': After the N command, this pattern matches if the pattern space consists of a single newline character (meaning the current line being processed is empty and was followed by another empty line).
       		# 'd': Deletes the pattern space; since the pattern space is output by default, deleting it effectively removes the matched lines from the output.
    48  your_command | sed 's/\x1b\[[0-9;]*m//g' > output.txt  
-   	# removes formatting from stdout output being written to file, 
+   	# removes formatting from stdout output being written to file, i.e $PS1 formatting, colour formatting
     		# '\x1b': Represents the escape character in hexadecimal, 
       		# '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
