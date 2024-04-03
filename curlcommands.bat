@@ -93,3 +93,5 @@ curl -H "systemtoken: weathersystem" -G http://localhost:8080/weather/europe?nam
 curl -X POST http://localhost:8080/weather/europe
 curl -G http://localhost:8080/weather/usa
 curl -X POST http://localhost:8080/weather/usa
+==> ./ktor-routes/script/curl_up.bat <==
+curl -v -X POST -H "Accept: */*" -H "Accept-Encoding: gzip, deflate" -H "Accept-Language: en-GB,en;q=0.5" -H "Connection: keep-alive" -H "Origin: http://*************" -H "Referer: http://***************/splashpage" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0" -F "updateFile=@C:\path\to\robottests.zip" http://****************/******/api/**********
