@@ -9,7 +9,17 @@
    48  your_command | sed 's/\x1b\[[0-9;]*m//g' > output.txt  
    	# removes formatting from stdout output being written to file, i.e $PS1 formatting, colour formatting
     		# '\x1b': Represents the escape character in hexadecimal, 
-      		# '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.
+      		# '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.  
+   49 while (( line > 0 )) ; do   # line length frmatter command 
+      > length=$(sed -n "${line}p" oceanwires.txt | wc -c | awk '{print $1}'); 
+      > segments=$(( length / 160 )); 
+      > while (( length > 180 )) ; do 
+      > sed -i "${line}s/\([^$]\{$(( segments * 160 ))\}[0-9A-z\"\'()]\+\b[,. ]*\)/\1\n/" oceanwires.txt ; 
+      > (( -- segments )); 
+      > length=$(sed -n "${line}p" oceanwires.txt | wc -c | awk '{print $1}'); 
+      > done; 
+      > (( -- line )); 
+      > done
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
   208  chmod u=rwx, g=rx, o= /home/ltetteh  #equal rewrites permissions can also be group ug=rwx, or ug+rx
