@@ -10,7 +10,7 @@
    	# removes formatting from stdout output being written to file, i.e $PS1 formatting, colour formatting
     		# '\x1b': Represents the escape character in hexadecimal, 
       		# '\[[0-9;]*m': Matches the sequence of characters typically used for formatting.  
-   49 while (( line > 0 )) ; do   # line length frmatter command 
+   49 while (( line > 0 )) ; do   # line length formatter command 
       > length=$(sed -n "${line}p" oceanwires.txt | wc -c | awk '{print $1}'); 
       > segments=$(( length / 160 )); 
       > while (( length > 180 )) ; do 
