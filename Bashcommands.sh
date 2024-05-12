@@ -23,6 +23,7 @@
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
   208  chmod u=rwx, g=rx, o= /home/ltetteh  #equal rewrites permissions can also be group ug=rwx, or ug+rx
+  209  wget -q https://github.com/ShivamShrirao/diffusers/raw/main/scripts/convert_diffusers_to_original_stable_diffusion.py
   758  sudo mv# /etc/sysconfig/network-scripts/ifcfg-eno1temp /etc/sysconfig/network-scripts/ifcfg-eno1
  1009 !c #runs last command beginningw with letter(s) specified after !1008 runs history command
  1010 !$ #runs last argument 
