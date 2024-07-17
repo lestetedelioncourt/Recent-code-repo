@@ -20,6 +20,11 @@
       > done; 
       > (( -- line )); 
       > done
+#Updating JAVA
+   50  sudo update-java-alternatives --set java-1.11.0-openjdk-amd64
+       export JAVA_HOME=/path/to/jdk
+       export PATH=$JAVA_HOME/bin:$PATH
+       sudo ln -sfn /path/to/jdk /usr/lib/jvm/default-java
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
   208  chmod u=rwx, g=rx, o= /home/ltetteh  #equal rewrites permissions can also be group ug=rwx, or ug+rx
