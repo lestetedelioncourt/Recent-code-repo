@@ -26,6 +26,8 @@
        export PATH=$JAVA_HOME/bin:$PATH
        sudo ln -sfn /path/to/jdk /usr/lib/jvm/default-java
    51 du -sh * | sort -hr | head -n 10  # lists top 10 largest files from the current directory
+   52 host 185.125.190.83   # will resolve hostname information from an ip address
+       # 83.190.125.185.in-addr.arpa domain name pointer ubuntu-mirror-3.ps5.canonical.com.
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
   208  chmod u=rwx, g=rx, o= /home/ltetteh  #equal rewrites permissions can also be group ug=rwx, or ug+rx
