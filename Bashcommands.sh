@@ -28,6 +28,7 @@
    51 du -sh * | sort -hr | head -n 10  # lists top 10 largest files from the current directory
    52 host 185.125.190.83   # will resolve hostname information from an ip address
        # 83.190.125.185.in-addr.arpa domain name pointer ubuntu-mirror-3.ps5.canonical.com.
+   53 ps aux --sort -rss   # sorts the output of the ps aux command by memory usage
   207  (php -S 0.0.0.0:4321 &) && sleep 2 && curl -G http://0.0.0.0:4321/Africa006.jpg    # chains commands and runs first command as a background process   
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
