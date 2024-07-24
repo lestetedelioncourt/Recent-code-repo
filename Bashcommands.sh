@@ -29,6 +29,14 @@
    52 host 185.125.190.83   # will resolve hostname information from an ip address
        # 83.190.125.185.in-addr.arpa domain name pointer ubuntu-mirror-3.ps5.canonical.com.
    53 ps aux --sort -rss   # sorts the output of the ps aux command by memory usage
+   54 Xvfb :99 -screen 0 1024x768x24 &
+   55 export DISPLAY=:99
+   56 $PROCESS
+   57 killall Xvfb
+   # Xvfb (X virtual framebuffer) is a display server that implements the X11 display server protocol without actually displaying anything on a screen.
+   # It creates a virtual X display in memory, without requiring any physical display hardware or graphics adapter and performs all graphical operations in virtual memory without showing any screen output.
+   # From the perspective of X client applications, Xvfb acts exactly like any other X display server, handling requests and sending events/errors as appropriate.
+   # It has no physical I/O requirements: i.e. it doesn't need a screen, keyboard, or mouse. It only requires a network layer for communication.
   207  (php -S 0.0.0.0:4321 &) && sleep 2 && curl -G http://0.0.0.0:4321/Africa006.jpg    # chains commands and runs first command as a background process   
   208  chmod g+x u+x /home/ltetteh     #plus will add permissions     
   208  chmod g-rx u-wx /home/ltetteh   #minus will remove permissions
