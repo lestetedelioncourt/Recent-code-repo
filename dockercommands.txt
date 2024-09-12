@@ -1,0 +1,245 @@
+Docker takes both GNU flags and linux flags
+$FORMAT predefined as
+
+1 docker ps -a
+2 docker images   # shows all images
+3 docker run -ti ubuntu:latest bash    # -ti flag stands for "terminal interactive", ubuntu:latest (repository:tag), bash defines the shell to run in this instance
+       # If this image is run in another tab, any changes made to the filesystem here will no longer appear, any changes to the file system made in a container will not be saved when exited  
+4 docker ps   # shows running images 
+5 docker ps --format $FORMAT   # will return container id, image name, command run, time created, status, and name
+       $FORMAT (predefined, names for output, with newline and tab separators, i.e. "\nID\t{{.ID}}\nIMAGE\t{{.Image}}"
+6 docker ps -l --format=$FORMAT    # shows last running container, if a format has been defined as a variable can be passed as a flag
+7 docker commit 15dcdc9f41b0       # takes container and makes an image out of it, will return a new image id  will contain any edited files or changes made to file system
+8 docker tag 168086c1b7e11c61eeeac49d90b90dc355e98226dc140528e33a8d56e88815b2 les-image     #   example taking image id reurned from (7), with the second variable being the new tag name
+9 docker run -ti les-image bash    # takes last image and runs it up in bash, will contain any edited files or changes made to file system
+       # containers have a main process and the container stops when that process stops
+10 docker run --rm -ti ubuntu sleep 5    # --rm command used to run something within container that is not kept afterwards (wil run sleep command then exit deleting container afterwards) 
+11 docker run -ti ubuntu bash -c "sleep 5; echo all done"     # bash -c flag used to pass commands to bash shell, which allows multiple commands to be run as show in this case
+12 docker run -d -ti ubuntu bash      # -d flag stands for detached, this command returns an identifier which can be used as an image ID
+   13 docker ps     #run in a separate tab will show container currently running which has been started as a detached process and will return image ID and name 
+   14 docker attach blissful_murdock    # docker will now attach the container to the interface, (Ctrl+P, Ctrl+Q to exit container by detaching from it, allows container to be reattached later)
+   15 docker exec -ti blissful_murdock bash     # 'exec' starts another process in an existing container, any changes made in this filesytem will appear in any other visible window 
+16 docker run --name example -d ubuntu bash -c "lose /etc/password"    # gives the container the name example and attempts to run the command lose /etc/password (will cause it to crash) 
+   17 docker logs example   # will return the cause of docker instance crash but will bog down system if response data gets too large
+18 docker run -ti ubuntu bash  
+   19 docker ps   # in separate window to get container name   
+   20 docker kill fervent_mclean   # will kill the container started in the other tab
+# can define resource constraints before an image is run so it doesn't consume too many 
+       # docker run --memory maximum-allowed-memory image-name command
+       # docker run --cpu-shares relative to other containers
+       # docker-run --cpu-quota argument (argument is given in percent)
+# key tips: don't allow containers to fetch dependencies when they start
+
+##Network between containers##
+21 docker run -rm -ti -p 45678:45678 -p 45679:45679 --name echo-server ubuntu:14.04 bash   # docker containers are isolated from the internet by default so can pass an outside port number (in this case 45678 to a port inside the container, in this case 45678), ubuntu:14.04 is needed for following commands as it contains netcat package, can then be downloaded from the internet   
+   22 nc -lp 45678 | nc -lp 45679   # any incoming traffic on port 45678 is forwarded to the connection connecting on port 45679 <- rewatch 2. Network between containers with nc command
+     23 nc localhost 45678
+     24 nc localhost 45679   --run from two separate tabbed instances of the command line the two ports connected via Docker can now talk to each other. (i.e. traffic sent through port 45678 will come out at port 45679)
+     25 docker run -rm -ti ubuntu:14.04 bash
+        26 nc ipaddress 45678
+     27 docker run -rm -ti ubuntu:14.04 bash
+        28 nc ipaddress 45679
+     # theoretically possible to run up two separate instances of docker and then to talk from one instance to another via the host computer ip address (have not personally seen it run)
+28 docker run --rm -ti -p 45678 -p 45679 --name echo-server ubuntu:14.04 bash   # running up an instance of docker, specifying only the inside ports, and allowing the outside ports to be chosen dynamically
+     29 docker port echo-server     # returns "45678/tcp -> 0.0.0.0:45678 \r 45679/tcp -> 0.0.0.0:45679" 0.0.0.0 means return connections from anywhere
+30 docker run -p 45678:45679/udp     # docker run -p outside-port:inside-port/protocol (ports forward from inside to outside)
+
+##Link containers##
+31 docker run --rm -ti -p 1234:1234 unbuntu:14.04 bash 
+    32 nc -lp 1234
+33 docker run --rm -ti ubuntu:14.04 bash
+    34 nc ipaddress 1234   # now connected to the port running in the container instance specified in command 31
+# linking directly
+35 docker run -ti --rm --name server ubuntu:14.04 bash
+    36 nc -lp 1234
+37 docker run --rm -ti --link server --name client ubuntu:14.04 bash 
+    38 nc server 1234  # containers are now port-linked, traffic sent through this port will be received on other container port.
+    39 cat /etc/hosts  # docker puts ip address of the server into /etc/hosts file so it can be found locally 
+
+##Dynamic and legacy linking## 
+40 docker network create example   # docker network create "name" returns an ID string 9c9cff9f4a2348a4bb5f6814aa4f797444a3a43997cc9b52e2bb73c2f2d78300
+41 docker run --rm -ti --net=example --name server ubuntu:14.04 bash   # 
+    42 nc -lp 1234
+43 docker run --rm -ti --link server --net example --name client ubuntu:14.04 bash
+    44 nc server 1234  #can kill previous containers and 
+# bind address of 0.0.0.0 has to be used if you wAnt container to listen for connections from the internet (see transcript)
+
+##Images##
+44 docker images   # returns a list of downloaded and saved images, where images have a lot of shared data in common docker is effcient in its storage, ubuntu images will contain a lot of identical data, and will thus share storage, i.e. the sum of the images != the total amount of data listed by docker image command
+45 docker commit b679f098eb4b new_image_name:v2.0   # uses IMAGE ID returned by docker images command to create new image with format "docker commit IMAGE ID NAME:TAG", can create two new images from the same ID by giving the same name with different tags
+46 docker commit b679f098eb4b new_image_name    # run without a tag docker will create a tag for the usr
+47 docker rmi 5ca40dfb0361    #  will remove image, using the image id as an argument 
+
+##Volumes##
+#docker-example folder created prior with mkdir
+48 docker run -ti -v /home/ltetteh/docker-example:/shared-folder ubuntu bash   # creates a folder by the name of shared-folder at the root directory of the container, shares contents with docker-example, any file created in this folder will be visible to the 'parent' folder on the host machine
+#if sharing/passing file in must exist prior to running an image or will be assumed to be a directory
+49 docker run -ti -v /shared-data ubuntu bash   # -v used to create a volume for container which is not shared with host
+50 docker run -ti --volumes-from suspicious_boyd ubuntu bash   # imports data from last instance of docker, if any files are added and a new instance of docker is run with the --volumes-from command using this image name will contain both the files created in the previous instance and the files added to this image 
+
+##Docker registries##
+51 docker search ubuntu    # shows a list of images available, with those "official" verified as coming from the parent company 
+# hub.docker.com can create an ID which allows user to push and pull images from hub.docker.com
+52 docker login    # can be used from the command line as soon as docker account is created
+53 docker pull debian:sid   # docker pulls image:tag_name
+54 docker tag debian:sid lestetedelioncourt/new-image-01:v1.0   # give image a new name and tag 
+
+##Building Docker Images##
+# Dockerfile allows running of multiple commands
+55 vi Dockerfile    # contains commands "FROM busybox; RUN echo "building simple docker image."; CMD echo "hello container" == simplest Dockerfile that can be created.
+    56 docker build -t hello .  # when building from this Dockerfile will send the entire contents of the current directory to the Docker daemon as the build context 
+57 vi Dockerfile    # contains commands "FROM debian:sid; RUN apt-get -y update; RUN apt-get install nano; CMD "nano" "/tmp/notes""
+    58 docker build -t example/nanoer . 
+    59 docker --rm -ti example/nanoer      # no 'run' command added to the end, run command inherent within the file 
+    60 vi Dockerfile -> FROM example/nanoer; ADD notes.txt /notes.txt; CMD "nano" "/notes.txt"  
+         61 docker --rm -ti example/nanoer      # will add new file through Docker build 
+
+##Dockerfile syntax##
+-- FROM statement shows which iamge to download and start from, must be the first command in the Dockerfile, can use FROM with multiple images within the same Dockerfile, which means it will produce more than one image, i.e. FROM java:8
+-- MAINTAINER statement defines the author(and supporter) of the Dockerfile format is: MAINTAINER firstname lastname <email@address.com> (angle brackets are necessary for the email address)
+-- RUN statement runs the command line, waits for it to finish, saves the result. i.e. RUN unzip install.zip /opt/install
+-- ADD statement adds local files i.e. ADD run.sh /run.sh, can also add contents of tar archives and automatically uncompresse contentts of the archive, i.e. ADD new.tar.gz /install/, also takes url argument i.e. ADD https://mywebsite.com/mysite.rpm 
+-- ENV statement sets environment variables, both during the build and running the result i.e. ENV DB_HOST=db.production.example.com, or ENV DB_PORT=5432
+-- ENTRYPOINT statement is similar to command, but it specifies the beginning of the expession to use when you start the container and allows expressions to be tacked onto the end, i.e. ENTRY POINT ls -> anything typed after 'docker run my-image-name will be treated as arguments to the ls command. It is generally used when a container is intended to be used as a command-line program.
+-- CMD statement specifies the whole command to run, anything argument given after the 'docker run my-image-name' command will replace the CMD statement 
+  -- ENTRYPOINT, RUN and CMD can use either RUN nano notes.txt (shell form) or RUN ["/bin/nano", "notes.txt"] (exec form)
+-- EXPOSE statement maps a port into the container, essentially the same effect as the -p flag when run from the command line. EXPOSE 8080 
+-- VOLUME statement has the same effect as -v flag, creating shared folders, VOLUME ["/host/path/" "/container/path/"], VOLUME ["/shared-data"]
+-- WORKDIR statement sets the directory the container starts in i.e. WORKDIR /install/ would mean that all of the run statements will happen in the /install/ directory
+-- USER statement sets which user the container will run as i.e. USER arthur, or can be defined by user id i.e. USER 1000, which may be needed with shared network directories which assume fixed username or fixed user id
+https://docs.docker.com/enine/reference/builder/
+
+##Multi-project Docker files##
+62 vi Dockerfile -> FROM ubuntu:16.04; RUN apt-get update; RUN apt-get -y install curl; RUN curl https://google.com | wc -c > google-size; ENTRYPOINT echo google is this big; cat google-size
+   63 docker build -t tooo-big .
+       64 docker images    # shows a file size of 170MB 
+65 vi Dockerfile -> FROM ubuntu:16.04 as builder; RUN apt-get update; RUN apt-get -y install curl; RUN curl https://google.com | wc -c > google-size; ENTRYPOINT echo google is this big; cat google-size
+   66 docker build -t tooo-big-2 .
+67 vi Dockerfile -> 	FROM ubuntu:16.04 as builder        			#"FROM baseImage:tag AS stage"   ##have given build-stage anme of builder
+			RUN apt-get update 
+			RUN apt-get -y install curl 
+			RUN curl https://google.com | wc -c > google-size 
+
+			FROM alpine 						#Adding another FROM (multi-stage project)
+			COPY --from=builder /google-size /google-size 		#Copies from other build-stage, copies source file to destination (in this case the same path)
+			ENTRYPOINT echo google is this big; cat google-size	
+   67 docker build too-big-3  . ->>>> docker run too-big-3
+   68 docker images    # shows a much smaller size for the new image
+
+##### Under the hood #####
+
+##Docker the program##
+
+69 ls -lrt /var/run/docker.sock  # docker control socket, client and server communicate through this file when running on the same computer.
+70 docker run -ti --rm -v /var/run/docker.sock:/var/run/docker.sock docker sh   # "-v volume-mount-on-pc:file-in-container", allow docker container hook for client to control its own server, can then control a server outside of the container. (Docker written in Go language)
+
+##Networking and namespaces##
+
+#Docker uses bridges to create virtual networks in your computer, they are software switches which control ethernet layer. To look at bridges inside running docker system would usually require brctl (Bridge Control) and access to the hosts networking system
+
+71 docker run -ti --rm --net=host ubuntu:16.04 bash   # --net=host gives full access to hosts networking stack and turns off protections
+    72 apt-get update && apt-get install bridge-utils    # installs bridge-utls (provides brctl)
+    73 brctl show     # shows all bridges on the system, docker0 is the networking system used by all computers that don't have their own network
+ 74 docker network create my-new-network    # run on user's bash terminal (outside of docker container)
+    75 brctl show    # will now show the new network just created outside of the container, docker doesn't move packets between containers, but is creating bridges by running comands to configure the system
+
+#Routing creates firewall rules to move packets between networks, system referred to as NAT or Network Address Translation, changes packet source address on the way out, and changes destination address on the way back in
+
+76 sudo iptables -n -L -t nat    # allows to look at nat rules in iptables/routing rules
+77 docker run -ti --rm --net=host --privileged=true ubuntu bash   # --privileged=true turns off further safeties
+    78 sudo iptables -n -L -t nat   # will show host iptables routing rules
+79 docker run -ti --rm -p 8080:8080 ubuntu bash 
+77->80 sudo iptables -n -L -t nat   # will now show the new iptables routing rule forwarding port 8080 to the docker containers port 8080
+                                      Chain POSTROUTING (policy ACCEPT)
+                                      MASQUERADE  tcp  --  172.17.0.3           172.17.0.3           tcp dpt:808
+                                      Chain DOCKER (2 references)
+                                      DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:8080 to:172.17.0.3:8080
+# "exposing" ports in docker is really just port forwarding at the network layer
+# Namespaces allow processe to be attached to private network segments
+#These private networks are bridged into a shared network with the rest of the containers - containers in this instance have virtual network cards and a copy of the network stack, which means they can't then go in and start editing other network config in another container.
+
+##Processes and cgroups##
+
+#Each process has one parent (child-parent relationship), when a child process exits it returns an exit code to its parent
+#Process Zero is specia; called "init", the process that starts the rest
+#In Docker your container starts with an init process and vanishes when that process exits
+
+81 docker run -ti --rm --name hello ubuntu bash  #starts docker container with the name "hello"
+82 docker inspect --format '{{.State.Pid}}' hello   # docker inspect is a tool used to find out anything about a program programmatically(?), run from outside container, takes container name as parameter, '{{.State.pid}}' jquery-like syntax, returns pid of main process running in container
+83 docker run -ti --rm --privileged=true --pid=host ubuntu bash   # starts highly privileged container, can be used to kill process in the underlying host without being stopped by docker
+    84 kill pid   # will exit the hello container by killing pid returned by command 82
+#docker is used for limiting resource allocation on the host machine, sum total of any processes running in a container cannot exceed the quota given to process Zero
+
+##Storage##
+ 
+  #Unix storage system
+#At lowest level are storage devices such as hard drives, flash drives, etc. that store data as bits managed by kernel ^^^ 
+#Next level is logical storage devices, arbitrarily divides storage devices into groups, and then partitions further ^^^^
+#File systems determinng which bit belongs to which file, ^^^
+#FUSE File systems, Network filesystems and programs that pretend to be filesystems ^^^
+# COW layer - Copy on write filesystem layer, docker uses whatever tool is available to it via the kernel to manage this layer (LVM - Logical volume manager, BTRFS b-tree file system, overlay file system, etc.) 
+# Contents of layers are moved between containers in gzip files 
+
+85 docker run -ti --rm --privileged=true ubuntu bash    # will need to pass --privileged=true to manipulate the filesystem
+    1  mkdir example
+    2  cd example/
+    3  mkdir work
+    4  cd work/
+    5  touch a b c d e f
+    6  cd ..
+    7  mkdir other-work
+    8  cd other-work/
+    9  touch A B C D E F
+   10  cd ..
+   11  ls -R
+   12  mount -o bind other-work/ work/
+   13  ls -R    #has mounted the other-work directory on top, now will return only the values in other-work/
+   14  umount work
+   15  ls -R    #Will now return the normal contents of the work folder
+# Have to be careful about the mount directory, and order of mounting
+
+##### Orchestration: Building systems with Docker #####
+
+##Registries in detail##
+
+#A Docker registry is a program that stores layers and images, tags and metadata, listens on port 5000 for instructions related to images i.e. push, pull, etcs. It also maintains an index and searches tags and can also authorize and authenticate connections (if the creator has provided such configuration).
+#Docker registry programs: official Python Docker Registry, Nexus
+# A registry is a program designed to provide a network service and can be run in docker
+
+86 docker run -d -p 5000:5000 --restart=always --name registry registry:2    # -d=detached process, --restart=always command will restart the docker container immediately if it dies - image is registry:2
+87 docker tag ubuntu:14.04 localhost:5000/my-company/my-ubuntu:99    # tagged with name of server running the registry (localhost), port (5000), company name (my-company), image name (my-ubuntu:99) 
+88 docker push localhost:5000/my-company/my-ubuntu:99    # pushes to the registry, now has a local copy of image saved on machine, must set up authentication/security before exposing it to any network
+# info on https://docs.docker.com/registry/
+89 docker images    # shows the new image that has been saved (localhost:5000/my-company/my-ubuntu:99)
+90 docker save -o my-images.tar.gz debian:sid busybox ubuntu:14.04  #saves an archive file of most important images
+91 docker rmi debian:sid busybox ubuntu:14.04   # removes images from docker
+92 docker images    # shows images have been removed
+93 docker load -i my-images.tar.gz   # reloads images
+94 docker images    # shows images have been reloaded
+
+##Intro to orchestration##
+
+#Orchestration systems are used generally in multiple container instances, used to start containers, for service discovery and resource allocation (matching containers to computer systems).
+
+# Docker Compose is generally used for single machine coordination and is the defacto standard, brings up all containers, volumes and networks with one command.
+# Kubernetes used for larger systems, has containers that runs program, uses "pods", groups of containers intended to be run together, gives you approximately as much as Docker Copose but is dynamically distributed. Finds a place to run it, then provides service discovery and orchestratin. Has services making pods discoverable and accessible to others. If a connection to a pod gets restarted, then that service will redirect traffic to the new instance. Labels used for advanced service discovery, and can be used to describe every aspect of your system i.e. version numbers, hardware, physical location, etcs. 
+   # kubect1 used for scripting large operations
+   # Has flexible overlay networking regardless of how things move within the infrastructure, and runs well on hardware or cloud provider https://kubernetes.io
+# EC2 Container Service (ECS - Amazon https://aws.amazon.com/ecs/). Ties into Amazon services very well; connects load balancers (ELBs) to services, makes traffic available on the internet using existing systems; can create own host instances using Amazon Web Services; once instances are running can be made to start an agent and join a cluster; takes docker control socket, passes to agent run in docker, allowing agent to control the host it is running on; provides a set of docker repos built in, easy to run your own repo; containers(tasks) can be part of CloudFormation stacks making deployment with AWS fairly easy;   
+   # Task definitions: Provide all instructions to start a container/set of containers that run together (analagous to Kubernetes pod), all information required for services that will run together on the same machine. Doesn't run anything just defines a task that will be run.
+   # Task: when Task definintion is run is called a task, 
+   # Services: These take tasks and expose them to the Net and ensure that the task is running all of the time (may split across several hosts)
+# AWS Fargate is a more automated version of ECS ( https://aws.amazon.com/fargate/ )   
+# Docker swarm is provided by the people who make docker ( https://docsdocker.com/engine/swarm/ )
+# Google cloud offers a kubernetes engine ( https://cloud.google.com/kubernetes )
+# Microsoft offers Azure Kubernetes service ( https://azure.microsoft.com/en-us/services/kubernetes-service/ )
+
+##Kubernetes in AWS##
+
+##Google Kubernetes Engine##
+
+
+
+
+
+
