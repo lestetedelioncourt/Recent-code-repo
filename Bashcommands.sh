@@ -1099,3 +1099,9 @@ gcc -c cipher_encode.c   # create .o files
 ar -crs libcipher.a cipher_encode.o cipher_decode.o  # creates .a file
 ar -t libcipher.a        # -t table option lists modules in .a file
 gcc main.c lib.a -o main   # include header(s) in .c file
+
+** FESTO notes **
+eth1 -> commissioning port on controller
+PLC has ethernet switch 
+Can use modbus through Ethernet + Ethercat, CanOpen
+Check for CoDeSys license sticker on controller
