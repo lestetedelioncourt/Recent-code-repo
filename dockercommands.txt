@@ -238,8 +238,10 @@ https://docs.docker.com/enine/reference/builder/
 
 ##Google Kubernetes Engine##
 
-
-
+# Pushing a docker image
+95a docker login
+95b docker tag ubuntu-2204-app lestetedeleoncourt/ubuntu-2204-app
+95c docker push lestetedeleoncourt/ubuntu-2204-app
 
 
 
