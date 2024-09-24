@@ -2310,3 +2310,324 @@
     	# IRQ 13 — math co-processor
     	# IRQ 14 — ATA channel 1
     	# IRQ 15 — ATA channel 2
+  # Initially the x86 used ISA Bus. The PCI bus later replaced the ISA bus. Unfortunately the number of devices began to exceed the number 15, also instead of the static ISA bus, devices in the PCI bus can be added to the system dynamically.
+  # Interrupts in the PCI bus can be shared, so it is possible to connect many devices to one interrupt line IRQ
+  # In the end, to solve the problem of the lack of interrupt lines, it was decided to group interrupts from all of the PCI devices to PIRQ lines (Programmable Interrupt Request)
+  # For example, suppose we have 4 free interrupt lines on the PIC controller and 20 PCI devices - we can combine interrupts from 5 devices into one PIRQx line, and connect these PIRQx lines to the PIC controller
+  # In this case if there is an interrupt on one of the PIRQx lines, the processor will have to ask all the devices connected to this line about the interrupt to know who is responsible for it, but in the end it solves the problem.
+  # The device that connects PCI interrupt lines to PIRQ lines is often caled a PIR router - this method ensures PIRQx lines don't connect to lines with ISA interrupts (causes conflicts).
+  # System software, such as the BIOS or operating system is responsible for programming the interrupt router.  
+  # The PIC method only works for single processor systems. It can only send interrupts to one CPU, and in a multiprocessor system it is desirable to load CPUs in a balanced way. The solution to this is the APIC interface (Advanced PIC)
+  # The APIC interface consists of two components:
+	# IOAPIC (IO APIC)  - Interfaces with Devices (lines 0-23)
+		# Connects to devices to allow device interrupt requests to be routed to LAPICs
+		# There can be one or more IO-APIC in the system
+		# Each IO-APIC has 24 interrupt lines
+		# It receives interrupt requests from devices and sends them to LAPICs based on redirection table entries (RTE) programmed in the IOAPIC
+	# LAPIC (Local APIC) - Interfaces with CPU 
+  `		# Each processor in a multiprocessor system has one LAPIC (local APIC). It is reponsible for:
+			# Receiving various interrupt requests and delivering them to the processor
+			# Handling prioritization of interrupts
+			# Sending interrupts to other processors (known as inter-processor interrupts or IPIs)
+		# LAPIC can be connected directly to I/O devices via local interrupt timers (timer, thermal sensor) or through IO-APIC via external interrupt inputs
+		# LAPIC can generate interrupts due to interrupt requests received from various sources
+			# IPIs received from other processors
+			# Interrupts coming from LINT (local interrupts) or EXTINT (external interrupts)
+	# To maintain backwards compatibility, APIC emulates 8259 PIC
+	# The CPUID.0h:EDX[bit 9] flag specifies whether a CPU has a built-in local APIC/
+  # CPUID is an x86 opcode which stands for CPU Identification.
+  # The CPUID instruction can be used to retrieve various amounts of information about your cpu
+	# Vendor string
+	# Model Number
+	# Size of internal caches
+	# List of CPU features
+	
+ 221. man 4 cpuid  # CPUID provides an interface for querying information about the x86 CPU
+ # The cpuid driver is not auto-loaded. On modular kernels you might need to use the following command to load it explicitly before use
+ 222. modprobe cpuid  
+ # Most of the information in cpuid is reported by the kernel in cooked form either in /proc/cpuinfo
+ 223. cat /proc/cpuinfo | grep -i apicid # apicid: A unique ID given to each logical processor upon startup
+ # When there is an interrupt
+	# Device Asserts IRQ of I/O APIC
+	# I/O APIC transfer interrupt to LAPIC
+	# LAPIC asserts CPU interrrupts
+	# After current instruction completes CPU senses interrupt line and obtains IRQ number from LAPIC
+	# Jumps to interrupt handler
+  # The hardware finds the interrupt handler via
+	# The Interrupt Vector
+		# On x86 each interrupt or exception is identified by a number between 0 and 255. Intel calls this number a vector.
+		# The interrupt vector is used by the interrupt handling mechanism to locate the system-software service routine assigned to the exception or interrupt
+		# Up to 256 unique interrupt vectors are available in x86
+		# The number of interrupt vectors or entry points supported by a CPU differs based on the CPU architecture
+		# The first 32 vectors are reserved for predefined exception and interrupt conditions
+		# Look into arch/x86/include/asm/traps.h
+	# Interrupt Descriptor Table
+		# The IDT is a linear table of 256 entries which associates an interrupt handler with each interrupt vector
+		# When an interrupt is fired, the CPU looks at the IDT table and finds what method needs to be called
+		# Each descriptor is of size 8 bytes (on x86) and 16 bytes (on x86_64)
+		# During early boot, the architecture-specific branch of the kernel code sets up the IDT in memory and programs the IDTR register (special x86 register) of the processor with the physical start address and length of the IDT
+  # Whenever an interrupt occurs, assembly instructions in linux kernel are executed which locates relevant vector descriptor by multiplying reported vector number by size of vector(8/16) and adding the result to the base address of IDT
+	# common_interrupt: arch/x86/entry/entry_64.s:
+		# a. saves the context of the running process
+		# b. This includes instruction pointer (IP), stack pointer and other registers needed to resume the process again
+		# c. This context is usually saved on the stack.
+		# d. Then the context is changed to interrupt stack
+	# Finally it arrives at do_IRQ(). do_IRQ() is the common function for all hardware interrupts	
+		# arch/x86/kernel/irq.c
+	# Finds IRQ number in saved %EAX register
+	# Calls handle_irq which will finally call our registered interrupt handler
+  224. cat /proc/interrupts  # contains statistics related to interrupts on the system
+		>>            CPU0       CPU1       CPU2       CPU3       
+		>>   0:         36          0          0          0   IO-APIC   2-edge      timer
+		>>   1:          0          0       1850          0   IO-APIC   1-edge      i8042
+		>>   8:          0          0          0          0   IO-APIC   8-edge      rtc0
+		>>   9:          0          0          0          0   IO-APIC   9-fasteoi   acpi
+		>>  12:          0       5630          0          0   IO-APIC  12-edge      i8042
+		>>  14:          0          0          0          0   IO-APIC  14-edge      ata_piix
+		>>  15:          0          0          0       6999   IO-APIC  15-edge      ata_piix
+		>>  16:          0          0          0     209347   IO-APIC  16-fasteoi   enp0s8
+		>>  18:          0     215229        335          0   IO-APIC  18-fasteoi   vmwgfx
+		>>  20:          0     176122          0          0   IO-APIC  20-fasteoi   vboxguest
+		>>  21:      19392          0      74256          0   IO-APIC  21-fasteoi   ahci[0000:00:0d.0], snd_intel8x0
+		>>  22:         28          0          0          0   IO-APIC  22-fasteoi   ohci_hcd:usb1
+		>> NMI:          0          0          0          0   Non-maskable interrupts
+		>> LOC:    1297097    1447024    1353213    1270984   Local timer interrupts
+		>> SPU:          0          0          0          0   Spurious interrupts
+		>> PMI:          0          0          0          0   Performance monitoring interrupts
+		>> IWI:          0          0          0          9   IRQ work interrupts
+		>> RTR:          0          0          0          0   APIC ICR read retries
+		>> RES:       1548       3618       5291       6362   Rescheduling interrupts
+		>> CAL:    3733338    3608168    3803116    3519717   Function call interrupts
+		>> TLB:     344406     313993     369698     317643   TLB shootdowns
+		>> TRM:          0          0          0          0   Thermal event interrupts
+		>> THR:          0          0          0          0   Threshold APIC interrupts
+		>> DFR:          0          0          0          0   Deferred Error APIC interrupts
+		>> MCE:          0          0          0          0   Machine check exceptions
+		>> MCP:         23         23         23         23   Machine check polls
+		>> ERR:          0
+		>> MIS:       1511
+		>> PIN:          0          0          0          0   Posted-interrupt notification event
+		>> NPI:          0          0          0          0   Nested posted-interrupt event
+		>> PIW:          0          0          0          0   Posted-interrupt wakeup event
+  
+	# First column - IRQ number - only shows interrupts corresponding to installed handlers
+	# CPU columns - have a counter showing the nummber of interrupts received.
+	# Penultimate columns -  Device that handles the interrupt and type of interrupt
+	# Last column - Device associated with this interrupt
+  # Differnce between fasteoi and edge isn
+	# fasteoi (End of Interrupt - eoi) are level interrupts triggered until interrupt event is acknowledged in the PIC
+	# edge are edge triggered interrupts
+  225. watch -n1 "cat /proc/interrupts"  # The watch command executes another command periodically, -n1 says execute every second 
+  226. watch -n 0.1 -d 'cat /proc/interrupts'  # -d option highlights the differences between successive updates
+  227. watch -n 0.1 -d --no-title 'cat /proc/interrupts'  # --no-title (-t) option of watch turns off header showing interval, command and current time at top of the display, as well as the following blank line
+  # Interrupt handlers are the responsibility of the driver managing the hardware - if the device uses interrupts, then the driver must register one interrupt handler
+  # Registering an interrupt handler
+	  # Header File: <linux/interrupt.h>
+	  # int request_irq(unsigned int irq,
+	  #         irq_handler_t handler,
+	  #         unsigned long flags,
+	  #         const char *name,
+	  #         void *dev);
+  # Parameters:
+	  # irq     --> The interrupt number being requested
+	  #             For some devices,for example legacy PC devices such as the system timer or keyboard, this value is typically hard-coded.
+	  #             For most other devices, it is probed or otherwise determined programmatically and dynamically.
+	  # handler   --> function pointer to the actual interrupt handler that services this interrupt.
+	  #               invoked whenever the operating system receives the interrupt
+	  #               typedef irqreturn_t (*irq_handler_t)(int, void *);
+	  # flags     --> bitmask of options related to interrupt management.
+	  # name      --> Name to be displayed in /proc/interrupts
+	  # dev       --> Used for shared Interrupt Lines
+  # Return Value:
+	  # Success  -->    Returns Zero
+	  # Failure  -->    Non-Zero Value
+  # When a key is pressed, the keyboard controller informs the PIC to cause an interrupt. IRQ #1 is the keyboard interrupt, so when a key is pressed IRQ 1 is sent to the PIC. The PIC tells the CPU an interrupt occurred.
+  # When the CPU acknowledges the "interrupt occurred" signal, the PIC chip sends the interrupt number (00h to FFh, or 0 to 255) to the CPU. Each key pressed on the keyboard generates two interrupts (pressed/released)
+  # A keyboard generates two scan codes for each key typed on the system, one scan code for press and the other for release. Release scan code is 128 (80h) plus the press scan code
+  228. ping -i 0.3 8.8.8.8  # makes ping request every 0.3 seconds
+  # Interrupt handlers return an irqreturn_t value.
+	# IRQ_NONE - interrupt was not from this device or was not handled
+	# IRQ_HANDLED - interrupt was handled by this device
+  # The third parameter of request_irq() is an interrupt flag. Interrupt flags are:
+	# IRQF_TIMER - specifies that this handler processes interrupts for the system timer
+	# IRQF_PERCPU - Interrupt is per cpu
+	# IRQF_PROBE_SHARED - set by callers when they expect sharing mismatches to occur 
+	# IRQF_NOBALANCING 	
+		# Flag to exclude this interrupt from IRQ balancing
+		# The purpose of IRQ balancing is to distribute hardware interrupts across processors on a multiprocessor system to improve performance
+		# Setting this flag forbids setting any CPU affinity for the requested interrupt handler
+  # Starting with the 2.4 kernel, Linux has gained the ability to assign certain IRQs to specific processors (or groups of processors). This is known as SMP IRQ affinity
+  # The interrupt affinity value for a particular IRQ numbber is stored in the associated /proc/irq/IRQ_NUMBER/smp_affinity file, which can be viewed and modified by the root user
+  # The value stored in this fie is a hexadecimal bit-mask representing alll CPU cores in the system /proc/irq/irq_number/smp_affinity_list contains cpu list
+  229. sudo cat /proc/irq/1/smp_affinity
+  230. while (( count < 32 )) ; do
+  > cat /proc/irq/${count}/smp_affinity
+  > (( ++ count ))
+  > sleep 1
+  > done
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> 8
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> f
+  	 >> 8
+  	 >> cat: /proc/irq/17/smp_affinity: No such file or directory
+  	 >> 2
+  	 >> cat: /proc/irq/19/smp_affinity: No such file or directory
+  	 >> f
+  	 >> 4
+  	 >> 1
+  	 >> cat: /proc/irq/23/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/24/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/25/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/26/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/27/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/28/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/29/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/30/smp_affinity: No such file or directory
+  	 >> cat: /proc/irq/31/smp_affinity: No such file or directory
+  # All devices that offer interrupt support have a status register that can be read in the handling routine to see if the interrupt was or was not generated by the device
+  # Example: For 8250 serial port, this status register is IIR - Interrupt Information Register
+  # Enable/Disable interrupt is contained in the Header File <linux/irqflags.h>
+	# local_irq_disable(); // disables all interrupts on the currennt processor
+	# local_irq_enable(); // Enable all interrupts on the current processor
+	# On x86, local_irq_disable() is a simple cli and local_irq_enable() is a simple sti instruction
+	# cli and sti are the assembly calls to clear and set the allow interrupts flag respectively
+  # By disabling interrupts, you can guarantee that an interrupt handler will not preempt your current code, 
+  # It also disables kernel preemption, however this does not provide protection from concurrent access by another processor. Use locks to prevent another process from accessing shared data simultaneously
+	# local_irq_disable() routine is dangerous if some interrupts were already disabled prior to its invocation
+	# The corresponding call to local_irq_enable() unconditionally enables interrupts, despite the fact that they were off to begin with 
+	# local_irq_save(flags); saves the interrupt state on flags and disables interrupt on that processor
+	# local_irq_restore(flags); restores the previous interrupt state and enables interrupt on that processor
+  # Disabling a specific interrupt line is also called masking out an interrupt line. An example is ypu might want to disable delivery of a device's interrupts before manipulating its state
+	# void disable_irq(unsigned int irq); // Disables a given interrupt line in interrupt controller. this disables delivery of the given interrupt to all processors in the system
+	# void enable_irq(unsigned int irq);
+	# Note: disable_irq does not return until any executing handler completes. Callers are asssured that
+		# a) new interrupts will not be delivered on the given line
+		# b) any already executing handlers have exited
+	# void disable_irq_nosync(unsigned int irq); // this functiondoes not wait for current handlers to complete
+	# void synchronize_irq(unsigned int irq); // this function waits for a specific interrupt handler to exit, if it is executing, before returning
+		# synchronize_irq() spins until no interrupt hanlder is running fir the given IRQ
+	# For each call to disable_irq() or disable_irq_nosync(), a corresponding call to enable_irq() is required(). Only on the last call will the interrupt line actually be enabled
+  # Disabling an interrupt line shared amongst multiple interrupt handlers disables delivery for all devices on the line, therefore driver for newer devices tend not to use these interfaces.
+  # PCI devices have to support interrupt line sharing by specification so should ot use these interfaces at all.
+	# disable_irq() and related functions are thus generaly found in drivers for legacy devices, such as the PC parallel port
+	# The macro irqs_disabled(), returns nonzero if the interrupt system on the local processor is disabled. Header File: <linux/irqflags.h>
+  # When executing an interrupt handler, the kernel is in interrupt context. We know process context is the mode of operation the kernel is in while it is executing on behalf of a process e.g. executing a system call
+  # As interrupt context is not backed with process, you cannot sleep in interrupt context. If a function sleeps, you cannot use it from your interrupt handler
+  # To ifnd out hwether running in interrupt context or process context:
+	# in_interrupt() returns non-zero if the kernel is performing any type of interrupt handling
+	# in_interrupt() returns zero if the kernel is in process context
+  # Interrupt handlers only execute a small amount of code and defer the rest of the work to a later point in time. This is because:
+	# Interrupt handlers are exected in hard-interrupt context - CPU-local interrupts remain disabled
+	# The handler of an interrupt must execute quickly, long running handlers can slow down the system and may also lead to losing interrupts. 
+	# The faster the handler returns, the lower the interrupt latencies in the kernel, which is especially important for real-time systems
+	# Locking is undesirable and sleeping must be avoided.
+	# A large amount of work cannot be performed in the interrupt handler
+  # The handling of interrupts is divided into two parts:
+	# Top Half (Hard IRQ)
+		# Acknowledge the interrupt
+		# Copy the necessary stuff from the device
+		# Schedule the bottom half
+	# Bottom Half (Soft IRQ)
+		# Remaining pending work
+  # The Network Card on reception of packets from the network issues an interrupt, kernel responds to it by executing the handler
+	# Top Half (Interrupt Handler):
+		# -> Acknowledges the interrupt
+		# -> copies the new networking packets into main memory
+		# -> pushes it up to the protocol layer
+		# -> readies the network card for more packets
+		# -> schedules the bottom half
+	# Bottom Half:
+		# Rest of the processing and handling of the packets
+		# Various mechanisms available: Soft IRQ, Tasklets, Workqueue
+  # An alternative to using formal bottom-half mechanisms is threaded interrupt handlers - these seek to reduce the time spent with interrupts disabled to bare minimum, pushinng the rest of the proocessing out into kernel threads
+  # With threaded IRQs, the way you register an interrupt handler is simplified, you do not have to schedule the bottom half yourself, the core does that for us. The bottom half is then executed in a dedicated kernel thread
+	# int request_threaded_irq(unsigned int irq, irq_handler_t handler, irq_handler_t thread_fn, unsigned long irqflags, const char *devname, void *dev_id);
+    # request_threaded_irq() breaks handler code into two parts, handler and thread function
+		# The threaded handler function will only be executed when the handler function returns IRQ_WAKE_THREAD
+		# The kthread associated with this bottom half will be scheduled, invoking the thread_fn
+		# The thread_fn must return IRQ_HANDLED when complete
+		# After being executed the kthread will not be rescheduled again until the IRQ is triggered again and the hard-IRQ returns IRQ_WAKE_THREAD
+  	>> <interrupt.h>
+  	>>  static inline int __must_check
+  	>>  request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
+  	>>          const char *name, void *dev)
+  	>>  {
+  	>>      return request_threaded_irq(irq, handler, NULL, flags, name, dev);
+  	>>  }
+	# the request_irq() function calls request_threaded_irq under the surface, but passes in a NULL value for the thread function.
+    # IRQF_ONESHOT is a flag ensuring the interrupt is not reenabled after the IRQ handler finishes - it's required for threaded interrupts which need to keep the interrupt line disabled until the threaded handler has run
+ 	# Specifying this flag is mandatory if the primary handler is set to NULL. The default primary handler does nothing except return IRQ_WAKE_THREAD to wake up a kernel thread to execite the thread in the IRQ handler
+	>> <kernel/irq/manage.c>
+  	>>  /*cd ..
+  	>>   * Default primary interrupt handler for threaded interrupts. Is
+  	>>   * assigned as primary handler when request_threaded_irq is called
+  	>>   * with handler == NULL. Useful for oneshot interrupts.
+  	>>   */
+  	>>  static irqreturn_t irq_default_primary_handler(int irq, void *dev_id)
+  	>>  {
+  	>>      return IRQ_WAKE_THREAD;
+  	>>  }
+  # Softirqs are bottom halves that run at a high priority, but with hardware interrupts enabled
+	# They are representend by rhe softirq_action structure
+	>> struct softirq_action
+	>> {
+	>>         void    (*action)(struct softirq_action *);
+	>> };
+	# A 10 entry array softirq_action softirq_vec[NR_SOFTIRQS];  //NR_SOFTIRQS=10(dec) in kernel code
+	# two for tasklet processing (HI_SOFTIRQ and TASKLET_SOFTIRQ)
+	# two for send and receive operations in networking (NET_TX_SOFTIRQ and NET_RX_SOFTIRQ)
+	# two for the block layer (asynchronous request completions)
+	# two for timers, and
+	# one each for the scheduler and
+	# read-copy-update processing
+  231. cat /proc/softirqs	# Shows Per CPU statistics 
+  # Software interrupts must be registered before the kernel can execute them. open_softirq is used for associating the softirq instance with the corresponding bottom half routine
+	>> void open_softirq(int nr, void (*action)(struct softirq_action *))
+	>> {
+	>>         softirq_vec[nr].action = action;
+	>> }
+    # An example of where it is called is in the network subsystem
+	<net/core/dev.c>
+	>> open_softirq(NET_TX_SOFTIRQ, net_tx_action);
+	>> open_softirq(NET_RX_SOFTIRQ, net_rx_action);
+    # The kernel maintains a per-CPU bitmask indicating which softirqs need processing at any given time
+    >> irq_stat[smp_processor_id].__softirq_pending
+    # Drivers can signal the execution of soft_irq handlers using a function:
+		>> raise_softirq(). 
+	# This function takes the index of the softirq as argument
+  	>> void raise_softirq(unsigned int nr)
+  	>> {
+  	>>         unsigned long flags;
+  	>> 
+  	>>         local_irq_save(flags);
+  	>>         raise_softirq_irqoff(nr);
+  	>>         local_irq_restore(flags);
+  	>> }
+	# local_irq_save 		--> Disables interrupts on the current processor where code is running
+	# raise_softirq_irqoff 	--> sets the corresponding bit in the local CPUs softirq bitmask to mark the specified softirq as pending
+	# local_irq_restore	--> Enables the interrupts
+	# raise_softirq_irqoff if executed in non-interrupt context, will invoke wakeup_softirqd(), to wake up, if necessary the ksoftirqd kernel thread of that local CPU
+  # softirqs are declared statically at compile time via an enum in <linux/interrupt.h>. Creating a new softirq includes adding a new entry to this enum - the index is used by the kerneel as priority.
+  # softirqs with the lowest numerical priority (enum index) execute before those with a higher numerical priority. Insert the new entry dependng on the priority you want to give it
+    # soft irq is registered at runtime via open_softirq(). It takes two parameters:
+		# a) Index
+		# b) Handler Function
+  # To mark it pending, so it is run at the next invocation of do_softirq(), call raise_softirq(). Softirqs are most often raised from within interrupt handlers
+    # Softirq handlers run with interrupys enabled and cannot sleep
+	# While a handler runs, softirqs on the current processor are disabled, another processor however can execute another softirq
+	# If the same softirq is raised again while it is executing, another processor can run it simultaneously, which means any shared data needs proper locking
+ 	# most softirq handlers resort to per-processor data (data unique to each processor and thus not requiring locking), and other tricks to avoid explicit locking and provide excellent scalability
+	
