@@ -24034,3 +24034,1606 @@ MODULE_LICENSE("GPL");
 module_init(hello_init);
 module_exit(hello_exit);
 
+==> ./InterruptsAndBottomHalves/00_Traps_And_Faults/Divide_By_Zero.c <==
+#include <stdio.h>
+
+int main()
+{
+	int i = 1/0;
+	return 0;
+}
+
+==> ./InterruptsAndBottomHalves/00_Traps_And_Faults/privilege.c <==
+#include <stdio.h>
+#include <sys/io.h>
+
+int main()
+{
+	outb(0x70, 0x00);
+	return 0;
+}
+
+==> ./InterruptsAndBottomHalves/01_How_Debuggers_Work/int_x86_trap_instruction.c <==
+#include <stdio.h>
+
+int main() 
+{
+	int i;
+	
+	while (i < 6)
+	{
+		printf("i equal to: %d\n", i);
+		__asm__("int $0x3");
+		++i;
+	}
+	
+	return 0;
+}
+
+// gcc int_x86_trap_instruction.c -o int_x86_trap_instruction -g
+// gdb ./int_x86_trap_instruction
+
+/*
+GNU gdb (Ubuntu 9.2-0ubuntu1~20.04.1) 9.2
+Copyright (C) 2020 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from ./int_x86_trap_instruction...
+(gdb) r
+Starting program: /home/generic/InterruptsAndBottomHalves/01_How_Debugger_Works/int_x86_trap_instruction 
+i equal to: 0
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+main () at int_x86_trap_instruction.c:11
+11			++i;
+(gdb) list
+6		
+7		while (i < 6)
+8		{
+9			printf("i equal to: %d\n", i);
+10			__asm__("int $0x3");
+11			++i;
+12		}
+13		
+14		return 0;
+15	}
+(gdb) c
+Continuing.
+i equal to: 1
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+main () at int_x86_trap_instruction.c:11
+11			++i;
+(gdb) c
+Continuing.
+i equal to: 2
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+main () at int_x86_trap_instruction.c:11
+11			++i;
+(gdb) c
+Continuing.
+i equal to: 3
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+main () at int_x86_trap_instruction.c:11
+11			++i;
+(gdb) c
+Continuing.
+i equal to: 4
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+main () at int_x86_trap_instruction.c:11
+11			++i;
+(gdb) c
+Continuing.
+i equal to: 5
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+main () at int_x86_trap_instruction.c:11
+11			++i;
+(gdb) c
+Continuing.
+[Inferior 1 (process 4012) exited normally]
+(gdb) q
+*/
+
+==> ./InterruptsAndBottomHalves/02_Driver_for_keyboard_interrupt/Driver_for_keyboard_interrupt.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+MODULE_LICENSE("GPL");
+static int irq = 1, dev = 0xaa, counter=0;
+
+static irqreturn_t keyboard_handler(int irq, void *dev)
+{
+	pr_info("Keyboard Counter:%d\n", counter++);
+	return IRQ_NONE;
+}
+
+/* registering irq */
+static int test_interrupt_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	return request_irq(irq, keyboard_handler, IRQF_SHARED, "my_keyboard_handler", &dev);
+}
+
+static void test_interrupt_exit(void)
+{
+	pr_info("%s: In init\n", __func__);
+	synchronize_irq(irq); /* synchronize interrupt */
+	free_irq(irq, &dev);
+}
+
+module_init(test_interrupt_init);
+module_exit(test_interrupt_exit);
+
+==> ./InterruptsAndBottomHalves/03_Logging_Each_Typed_Character/Logging_Each_Typed_CHaracter.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+const unsigned char kbdus[128] =
+{
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
+  '9', '0', '-', '=', '\b',	/* Backspace */
+  '\t',			/* Tab */
+  'q', 'w', 'e', 'r',	/* 19 */
+  't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',	/* Enter key */
+    0,			/* 29   - Control */
+  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',	/* 39 */
+ '\'', '`',   0,		/* Left shift */
+ '\\', 'z', 'x', 'c', 'v', 'b', 'n',			/* 49 */
+  'm', ',', '.', '/',   0,				/* Right shift */
+  '*',
+    0,	/* Alt */
+  ' ',	/* Space bar */
+    0,	/* Caps lock */
+    0,	/* 59 - F1 key ... > */
+    0,   0,   0,   0,   0,   0,   0,   0,
+    0,	/* < ... F10 */
+    0,	/* 69 - Num lock*/
+    0,	/* Scroll Lock */
+    0,	/* Home key */
+    0,	/* Up Arrow */
+    0,	/* Page Up */
+  '-',
+    0,	/* Left Arrow */
+    0,
+    0,	/* Right Arrow */
+  '+',
+    0,	/* 79 - End key*/
+    0,	/* Down Arrow */
+    0,	/* Page Down */
+    0,	/* Insert Key */
+    0,	/* Delete Key */
+    0,   0,   0,
+    0,	/* F11 Key */
+    0,	/* F12 Key */
+    0,	/* All other keys are undefined */
+};
+
+MODULE_LICENSE("GPL");
+static int irq = 1,  dev = 0xaa;
+#define KBD_DATA_REG        0x60    /* I/O port for keyboard data */
+#define KBD_SCANCODE_MASK   0x7f
+#define KBD_STATUS_MASK     0x80
+
+static irqreturn_t keyboard_handler(int irq, void *dev)
+{
+	char scancode;
+	scancode = inb(KBD_DATA_REG);
+	pr_info("Character %c %s\n",
+			kbdus[scancode & KBD_SCANCODE_MASK],
+			scancode & KBD_STATUS_MASK ? "Released" : "Pressed");
+        return IRQ_NONE;
+}
+
+/* registering irq */
+static int test_interrupt_init(void)
+{
+        pr_info("%s: In init\n", __func__);
+        return request_irq(irq, keyboard_handler, IRQF_SHARED,"my_keyboard_handler", &dev);
+}
+
+static void test_interrupt_exit(void)
+{
+        pr_info("%s: In exit\n", __func__);
+        synchronize_irq(irq); /* synchronize interrupt */
+        free_irq(irq, &dev);
+}
+
+module_init(test_interrupt_init);
+module_exit(test_interrupt_exit);
+
+==> ./InterruptsAndBottomHalves/04_Driver_For_Ethernet_Interrupt/Driver_For_Ethernet_Interrupt.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+
+#define SHARED_IRQ 16  // IO-APIC for enp0s8
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	irq_counter++;
+	pr_info("In the ISR: counter = %d\n", irq_counter);
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id)) 
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/05_Driver_For_Mouse_Interrupt/Driver_For_Mouse_Interrupt.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	irq_counter++;
+	pr_info("In the ISR: counter = %d\n", irq_counter);
+	return IRQ_NONE;  	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq%d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handelr\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/06_Keylogger_Driver/Keylogger_Driver.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+
+unsigned char keylog[256];
+unsigned int keylog_index = 0;
+
+const unsigned char kbdus[128] =
+{
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
+  '9', '0', '-', '=', '\b',	/* Backspace */
+  '\t',			/* Tab */
+  'q', 'w', 'e', 'r',	/* 19 */
+  't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',	/* Enter key */
+    0,			/* 29   - Control */
+  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',	/* 39 */
+ '\'', '`',   0,		/* Left shift */
+ '\\', 'z', 'x', 'c', 'v', 'b', 'n',			/* 49 */
+  'm', ',', '.', '/',   0,				/* Right shift */
+  '*',
+    0,	/* Alt */
+  ' ',	/* Space bar */
+    0,	/* Caps lock */
+    0,	/* 59 - F1 key ... > */
+    0,   0,   0,   0,   0,   0,   0,   0,
+    0,	/* < ... F10 */
+    0,	/* 69 - Num lock*/
+    0,	/* Scroll Lock */
+    0,	/* Home key */
+    0,	/* Up Arrow */
+    0,	/* Page Up */
+  '-',
+    0,	/* Left Arrow */
+    0,
+    0,	/* Right Arrow */
+  '+',
+    0,	/* 79 - End key*/
+    0,	/* Down Arrow */
+    0,	/* Page Down */
+    0,	/* Insert Key */
+    0,	/* Delete Key */
+    0,   0,   0,
+    0,	/* F11 Key */
+    0,	/* F12 Key */
+    0,	/* All other keys are undefined */
+};
+
+MODULE_LICENSE("GPL");
+static int irq = 1,  dev = 0xaa;
+#define KBD_DATA_REG        0x60    /* I/O port for keyboard data */
+#define KBD_SCANCODE_MASK   0x7f
+#define KBD_STATUS_MASK     0x80
+
+static irqreturn_t keyboard_handler(int irq, void *dev)
+{
+	char scancode;
+	scancode = inb(KBD_DATA_REG);
+
+	if (!(scancode & KBD_STATUS_MASK) && keylog_index < 256) 
+	{
+		keylog[keylog_index++] = kbdus[scancode];
+		//ToDo: Handle buffer overflow
+	}
+
+    return IRQ_NONE;
+}
+
+/* registering irq */
+static int test_interrupt_init(void)
+{
+    pr_info("%s: In init\n", __func__);
+	memset(keylog, 0, sizeof(keylog));
+	keylog_index = 0;
+    return request_irq(irq, keyboard_handler, IRQF_SHARED,"my_keyboard_handler", &dev);
+}
+
+static void test_interrupt_exit(void)
+{
+    pr_info("%s: In exit\n", __func__);
+	keylog[++keylog_index] = '\0';
+	pr_info("key logged:%s\n", keylog);
+    synchronize_irq(irq); /* synchronize interrupt */
+    free_irq(irq, &dev);
+}
+
+module_init(test_interrupt_init);
+module_exit(test_interrupt_exit);
+
+
+
+==> ./InterruptsAndBottomHalves/07_sysfs_support_for_keylogger_driver/sysfs_support_for_keylogger_driver.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/sysfs.h>
+#include <linux/io.h>
+
+unsigned char keylog[256];
+unsigned int keylog_index  = 0;
+const unsigned char kbdus[128] =
+{
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
+  '9', '0', '-', '=', '\b',	/* Backspace */
+  '\t',			/* Tab */
+  'q', 'w', 'e', 'r',	/* 19 */
+  't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',	/* Enter key */
+    0,			/* 29   - Control */
+  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',	/* 39 */
+ '\'', '`',   0,		/* Left shift */
+ '\\', 'z', 'x', 'c', 'v', 'b', 'n',			/* 49 */
+  'm', ',', '.', '/',   0,				/* Right shift */
+  '*',
+    0,	/* Alt */
+  ' ',	/* Space bar */
+    0,	/* Caps lock */
+    0,	/* 59 - F1 key ... > */
+    0,   0,   0,   0,   0,   0,   0,   0,
+    0,	/* < ... F10 */
+    0,	/* 69 - Num lock*/
+    0,	/* Scroll Lock */
+    0,	/* Home key */
+    0,	/* Up Arrow */
+    0,	/* Page Up */
+  '-',
+    0,	/* Left Arrow */
+    0,
+    0,	/* Right Arrow */
+  '+',
+    0,	/* 79 - End key*/
+    0,	/* Down Arrow */
+    0,	/* Page Down */
+    0,	/* Insert Key */
+    0,	/* Delete Key */
+    0,   0,   0,
+    0,	/* F11 Key */
+    0,	/* F12 Key */
+    0,	/* All other keys are undefined */
+};
+
+MODULE_LICENSE("GPL");
+static int irq = 1,  dev = 0xaa;
+#define KBD_DATA_REG        0x60    /* I/O port for keyboard data */
+#define KBD_SCANCODE_MASK   0x7f
+#define KBD_STATUS_MASK     0x80
+
+//kernel object attribute, later used to create a sysfs file for accessing the logged keystrokes
+static struct kobj_attribute my_attr;
+
+/*function that gets called when the sysfs attribute my_attr is read. It copies the logged 
+keystrokes into the provided buffer and returns the size of the data*/
+static ssize_t my_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	keylog[++keylog_index] = '\0';
+	memcpy(buf, keylog, keylog_index);
+	--keylog_index;
+    return keylog_index;
+}
+
+//my_attr defined as sysfs attribute, associated with above my_show function for reading operations
+static struct kobj_attribute my_attr = __ATTR(key_logger, 0644, my_show, NULL);
+
+// interrupt service routine (ISR) that gets called when a keyboard interrupt occurs. Reads scancode
+// from keyboard's data register and logs corresponding character if scancode represents a key press
+// (not a key release)
+static irqreturn_t keyboard_handler(int irq, void *dev)
+{
+	char scancode;
+	scancode = inb(KBD_DATA_REG);
+	
+	if (!(scancode & KBD_STATUS_MASK) && keylog_index < 254) 
+	{
+		keylog[keylog_index++] = kbdus[scancode];
+		//ToDo: Handle buffer overflow
+	}
+
+    return IRQ_NONE;
+}
+
+/* registering irq */
+static int test_interrupt_init(void)
+{
+    pr_info("%s: In init\n", __func__);
+	memset(keylog, 0, sizeof(keylog));
+	keylog_index = 0;
+
+	// creates file in location /sys/kernel/key_logger
+	if (sysfs_create_file(kernel_kobj, &my_attr.attr)) 
+	{
+        pr_err("unable to create sysfs file\n");
+        return  -1;
+    }
+
+    pr_info("sysfs file created successfully\n");
+
+	// 3rd param of request_irq is 0 or bit mask of one or more flags defined in <linux/interrupt.h>
+	// IRQF_SHARED == bit mask of flag defined in <linux/interrupt.h>, it informs
+	// the kernel that the interrupt can be shared with other devices. If this flag is not defined,
+	// and there is already a handler associated with the requested interrupt, the request or
+	// interrupt will fail and request_irq() will return -EBUSY meanin the interrupt was already
+	// requested by another device driver. On success, it returns O
+    return request_irq(irq, keyboard_handler, IRQF_SHARED,"my_keyboard_handler", &dev);
+}
+
+// removes the sysfs file, synchronizes any pending interrupts, and frees the IRQ.
+static void test_interrupt_exit(void)
+{
+    pr_info("%s: In exit\n", __func__);
+	sysfs_remove_file(kernel_kobj, &my_attr.attr);
+    synchronize_irq(irq); /* synchronize interrupt */
+    free_irq(irq, &dev);
+}
+
+module_init(test_interrupt_init);
+module_exit(test_interrupt_exit);
+
+
+
+==> ./InterruptsAndBottomHalves/08_driver_registering_all_irqs/driver_registering_all_irqs.c <==
+#include <linux/interrupt.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+
+#define MAX_IRQS 256
+
+static int irqs[MAX_IRQS];
+int dev = 1;
+
+static irqreturn_t handler(int irq, void *dev)
+{
+	pr_info("irq:%d\n", irq);
+	return IRQ_NONE;
+}
+
+static int myinit(void)
+{
+	int ret, i;
+
+	for (i = 0; i < MAX_IRQS; ++i)
+	{
+		ret = request_irq(i, handler, IRQF_SHARED, "myirqhandler0", &dev);
+		irqs[i] = ret;
+
+		if (ret == -EBUSY)
+			pr_err("request_irq failed irq = %d, ret = %d\n", i, ret);
+	}
+
+	return 0;
+}	
+
+static void myexit(void)
+{
+	int i;
+
+	for (i = 0; i < MAX_IRQS; ++i)
+	{
+		if (!irqs[i])
+		{
+			free_irq(i, &dev);
+		}
+	}
+}
+
+module_init(myinit);
+module_exit(myexit);
+MODULE_LICENSE("GPL");
+
+==> ./InterruptsAndBottomHalves/09_other_interrupt_flags/other_interrupt_flags.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	return IRQ_NONE;	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	int ret;
+	ret = request_irq(irq, my_interrupt, IRQF_PROBE_SHARED, "my_interrupt", &my_dev_id);
+
+	if (ret != 0)
+	{
+		pr_info("Failed to reserve irq %d, ret:%d\n", irq, ret);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/10_IRQF_NOBALANCING/NO_BALANCING.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 2
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_PROBE_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+	
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/11_shared_irq_null_arg/shared_irq_null_arg.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+#include <asm/current.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	return IRQ_NONE;		/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", NULL))
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	
+	synchronize_irq(irq);
+	free_irq(irq, NULL);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/12_print_irq_deviceid/print_irq_deviceid.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+#include <asm/current.h>
+
+static int irq1 = 12;
+static int irq2 = 1;
+static int dev_id;
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	pr_info("irq:%d\t dev_id:%02x\n", irq, *(int *)dev_id);
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	dev_id = 0x1234;
+	if (request_irq(irq1, my_interrupt, IRQF_SHARED, "my_interrupt", &dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq1);
+		return -1;
+	}
+
+	if (request_irq(irq2, my_interrupt, IRQF_SHARED, "my_interrupt", &dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq2);
+		return -1;
+	}
+
+	pr_info("Sucessfully loaded ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq1);
+	synchronize_irq(irq2);
+	free_irq(irq1, &dev_id);
+	free_irq(irq2, &dev_id);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/13_local_disabling_enabling_interrupts/local_disabling_enabling_interrupts.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/delay.h>
+#include <linux/irqflags.h>
+
+static int __init my_init(void)
+{
+	pr_info("module is loaded on processor:%d\n", smp_processor_id());
+	local_irq_disable();
+	pr_info("interrupts disabled on processor:%d\n", smp_processor_id());
+	mdelay(10000L);
+	local_irq_enable();
+	pr_info("interrupts enabled on processor:%d\n", smp_processor_id());
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/14_save_interrupt_state_predisable/save_interrupt_state_predisable.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/delay.h>
+#include <linux/irqflags.h>
+
+static int __init my_init(void)
+{
+	unsigned long flags;
+	pr_info("module is loaded on processor:%d\n", smp_processor_id());
+	local_irq_save(flags);
+	pr_info("local_irq_save:%02lx\n", flags);
+	ssleep(10);
+	local_irq_restore(flags);
+	pr_info("local_irq_restore:%02lx\n", flags);
+	return 0;
+}
+
+
+static void __exit my_exit(void)
+{
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+
+==> ./InterruptsAndBottomHalves/15_disabling_specific_irq_line/disabling_specific_irq_line.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/delay.h>
+#include <linux/irqflags.h>
+#include <linux/interrupt.h>
+
+unsigned int irq = 1;
+
+module_param(irq, int, 0);
+
+static int __init my_init(void)
+{
+	pr_info("module is loaded on processor:%d\n", smp_processor_id());
+	pr_info("disabling Interrupt:%u\n", irq);
+	disable_irq(irq);
+	pr_info("Disabled Interrupt:%u\n", irq);
+	mdelay(10000L);
+	pr_info("Enabling Interrupt:%u\n", irq);
+	enable_irq(irq);
+	pr_info("Enabled Interrupt:%u\n", irq);
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/15_disabling_specific_irq_line/eth_interrupt.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 16
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	mdelay(2000);
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id)) 
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/16_disable_irq_nosync/disable_irq_nosync.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/delay.h>
+#include <linux/irqflags.h>
+#include <linux/interrupt.h>
+
+unsigned int irq = 16;
+module_param(irq, int, 0);
+
+static int __init my_init(void)
+{
+	pr_info("module is loaded on processor:%d\n", smp_processor_id());
+	pr_info("Disabling interrupt:%d\n", irq);
+	disable_irq_nosync(irq);
+	pr_info("Disabled interrupt:%d\n", irq);
+	ssleep(10);
+	pr_info("Enabling interrupt:%d\n", irq);
+	enable_irq(irq);
+	pr_info("Enabled interrupt:%d\n", irq);
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/17_disable_irq_twice/disable_irq_twice.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/delay.h>
+#include <linux/irqflags.h>
+#include <linux/interrupt.h>
+
+unsigned int irq = 16;
+module_param(irq, int, 0);
+
+static int __init my_init(void)
+{
+	pr_info("Disabling Interrupt:%u\n", irq);
+	disable_irq_nosync(irq);
+	pr_info("Disabling Interrupt:%u\n", irq);
+	pr_info("Disabling Interrupt:%u\n", irq);
+	disable_irq_nosync(irq);
+	pr_info("Disabling Interrupt:%u\n", irq);
+	enable_irq(irq);
+	pr_info("Enabled Interrupt:%u\n", irq);
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	enable_irq(irq);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/18_query_processor_interrupt_status/query_processor_interrupt_status.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/delay.h>
+#include <linux/irqflags.h>
+
+void is_irq_disabled(void)
+{
+	if (irqs_disabled())
+		pr_info("IRQ Disabled\n");
+	else
+		pr_info("iRQ Enabled\n");
+}
+
+static int __init my_init(void)
+{
+	pr_info("module is loaded on processor:%d\n", smp_processor_id());
+	local_irq_disable();
+	is_irq_disabled();
+	ssleep(10);
+	local_irq_enable();
+	is_irq_disabled();
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+
+==> ./InterruptsAndBottomHalves/19_in_interrupt/in_interrupt.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+void print_context(void)
+{
+	if (in_interrupt())
+	{
+		pr_info("Code is running in interrupt context\n");
+	}
+	else
+	{
+		pr_info("Code is running in process context\n");
+	}
+}
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	print_context();
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	print_context();
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	print_context();
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+
+==> ./InterruptsAndBottomHalves/20_in_interrupt_allocating_memory/in_interrupt_allocating_memory.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+void *alloc_mem(unsigned int size)
+{
+	if (in_interrupt())
+	{
+		return kmalloc(size, GFP_ATOMIC);
+	}
+	else
+	{
+		return kmalloc(size, GFP_KERNEL);
+	}
+}
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	void *mem = alloc_mem(1024);
+	kfree(mem);
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	void *mem = alloc_mem(1024);
+	kfree(mem);
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Faied to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/21_adding_delay_interrupt_handler/adding_delay_interrupt_handler.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	mdelay(1000);
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/22_print_call_trace_interrupt_handler/print_call_trace_interrupt_handler.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	dump_stack();
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Succesfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/23_current_macro_interrupt_handler/current_macro_interrupt_handler.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+#include <asm/current.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	irq_counter++;
+	pr_info("In the ISR: counter = %d\n", irq_counter);
+	//current macro points to interrupted process
+	pr_info("current pid: %d, current process : %s\n", current->pid, current->comm);
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq: %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Succwssfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/24_calling_sleep_interrupt_handler/calling_sleep_interrupt_handler.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 12
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	ssleep(1);
+	return IRQ_NONE; 	/* we return IRQ_NONE because we are just observing */
+}
+
+static int __init my_init(void)
+{
+	if (request_irq(irq, my_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id))
+	{
+		pr_info("Failed to reserve irq %d\n", irq);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/25_Threaded_IRQs/Threaded_IRQs.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 16
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	pr_info("%s\n", __func__);
+	//return IRQ_NONE;
+	return IRQ_WAKE_THREAD; //threaded_handler_fn executed when handler_fn returns IRQ_WAKE_THREAD
+}
+
+static irqreturn_t my_threaded_interrupt(int irq, void *dev_id)
+{
+	pr_info("%s\n", __func__);
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	int ret;
+	ret = request_threaded_irq
+	(
+		irq, my_interrupt, my_threaded_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id
+	);
+
+	if (ret != 0)
+	{
+		pr_info("Failed to reserve irq %d, ret:%d\n", irq, ret);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/26_Printing_Context_In_Threaded_IRQs/Printing_Context_In_Threaded_IRQs.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 16
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+void print_context(void)
+{
+	if (in_interrupt())
+	{		
+		pr_info("Code is running in interrupt context\n");
+	}
+	else
+	{
+		pr_info("Code is running in process context\n");
+	}
+}
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	pr_info("%s\n", __func__);
+	print_context();
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t my_threaded_interrupt(int irq, void *dev_id)
+{
+	pr_info("%s\n", __func__);
+	print_context();
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	int ret;
+	ret = request_threaded_irq
+	(
+		irq, my_interrupt, my_threaded_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id
+	);
+
+	if (ret != 0)
+	{
+		pr_info("failed to reserve irq %d, ret %d\n", irq, ret);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/27_Call_Trace_Threaded_IRQs/Call_Trace_Threaded_IRQs.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+#define SHARED_IRQ 16
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	pr_info("%s\n", __func__);
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t my_threaded_interrupt(int irq, void *dev_id)
+{
+	dump_stack();
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	int ret;
+	ret = request_threaded_irq
+	(
+		irq, my_interrupt, my_threaded_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id
+	);
+
+	if (ret != 0)
+	{
+		pr_info("Failed to reserve irq %d, ret:%d\n", irq, ret);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/28_PID_Process_Name_Threaded_IRQs/PID_Process_Name_Threaded_IRQs.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/sched.h>
+
+#define SHARED_IRQ 16
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	pr_info("%s\n", __func__);
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t my_threaded_interrupt(int irq, void *dev_id)
+{
+	pr_info("COMM:%s\t PID:%d\n", current->comm, current->pid);
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	int ret;
+	ret = request_threaded_irq
+	(
+		irq, my_interrupt, my_threaded_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id
+	);
+
+	if (ret != 0)
+	{
+		pr_info("Failed to reserve irq %d, ret:%d\n",irq, ret);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/29_Is_Interrupt_Disabled_Threaded_IRQ/Is_Interrupt_Disabled_Threaded_IRQ.c <==
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/irqflags.h>
+
+#define SHARED_IRQ 16
+static int irq = SHARED_IRQ, my_dev_id, irq_counter = 0;
+module_param(irq, int, S_IRUGO);
+
+void is_irq_disabled(void)
+{
+	if (irqs_disabled())
+		pr_info("IRQ Disabled\n");
+	else
+		pr_info("IRQ Enabled\n");
+}
+
+static irqreturn_t my_interrupt(int irq, void *dev_id)
+{
+	is_irq_disabled();
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t my_threaded_interrupt(int irq, void *dev_id)
+{
+	pr_info("COMM:%s\t PID:%d\n", current->comm, current->pid);
+	is_irq_disabled();
+	return IRQ_NONE;
+}
+
+static int __init my_init(void)
+{
+	int ret;
+	ret = request_threaded_irq
+	(
+		irq, my_interrupt, my_threaded_interrupt, IRQF_SHARED, "my_interrupt", &my_dev_id
+	);
+
+	if (ret != 0)
+	{
+		pr_info("Failed to reserve irq %d, ret:%d\n", irq, ret);
+		return -1;
+	}
+
+	pr_info("Successfully loading ISR handler\n");
+	return 0;
+}
+
+static void __exit my_exit(void)
+{
+	synchronize_irq(irq);
+	free_irq(irq, &my_dev_id);
+	pr_info("Successfully unloading, irq_counter = %d\n", irq_counter);
+}
+
+MODULE_LICENSE("GPL");
+module_init(my_init);
+module_exit(my_exit);
+
+==> ./InterruptsAndBottomHalves/31_Raspberrry_Pi_GPIO_softirq/Raspberry_Pi_GPIO_softirq.c <==
+/* This code will not work for anything except Raspberry Pi GPIO pins */
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+
+#define GPIO_BASE               0x3f200000      // GPIO controller 
+#define GPIO_SIZE               0xb4
+
+#define GPFSEL0_OFFSET          0x00
+#define GPSET0_OFFSET           0x07
+#define GPCLR0_OFFSET           0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 15;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+	int register_index = gpio/32;
+	unsigned int value = (1 << (gpio % 32));
+
+	mem = (uint32_t *)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET); //enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	//Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);	
+	// Wait 150 cycles
+	udelay(2000);
+	//Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	//Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);	
+	
+	iounmap(mem);
+}
+
+void my_action(struct softirq_action *h)
+{
+    pr_info("my_action\n");
+}
+
+static irqreturn_t  button_handler(int irq, void *dev_id)
+{
+    pr_info("irq:%d\n", irq);
+	raise_softirq(MY_SOFTIRQ);
+    return IRQ_HANDLED;
+}
+
+static int test_hello_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button)){
+		pr_info("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button:%d is valid\n", gpio_button);
+	if (gpio_request(gpio_button, "my_button")) {
+		pr_info("GPIO Request Failed on gpio:%d\n", gpio_button);
+		return -EINVAL;
+	}
+	pr_info("GPIO Request successful on gpio:%d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+	gpio_set_debounce(gpio_button, 1000);      // Debounce the button with a delay of 1000ms
+	set_gpio_pulldown(gpio_button);
+	irq_number = gpio_to_irq(gpio_button);
+    pr_info("irq number:%d\n", irq_number);
+	open_softirq(MY_SOFTIRQ, my_action);
+	return request_irq(irq_number, button_handler,IRQF_TRIGGER_FALLING,"button_interrupt",NULL);
+}
+
+static void test_hello_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+}
+
+module_init(test_hello_init);
+module_exit(test_hello_exit);
