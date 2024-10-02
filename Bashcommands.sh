@@ -1106,3 +1106,35 @@ eth1 -> commissioning port on controller
 PLC has ethernet switch 
 Can use modbus through Ethernet + Ethercat, CanOpen
 Check for CoDeSys license sticker on controller
+
+***
+#To set dmesg to write a log file in the /var/log directory, you can use the following approach:
+#Create a systemd service to run dmesg and redirect its output to a log file:
+
+ 1304. sudo nano /etc/systemd/system/dmesg-log.service
+
+# Add the following content to the file:
+
+```
+text
+[Unit]
+Description=dmesg to log file
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c '/bin/dmesg -w | /usr/bin/tee -a /var/log/dmesg.log'
+StandardOutput=null
+
+[Install]
+WantedBy=multi-user.target
+```
+
+# Save the file and exit the editor. Reload the systemd daemon:
+
+ 1305. sudo systemctl daemon-reload
+
+# Enable and start the service:
+
+ 1306. sudo systemctl enable dmesg-log.service
+ 1307. sudo systemctl start dmesg-log.service
+***
