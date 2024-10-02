@@ -580,12 +580,13 @@
        > module_init(test_device_init);
        > module_exit(test_device_exit);
  109b. udevadm monitor &
- 109c. sudo insmod class_create.ko   
+ 109c. apt-get install raspberrypi-kernel-headers -y  # prerequisite for kernel moodules on the Raspberry Pi
+ 109d. sudo insmod class_create.ko   
 		#output: 	KERNEL[11216.875071] add      /class/myclass (class)
 					UDEV  [11216.875340] add      /module/class_create (module)
 					KERNEL[11216.875402] add      /module/class_create (module)
 					:waitsUDEV  [11216.875412] add      /class/myclass (class)
- 109d. ls -l /sys/class/myclass
+ 109e. ls -l /sys/class/myclass
  # class_create does not create a dev node. In order to create a dev node must use device_create, device_destroy
  # struct device* device_create(struct class* class, struct device *parent, dev_t devt, void *drv_data, const char* fmt, ...);    void device_destroy(struct class *class, dev_t devt);
  110a. udevadm monitor &
