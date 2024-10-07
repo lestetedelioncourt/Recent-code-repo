@@ -2631,4 +2631,7 @@
 	# While a handler runs, softirqs on the current processor are disabled, another processor however can execute another softirq
 	# If the same softirq is raised again while it is executing, another processor can run it simultaneously, which means any shared data needs proper locking
  	# most softirq handlers resort to per-processor data (data unique to each processor and thus not requiring locking), and other tricks to avoid explicit locking and provide excellent scalability
-	
+
+# GPIO debugging
+ 232. vcdbg log msg  # shows gpioman log details
+ 233. cat /boot/config-`uname -r` | grep GPIO   # shows gpio config optons
