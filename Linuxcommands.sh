@@ -1162,8 +1162,16 @@
   167. git clone --depth=1 https://github.com/raspberrypi/Linux 	# Retrieves the Linux source code
   # inserting custom driver into Linux kernel
   168a. cp /path/to/CustomLinuxDriver.c /linux-source-code/misc/drivers/
-  168b. echo "obj-$(CUSTOM_LINUX_DRIVER_NAME) += CustomLinuxDriver.o" >> /linux-source-code/misc/drivers/Makefile
-  168c. 
+  168b. echo -e "config CUSTOM_LINUX_DRIVER_NAME
+        tristate "Custom Linux Driver"
+        depends on ARCH_BCM2835
+        help
+          This driver implements GPIO handling using softirqs
+          for the Raspberry Pi.
+
+          If unsure, say N." >> drivers/misc/Kconfig
+  168c. echo "obj-$(CUSTOM_LINUX_DRIVER_NAME) += CustomLinuxDriver.o" >> /linux-source-code/misc/drivers/Makefile
+  168d. make menuconfig -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"
   169a. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig  # bcm2709_defconfig is a configuration defined for raspberry Pi 3 
   169b. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j8 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 												
   # Next step is to mount the kernel image and the device tree blobs onto the SD card
