@@ -1160,7 +1160,7 @@
 																	# tell got we only want the last revision, and not the whole history to be cloned
   166. echo PATH=$PATH:~raspberry/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin >> ~/.bashrc && source ~/.bashrc 	# updates the PATH variable 
   167. git clone --depth=1 https://github.com/raspberrypi/Linux 	# Retrieves the Linux source code
-  # inserting custom driver into Linux kernel
+  # inserting custom driver into Linux kernel , first on Ubuntu systems   -    'vi arch/arm/tools/syscallnr.sh'    -> Replace: '#!/bin/sh'    with    '#!/bin/bash'
   168a. cp /path/to/CustomLinuxDriver.c /linux-source-code/misc/drivers/
   168b. echo -e "config CUSTOM_LINUX_DRIVER_NAME
         tristate "Custom Linux Driver"
