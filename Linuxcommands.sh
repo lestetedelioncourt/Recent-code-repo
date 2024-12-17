@@ -1171,9 +1171,12 @@
 
           If unsure, say N." >> drivers/misc/Kconfig
   168c. echo "obj-$(CUSTOM_LINUX_DRIVER_NAME) += CustomLinuxDriver.o" >> /linux-source-code/misc/drivers/Makefile
-  168d. make menuconfig -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"
-  169a. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig  # bcm2709_defconfig is a configuration defined for raspberry Pi 3 
-  169b. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j8 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 												
+  168d. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"
+  169a. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- clean
+  169b. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- mrproper
+  169c. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"
+  169d/1. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j8 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 												
+  169d/2. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig  # if not using custom kernel
   # Next step is to mount the kernel image and the device tree blobs onto the SD card
   170. sudo mount /dev/sdb1 /media	
   171. sudo cp /media/kernel7.img /media/kernel7-backup.img	
