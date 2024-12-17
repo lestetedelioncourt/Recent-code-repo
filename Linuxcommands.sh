@@ -1174,9 +1174,9 @@
   168d. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"
   169a. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- clean
   169b. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- mrproper
-  169c/1. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"												
-  169c/2. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig  # if not using custom kernel
-  169d. cd <source dir> && make SHELL=/bin/bash ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 
+  169c. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig 
+  169d. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "exit (save and exit)"												
+  169e. cd <source dir> && make SHELL=/bin/bash ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 
   # Next step is to mount the kernel image and the device tree blobs onto the SD card
   170. sudo mount /dev/sdb1 /media	
   171. sudo cp /media/kernel7.img /media/kernel7-backup.img	
