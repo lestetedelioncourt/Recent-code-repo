@@ -1167,6 +1167,7 @@
         depends on ARCH_BCM2835
         help
           This driver implements GPIO handling using softirqs
+	  
           for the Raspberry Pi.
 
           If unsure, say N." >> drivers/misc/Kconfig
@@ -1186,7 +1187,7 @@
 # I am unsure of subsequent steps 170 onward, but I know these work for Raspbberry Pi 1:
   170. cp arch/arm/boot/zImage /path/to/sdcard/boot/kernel.img
   171. cp arch/arm/boot/dts/*/bcm*dtb /path/to/sdcard/boot/
-
+  172. vi /boot/firmware/config.txt
 # Next step is to mount the kernel  
   170. sudo mount /dev/sdb1 /media	
   171. sudo cp /media/kernel7.img /media/kernel7-backup.img	
