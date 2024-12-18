@@ -1177,7 +1177,7 @@
   169c. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig 
   169d. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "exit (save and exit)"												
   169e. cd <source dir> && make SHELL=/bin/bash ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 
-  # The kernel image is saved to arch/arm/boot/
+  # The kernel image is saved to <source directory>/arch/arm/boot/
     # Image - Uncompressed kernel image.
     # zImage - Compressed kernel image.
     # uImage - U-Boot image (if you have configured for U-Boot).
