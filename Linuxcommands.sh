@@ -1182,6 +1182,7 @@
     # zImage - Compressed kernel image.
     # uImage - U-Boot image (if you have configured for U-Boot).
   # Device tree blobs are saved to arch/arm/boot/dts/ extension directory is broadcom for the Raspberry Pi
+# The Raspberry Pi 1 uses an ARMv6 processor, so you need a cross-compiler that supports ARMv6. Toolchain Recommendation: Use the arm-linux-gnueabi- cross-compiler (without the hf suffix). The hf in gnueabihf stands for "hard float," which is typically for ARMv7.
 # Next step is to mount the kernel  
   170. sudo mount /dev/sdb1 /media	
   171. sudo cp /media/kernel7.img /media/kernel7-backup.img	
