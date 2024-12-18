@@ -1185,9 +1185,9 @@
   # Device tree blobs are saved to arch/arm/boot/dts/ extension directory is broadcom for the Raspberry Pi
 # The Raspberry Pi 1 uses an ARMv6 processor, so you need a cross-compiler that supports ARMv6. Toolchain Recommendation: Use the arm-linux-gnueabi- cross-compiler (without the hf suffix). The hf in gnueabihf stands for "hard float," which is typically for ARMv7.
 # I am unsure of subsequent steps 170 onward, but I know these work for Raspbberry Pi 1:
-  170. cp arch/arm/boot/zImage /path/to/sdcard/boot/kernel.img
+  170. cp arch/arm/boot/zImage /path/to/sdcard/boot/<kernel_name>.img
   171. cp arch/arm/boot/dts/*/bcm*dtb /path/to/sdcard/boot/
-  172. vi /boot/firmware/config.txt
+  172. vi /boot/firmware/config.txt    ->   kernel=<kernel_name).img
 # Next step is to mount the kernel  
   170. sudo mount /dev/sdb1 /media	
   171. sudo cp /media/kernel7.img /media/kernel7-backup.img	
