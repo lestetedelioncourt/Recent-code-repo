@@ -1181,6 +1181,7 @@
     # Image - Uncompressed kernel image.
     # zImage - Compressed kernel image.
     # uImage - U-Boot image (if you have configured for U-Boot).
+  # Device tree blobs are saved to arch/arm/boot/dts/ extension directory is broadcom for the Raspberry Pi
 # Next step is to mount the kernel  
   170. sudo mount /dev/sdb1 /media	
   171. sudo cp /media/kernel7.img /media/kernel7-backup.img	
