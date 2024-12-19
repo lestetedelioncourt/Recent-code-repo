@@ -1160,7 +1160,7 @@
 																	# tell got we only want the last revision, and not the whole history to be cloned
   166. echo PATH=$PATH:~raspberry/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin >> ~/.bashrc && source ~/.bashrc 	# updates the PATH variable 
   167. git clone --depth=1 https://github.com/raspberrypi/Linux 	# Retrieves the Linux source code
-  # inserting custom driver into Linux kernel , first on Ubuntu systems   -    'vi arch/arm/tools/syscallnr.sh'    -> Replace: '#!/bin/sh'    with    '#!/bin/bash'
+  # inserting custom driver into Linux kernel specifially for Raspberry Pi, first on Ubuntu systems   -    'vi arch/arm/tools/syscallnr.sh'    -> Replace: '#!/bin/sh'    with    '#!/bin/bash'
   168a. cp /path/to/CustomLinuxDriver.c /linux-source-code/misc/drivers/
   168b. echo -e "config CUSTOM_LINUX_DRIVER_NAME
         tristate "Custom Linux Driver"
@@ -1175,7 +1175,7 @@
   168d. make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "Save and exit"
   169a. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- clean
   169b. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- mrproper
-  169c. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2709_defconfig 
+  169c. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcmrpi_defconfig 
   169d. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "exit (save and exit)"												
   169e. cd <source dir> && make SHELL=/bin/bash ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 
   # The kernel image is saved to <source directory>/arch/arm/boot/
