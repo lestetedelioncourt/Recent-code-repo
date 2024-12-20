@@ -1176,8 +1176,9 @@
   169a. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- clean
   169b. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- mrproper
   169c. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcmrpi_defconfig 
-  169d. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "exit (save and exit)"												
-  169e. cd <source dir> && make SHELL=/bin/bash ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 
+  169d. cd <source dir> && make ARCH=arm CROSS_COMPILE=arm-linux-arch/arm/tools/syscallnr.shgnueabihf- menuconfig  -> Device Drivers -> Misc devices -> "Custom Linux Driver"      # Select it with 'M' (for module) or '*' (for built-in) then "exit (save and exit)"	
+  169e. sed -i "1s,bin/sh,bin/bash," arch/arm/tools/syscallnr.sh    # if on an ubuntu system helps prevent build errors for cross-compilation
+  169f. cd <source dir> && make SHELL=/bin/bash ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 # Do not need to define the gcc suffix of the CROSS_COMPILE toolchain, make will append 
   # The kernel image is saved to <source directory>/arch/arm/boot/
     # Image - Uncompressed kernel image.
     # zImage - Compressed kernel image.
