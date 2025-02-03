@@ -37,7 +37,7 @@ int main(){
 	int i2 = 9;
 	d.setAge(i);
 	d.setAge(i2);
-
+	
 	cout << "Age is " << i << endl;
 
 	const string& n = d.getName();
@@ -87,6 +87,7 @@ template <typename T1, typename T2> void display(T1 x, T2 y, int z){
 		cout << x << " and " << y << endl;
 	}
 }
+
 ==> ./Projects/136 overloading generic class/136 overloading generic class/Source.cpp <==
 #include <iostream>
 #include <string>
@@ -126,6 +127,7 @@ int main(){
 
 	return 0;
 }
+
 ==> ./Projects/137 c++ namespaces/137 c++ namespaces/file_one.cpp <==
 #include <iostream>
 
@@ -155,7 +157,7 @@ namespace two{
 ==> ./Projects/137 c++ namespaces/137 c++ namespaces/Source.cpp <==
 #include <iostream>
 #include "file_two.cpp"
-//#include "file_one.cpp"
+#include "file_one.cpp"
 
 using namespace std;
  //will make available all the variables from namespace one
@@ -169,10 +171,11 @@ int main(){
 	//if two namespace possess same variables/functions "using" keyword will 
 	//create conflict. insted use name of namespace and scope resolution operator
 
-
+	one::display();
 
 	return 0;
 }
+
 ==> ./Projects/137 namespacess/137 namespacess/file_one.h <==
 #include <iostream>
 
@@ -756,55 +759,55 @@ int main(){
 	int *p2; 
 	p2 = &num2; //(2)
 
-	//cout << "Values of two integer variables\n";
+	cout << "Values of two integer variables\n";
 	cout << "num1 = " << num1 << "\t\tnum2 = " << num2 << endl;
 	
-	//cout << "\nValues contained in memory addresses stored in pointers\n";
+	cout << "\nValues contained in memory addresses stored in pointers\n";
 	cout << "*p1 = " << *p1 << "\t\t*p2 = " << *p2 << endl;
 
-	//cout << "\nMemory addresses of two integer variables\n";
-	cout << "&num1 = " << &num1 << "\t&num1 = " << &num2 << endl;
+	cout << "\nMemory addresses of two integer variables\n";
+	cout << "&num1 = " << &num1 << "\t&num2 = " << &num2 << endl;
 
-	//cout << "\nMemory addresses stored in pointers\n";
+	cout << "\nMemory addresses stored in pointers\n";
 	cout << "p1 = " << p1 << "\t\tp2 = " << p2 << endl;
 	
-	//cout << "\nMemory addresses of pointers\n";
+	cout << "\nMemory addresses of pointers\n";
 	cout << "&p1 = " << &p1 << "\t\t&p2 = " << &p2 << endl;
 	
 	p1 = p2;
 
 	cout << "\nIf p1 = p2\n";
-	//cout << "\nValues of two integer variables\n";
+	cout << "\nValues of two integer variables\n";
 	cout << "num1 = " << num1 << "\t\tnum2 = " << num2 << endl;
 
-	//cout << "\nValues contained in memory addresses stored in pointers\n";
+	cout << "\nValues contained in memory addresses stored in pointers\n";
 	cout << "*p1 = " << *p1 << "\t\t*p2 = " << *p2 << endl;
 
-	//cout << "\nMemory addresses of two integer variables\n";
+	cout << "\nMemory addresses of two integer variables\n";
 	cout << "&num1 = " << &num1 << "\t&num2 = " << &num2 << endl;
 
-	//cout << "\nMemory addresses stored in pointers\n";
+	cout << "\nMemory addresses stored in pointers\n";
 	cout << "p1 = " << p1 << "\t\tp2 = " << p2 << endl;
 
-	//cout << "\nMemory addresses of pointers\n";
+	cout << "\nMemory addresses of pointers\n";
 	cout << "&p1 = " << &p1 << "\t\t&p2 = " << &p2 << endl;
 
 	p1 = &num1;
 	*p1 = *p2;
 	cout << "\nIf *p1 = *p2\n";
-	//cout << "\nValues of two integer variables\n";
+	cout << "\nValues of two integer variables\n";
 	cout << "num1 = " << num1 << "\t\tnum2 = " << num2 << endl;
 
-	//cout << "\nValues contained in memory addresses stored in pointers\n";
+	cout << "\nValues contained in memory addresses stored in pointers\n";
 	cout << "*p1 = " << *p1 << "\t\t*p2 = " << *p2 << endl;
 
-	//cout << "\nMemory addresses of two integer variables\n";
+	cout << "\nMemory addresses of two integer variables\n";
 	cout << "&num1 = " << &num1 << "\t&num2 = " << &num2 << endl;
 
-	//cout << "\nMemory addresses stored in pointers\n";
+	cout << "\nMemory addresses stored in pointers\n";
 	cout << "p1 = " << p1 << "\t\tp2 = " << p2 << endl;
 
-	//cout << "\nMemory addresses of pointers\n";
+	cout << "\nMemory addresses of pointers\n";
 	cout << "&p1 = " << &p1 << "\t\t&p2 = " << &p2 << endl << endl;
 	return 0;
 }
@@ -1086,12 +1089,11 @@ public:
 c++ standard and the code won't run. Class reference variables must be initialized*/
 };
 
+
 class doggy{
 	doggy() = default; //way to use default constructor and overload it
 	collar m_collar;
 };
-
-//auto
 ==> ./Projects/a05 Disallow function/a05 Disallow function/Source.cpp <==
 #include <iostream>
 #include <string>
@@ -1153,6 +1155,7 @@ stored on heap - nead to define destructor function with void fun{delete this:}*
 
 	return 0;
 }
+
 ==> ./Projects/a06 virtual smart destructor/a06 virtual smart destructor/Source.cpp <==
 #include <iostream>
 #include <string>
@@ -1180,7 +1183,7 @@ public:
 
 class Yellowdog : public MDog{
 public:
-	~Yellowdog() { cout << "\nYellow dog destroyed" << endl; }
+	~Yellowdog() { cout << "\nYellow dog destroyed" << endl; } // destructor not called 
 };
 
 class yellowdog: public DDog{
@@ -1208,6 +1211,7 @@ int main(){
 	shared_ptr<CDog> memdog = DogFactory::createyellodog(); 
 	//requires <memory> header. doesn't require delete  afterwards
 	delete hotdog;
+	delete heapdog;
 	return 0;
 }
 
@@ -1302,8 +1306,6 @@ int main(){
 	//exception will be caught after stack has unwound, and dog1 and dog2 have been destroyed 
 	return 0;
 }
-
-
 
 ==> ./Projects/a08 virtual funct constructor-destructor/a08 virtual funct constructor-destructor/Source.cpp <==
 
@@ -1633,8 +1635,7 @@ AnimalType Biggest(AnimalType A, AnimalType B)
 	if (A.weight > B.weight)
 		return A;
 	else
-		return B;
-}
+	
 ==> ./Projects/anum/anum/Source.cpp <==
 #include <iostream>
 
@@ -1703,6 +1704,7 @@ int main(){
 	cout << "\nThe tallest student is " << Tallest << " cm tall\n";
 	return 0;
 }
+
 ==> ./Projects/arrays and pointers/arrays and pointers/Source.cpp <==
 //the name of an array can be treated in the same way as a constant pointer
 
@@ -1966,6 +1968,7 @@ public:
 		}
 		catch (exception x){
 			collar* pCollar = pOrigCollar;
+			return *this;
 		}
 	}
 };
@@ -1989,10 +1992,13 @@ int main(){
 	Dog2 rover;
 	Dog2 regius;
 
-	rex = rex;
+	rex.introduce();
+	tex.introduce();
 
+	rex = tex;
 
-	
+	rex.introduce();
+	tex.introduce();
 }
 ==> ./Projects/binary error/binary error/Source.cpp <==
 // Computer uses binary to represent numbers. Not all numbers can be represented in binary.
@@ -3497,12 +3503,13 @@ int main(){
 	cout << "\nx : " << x << " y : " << y << endl;
 	cout << "x + --y = " << x + --y << endl;
 
-	cout << static_cast<int>(5.6);  // 5.6 -> 5
-	cout << static_cast<double>(5); // 5 -> 5.0
-	cout << static_cast<char>(63); // relevant ascii code character
-	cout << static_cast<int>('A'); //relevant ascii code number
+	cout << static_cast<int>(5.6) << endl;  // 5.6 -> 5
+	cout << static_cast<double>(5) << endl; // 5 -> 5.0
+	cout << static_cast<char>(63) << endl; // relevant ascii code character
+	cout << static_cast<int>('A') << endl; //relevant ascii code number
 	return 0;
 }
+
 ==> ./Projects/c++ intermediate 02/c++ intermediate 02/main.cpp <==
 #include <iostream>
 #include <cmath>
@@ -6474,7 +6481,7 @@ int main(){
 	}
 }
 ==> ./Projects/ep102 overload input + output/ep102 overload input + output/Source.cpp <==
-#include <iostream>
+##include <iostream>
 #include <string>
 
 using namespace std;
@@ -6510,6 +6517,7 @@ int main(){
 	cout << leslie;
 	return 0;
 }
+
 ==> ./Projects/ep102 overload inputoutput/ep102 overload inputoutput/Source.cpp <==
 #include <iostream>
 #include <string>
@@ -6612,6 +6620,7 @@ int main(){
 	cout << 1.6 << endl;
 	return 0;
 }
+
 ==> ./Projects/ep106 io bool as true + false/ep106 io bool as true + false/Source.cpp <==
 #include <iostream>
 
@@ -6621,6 +6630,7 @@ int main(){
 	bool tf1;
 
 	/*can usually be input or output only via 0 or 1*/
+	//cout.setf(ios::boolalpha);
 
 	for (int i = 0; i < 2; i++){
 		cout << "Input bool value : ";
@@ -6629,11 +6639,11 @@ int main(){
 	}
 
 	cout << "Now setting boolalpha flags\n";
-
-	cin.setf(ios::boolalpha);
 	cout.setf(ios::boolalpha);
 
-	/*can now only be input and output as true or false*/
+	cin.setf(ios::boolalpha);
+
+	/*can now be input and will output as true or false*/
 	for (int i = 0; i < 2; i++){
 		cout << "Input bool value : ";
 		cin >> tf1;
@@ -6657,6 +6667,10 @@ int main(){
 	cout << "hello\n";
 	cout.width(10);
 	cout << "oi\n";
+	cout.setf(ios::left);
+	cout.width(10);
+	cout.fill('o');
+	cout << "hello" << endl;
 	cout.setf(ios::left);
 	cout.width(10);
 	cout.fill('o');
@@ -6785,7 +6799,26 @@ using namespace std;
 
 int main(){
 	char input[100];
-	strcpy_s(input, "I am just a humble writer");
+	//strcpy_s(input, "I am just a humble writer");
+
+	/*Source.cpp: In function ‘int main()’:
+    Source.cpp:10:9: error: ‘strcpy_s’ was not declared in this scope; did you mean ‘strcpy’?
+       10 |         strcpy_s(input, "I am just a humble writer");
+          |         ^~~~~~~~
+          |         strcpy
+	 *
+	 * The error youre encountering is due to strcpy_s not being available in the standard C++ library when compiling with 
+	 * g++. This function is specific to Microsofts implementation and is not part of the C++ standard
+	 *
+	 * If you need to use C-style strings and want a safer alternative, consider using strncpy*/
+
+    #ifdef _MSC_VER
+        strcpy_s(input, sizeof(input), "I am just a humble writer\n");
+    #else
+        strncpy(input, "I am just a humble writer\n", sizeof(input) - 1);
+        input[sizeof(input) - 1] = '\0';
+    #endif
+
 
 	fstream newfile("leslie.bin", ios::binary | ios::out | ios::in | ios::trunc);
 
@@ -6808,6 +6841,7 @@ int main(){
 
 	return 0;
 }
+
 ==> ./Projects/ep118 writing data to binary/ep118 writing data to binary/Source.cpp <==
 #include <iostream>
 #include <string.h>
@@ -6897,6 +6931,7 @@ template <typename T1, typename T2> void display(T1 x, T2 y){
 	cout << "Generic function parameter 1: " << x << endl;
 	cout << "Generic function parameter 2: " << y << endl;
 }
+
 ==> ./Projects/ep44 union shared memory/ep44 union shared memory/Source.cpp <==
 #include <iostream>
 
@@ -6917,7 +6952,6 @@ int main(){
 	pointer = &age;
 
 	cout << *pointer << endl;
-
 
 	return 0;
 }
@@ -7127,6 +7161,7 @@ void display(){
 }
 /*static variable stored on the heap. Does not initialize as 0 with each function call,
 variable from before passed to the function.*/
+
 ==> ./Projects/ep65 friend function/ep65 friend function/Source.cpp <==
 #include <iostream>
 #include <string>
@@ -7524,7 +7559,7 @@ public:
 
 	Marks operator--(int m){
 		Marks any(*this);
-		any -= 1;
+		mark -= 1;
 		return any;
 	}
 };
@@ -7536,7 +7571,7 @@ void operator++(Marks &m){
 Marks operator++(Marks &m, int x){
 	Marks any(m);
 	m.mark += 1;
-	return m;
+	return any;
 }
 
 
@@ -7564,6 +7599,10 @@ int main(){
 	lenny++;
 	lenny.display();
 
+	lenny++;
+	lenny.display();
+
+	lenny--;
 	lenny--;
 	lenny.display();
 
@@ -7636,14 +7675,14 @@ public:
 	}
 
 	Marks operator++(){ //prefix requires no int;
-		Marks any(*this);
 		mark += 1;
-		return any;
+		return *this;
 	}
 
 	Marks operator++(int x){ //postfix requires use of int
+		Marks any(*this);
 		mark += 1;
-		return *this;
+		return any;
 	}
 
 	friend Marks operator--(Marks &m, int x);
@@ -7652,36 +7691,40 @@ public:
 };
 
 Marks operator--(Marks &m){ //prefix uses no int
+	m.mark -= 1;
+	return m;
+}
+
+Marks operator--(Marks &m, int x){ //postfix operator requires use of int
 	Marks any(m);
 	m.mark -= 1;
 	return any;
 }
 
-Marks operator--(Marks &m, int x){ //postfix operator requires use of int
-	m.mark -= 1;
-	return m;
-}
-
 int main(){
 	Marks leslie(10);
-
-	cout << "Postfix: leslie++, leslie--\n\n";
 	leslie.display();
+
+	cout << "\n";
+
+	cout << "Postfix: leslie++\n";
 	(leslie++).display();
 	leslie.display();
 
 	cout << "\n";
 
+	cout << "Postfix: leslie--\n";
 	(leslie--).display();
 	leslie.display();
 
 	cout << "\n";
 	
-	cout << "Prefix: ++leslie, --leslie\n\n";
+	cout << "Prefix: ++leslie\n";
 	(++leslie).display();
 	leslie.display();
 
 	cout << "\n";
+	cout << "Prefix: --leslie\n";
 	(--leslie).display();
 	leslie.display();
 	return 0;
@@ -7842,17 +7885,25 @@ using namespace std;
 int main(){
 	try{
 		try{
-			throw "Leslie";
+			try{
+				throw "Leslie";
+			}
+			catch (const char *e){
+				cout << "char type exception in inner block: " << e << endl;
+				throw; //- will result in catch (1)
+			}
+			catch (...){
+				cout << "Unexpected exception in inner block\n";
+			}  
+			//throw runtime_error("ninw"); //results in catch block (2)
 		}
 		catch (const char *e){
-			cout << "char type exception in inner block: " << e << endl;
-			throw; //- will result in catch (1)
+			cout << "char type exception in middle block: " << e << endl; // (1)
 		}
 		catch (...){
-			cout << "Unexpected exception in inner block\n";
-		}  
-		//throw runtime_error("ninw"); //results in catch block (2)
-
+			cout << "Unexpected exception in the middle block\n"; // (2)
+		}
+		cout << "ok" << endl;
 	}
 	catch (const char *e){
 		cout << "char type exception in outer block: " << e << endl; // (1)
@@ -7863,6 +7914,7 @@ int main(){
 
 	return 0;
 }
+
 ==> ./Projects/escape sequences/escape sequences/Source.cpp <==
 //Esacape sequences are a sequence of two characters where the first is a backslash \
 //and the second clarifies which special character is entered
@@ -7900,11 +7952,20 @@ main()
 	//putchar will display a single character on the screen
 }
 ==> ./Projects/Example of a simple data base/Example of a simple data base/GlobalVar.h <==
+#ifndef BLOBAL_VAR_H
+#define BLOBAL_VAR_H
+
 extern Record MyFriends[MaxNoRecords];
 extern unsigned short NumRecords;
+
+#endif
+
 ==> ./Projects/Example of a simple data base/Example of a simple data base/Header.h <==
 
 ==> ./Projects/Example of a simple data base/Example of a simple data base/Prog5.h <==
+#ifndef PROG5_H
+#define PROG5_H
+
 struct Record
 {
 	char FirstName[20];
@@ -7923,6 +7984,8 @@ void CopyRecord(Record *Destination, Record *Source);
 bool DeleteRecord(unsigned short RecNo);
 extern Record MyFriends[MaxNoRecords];
 extern unsigned short NumRecords;
+
+#endif
 ==> ./Projects/Example of a simple data base/Example of a simple data base/Prog5a.cpp <==
 #include <fstream>
 #include "Prog5.h"
@@ -7955,15 +8018,29 @@ bool WriteData(char *FileName){
 }
 
 ==> ./Projects/Example of a simple data base/Example of a simple data base/Prog5c.cpp <==
-
-#include <string>
+#include <cstring>
 #include "Prog5.h"
 #include "GlobalVar.h"
 
+#if defined(_MSC_VER)
+    // If compiling with Visual Studio, use strcpy_s
+    #define SSTRCPY(dest, src) \
+        do { \
+            strcpy_s((dest), sizeof(dest), (src)); \
+        } while (0)
+#else
+    // Otherwise, use strncpy + manual null termination
+    #define SSTRCPY(dest, src) \
+        do { \
+            strncpy((dest), (src), sizeof(dest) - 1); \
+            (dest)[sizeof(dest) - 1] = '\0'; \
+        } while (0)
+#endif
+
 void CopyRecord(Record* Destination, Record* Source){
-	strcpy_s(Destination->FirstName, Source->FirstName);
-	strcpy_s(Destination->LastName, Source->LastName);
-	strcpy_s(Destination->TelNo, Source->TelNo);
+	SSTRCPY(Destination->FirstName, Source->FirstName);
+	SSTRCPY(Destination->LastName, Source->LastName);
+	SSTRCPY(Destination->TelNo, Source->TelNo);
 	Destination->Height = Source->Height;
 }
 
@@ -7976,8 +8053,40 @@ bool DeleteRecord(unsigned short RecNo){
 	return true;
 }
 
-==> ./Projects/Example of a simple data base/Example of a simple data base/Prog5d.cpp <==
 
+
+==> ./Projects/Example of a simple data base/Example of a simple data base/Prog5d.cpp <==
+#include <iostream>
+#include "Prog5.h"
+#include "GlobalVar.h"
+
+using namespace std;
+
+bool EnterRecord(unsigned short RecNo){
+	if (RecNo > NumRecords || RecNo == MaxNoRecords)
+		return false;
+	if (RecNo == NumRecords)
+		NumRecords++;
+	cout << "First name: ";
+	cin >> MyFriends[RecNo].FirstName;
+	cout << "Surname: ";
+	cin >> MyFriends[RecNo].LastName;
+	cout << "Telephone number: ";
+	cin >> MyFriends[RecNo].TelNo;
+	cout << "Height: ";
+	cin >> MyFriends[RecNo].Height;
+	return true;
+}
+
+void PrintRecord(Record* Friend){
+	cout << "\nFirst name: " << Friend->FirstName;
+	cout << "\nSurname: " << Friend->LastName;
+	cout << "\nTelephone number: " << Friend->TelNo;
+	cout << "\nHeight: " << Friend->Height << endl;
+	return;
+}
+
+==> ./Projects/Example of a simple data base/Example of a simple data base/Source.cpp <==
 #include <iostream>
 #include <iomanip>
 #include "Prog5.h"
@@ -8021,8 +8130,8 @@ int main(){
 				cout << "Error: Data not uploaded" << endl;
 			break;
 		case 'E':
-			cout << "Record number: ";
-			cin >> RecNo;
+			RecNo = NumRecords;
+			cout << "Record number: " << RecNo << endl;
 			if (EnterRecord(RecNo))
 				cout << "Data updated" << endl;
 			else
@@ -8057,36 +8166,7 @@ int main(){
 		}
 	}
 }
-==> ./Projects/Example of a simple data base/Example of a simple data base/Source.cpp <==
-#include <iostream>
-#include "Prog5.h"
-#include "GlobalVar.h"
 
-using namespace std;
-
-bool EnterRecord(unsigned short RecNo){
-	if (RecNo > NumRecords || RecNo == MaxNoRecords)
-		return false;
-	if (RecNo == NumRecords)
-		NumRecords++;
-	cout << "First name: ";
-	cin >> MyFriends[RecNo].FirstName;
-	cout << "Surname: ";
-	cin >> MyFriends[RecNo].LastName;
-	cout << "Telephone number: ";
-	cin >> MyFriends[RecNo].TelNo;
-	cout << "Height: ";
-	cin >> MyFriends[RecNo].Height;
-	return true;
-}
-
-void PrintRecord(Record* Friend){
-	cout << "\nFirst name: " << Friend->FirstName;
-	cout << "\nSurname: " << Friend->LastName;
-	cout << "\nTelephone number: " << Friend->TelNo;
-	cout << "\nHeight: " << Friend->Height << endl;
-	return;
-}
 
 ==> ./Projects/Example of a simple data base/Example of a simple data base/Source1.cpp <==
 
@@ -8425,6 +8505,7 @@ void handle(int a, float b){
 	
 	//TAX_RATE and TipRate can be used here, retain value from call to call
 }
+
 ==> ./Projects/Greet/Greet/Source.cpp <==
 //Program Greet prints a greeting on the screen
 
@@ -9040,8 +9121,36 @@ bool MyPrint(int Numb){
 	return true;
 }
 ==> ./Projects/How binary affects newline character/How binary affects newline character/Source.cpp <==
+/*
+ *This code demonstrates the difference between writing to a file in binary mode versus text mode, particularly focusing on how newline characters are handled. Here's a breakdown of what the code does:
+
+1. It defines a string `Str` containing newline characters.
+
+2. It runs a loop twice, asking the user each time whether to open the file in binary mode or not.
+
+3. Based on the user's input, it opens a file named "test.txt" either in binary mode or text mode.
+
+4. It writes the contents of `Str` to the file.
+
+5. It then reopens the file in binary mode for reading.
+
+6. It reads the file character by character, outputting each character's position, the character itself, and its ASCII value.
+
+7. This process is repeated twice to show the difference between binary and text mode.
+
+The key difference you'd observe is:
+- In text mode (non-binary), on Windows systems, `\n` might be converted to `\r\n` when writing to the file.
+- In binary mode, `\n` is written as-is, without any conversion.
+
+This demonstrates how opening a file in binary mode can affect how newline characters are handled, which can be crucial for maintaining exact file contents across different operating systems.
+ *
+ *
+ */
+
+
 #include <iostream>
 #include <fstream>
+#include <cstring>
 
 using namespace std;
 
@@ -9069,6 +9178,7 @@ int main(){
 	}
 	return 0;
 }
+
 ==> ./Projects/if enemy/if enemy/My Project/Application.myapp <==
 ï»¿<?xml version="1.0" encoding="utf-8"?>
 <MyApplicationData xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -9457,8 +9567,24 @@ int main(){
 	return 0;
 }
 ==> ./Projects/joining null-terminated strings/joining null-terminated strings/Source.cpp <==
-
 #include <iostream>
+#include <cstring>
+
+#if defined(_MSC_VER)
+    // If compiling with Visual Studio, use strcpy_s
+    #define SSTRCAT(dest, src) \
+        do { \
+            strcat_s(dest, src); \
+        } while (0)
+#else
+    // Otherwise, use strlcat + manual null termination
+    #define SSTRCAT(dest, src) \
+        do { \
+            strncat((dest), (src), sizeof(dest) - strlen(dest) - 1); \
+            (dest)[sizeof(dest) - 1] = '\0'; \
+        } while (0)
+#endif
+
 
 char String1[13] = "ABCDEFGH";
 char String2[] = "IJKL";
@@ -9470,7 +9596,7 @@ using namespace std;
 int main(){
 	cout << "Before concatenation\nString1= " << String1;
 	cout << "\nString2= " << String2;
-	strcat_s(String1, String2); //Function strcat_s() concatenates two null-terminated strings
+	SSTRCAT(String1, String2); //Function strcat_s() concatenates two null-terminated strings
 	cout << "\n\nAfter concatenation\nString1= " << String1;
 	cout << "\nString2= " << String2 << endl << endl;
 	return 0;
@@ -10377,151 +10503,168 @@ int main(){
 }
 ==> ./Projects/Modern C++03 Rvalue reference/Modern C++03 Rvalue reference/main.cpp <==
 #include <iostream>
+#include <utility>  // Just for demonstration (if we want to compare to std::forward)
 
 using namespace std;
 
-//ravalue and lvalue referencing allows for overloading of functions 
+// 1) Basic demonstration: lvalue/rvalue reference overloading
 void printInt(int& x){
-	cout << "lvalue reference : " << x << endl;
+    cout << "lvalue reference : " << x << endl;
 }
 void printInt(int&& x){
-	cout << "rvalue reference : " << x << endl;
+    cout << "rvalue reference : " << x << endl;
 }
 
+// 2) Simple BoVector class (to test moves/copies)
 class BoVector{
-	int size;
-	double *arr_;
+    int size;
+    double *arr_;
 public:
-	BoVector(int i, double x[]){
-		size = i;
-		arr_ = new double[size];
-		for (int i = 0; i < size; i++){
-			arr_[i] = x[i];
-		}
+    BoVector(int i, double x[]){
+        size = i;
+        arr_ = new double[size];
+        for (int j = 0; j < size; j++){
+            arr_[j] = x[j];
+        }
+    }
+    // Copy constructor
+    BoVector(const BoVector& rhs){
+        cout << "\ncopy constructor called\n";
+        size = rhs.size;
+        arr_ = new double[size];
+        for (int i = 0; i < size; i++){
+            arr_[i] = rhs.arr_[i];
+        }
+    }
+    // Default constructor
+    BoVector() {
+		size = 0;
+		arr_ = nullptr;
 	}
-	BoVector(const BoVector& rhs){ //copy constructor
-		cout << "\ncopy constructor called\n";
-		size = rhs.size;
-		arr_ = new double[size];
-		for (int i = 0; i < size; i++){
-			arr_[i] = rhs.arr_[i];
-		}
-	}
-	BoVector() = default;
-	BoVector(BoVector&& rhs){ //move constructor
-		cout << "\nmove constructor called\n";
-		size = rhs.size;
-		arr_ = rhs.arr_;
-		rhs.arr_ = nullptr;
-	}
+    // Move constructor
+    BoVector(BoVector&& rhs){
+        cout << "\nmove constructor called\n";
+        size = rhs.size;
+        arr_ = rhs.arr_;
+        rhs.arr_ = nullptr;
+    }
 
-	void printArray(){
-		for (int i = 0; i < size; i++){
-			cout << arr_[i] << " ";
-		}
-		cout << endl;
-	}
+    void printArray() const {
+        for (int i = 0; i < size; i++){
+            cout << arr_[i] << " ";
+        }
+        cout << endl;
+    }
 
-	int getSize(){
-		return size;
-	}
+    int getSize() const {
+        return size;
+    }
 
-	~BoVector(){
-		delete arr_;
-	}
+    ~BoVector(){
+        delete[] arr_;
+    }
 };
 
+// Helper function to take BoVector by value (invokes copy or move)
 void printBv(BoVector bv){
-	bv.printArray();
+    bv.printArray();
 }
 
+
+// Return a default-constructed BoVector (size=0)
+BoVector createEmptyBoVector(){
+    BoVector bv; // size=0
+    return bv;   // copies or moves the empty vector
+}
+
+// Return a 3-element BoVector
 BoVector createBoVector(){
-	//double array_[3] = { 1, 2, 3 };
-	BoVector bv;
-	//BoVector bv(3, array_);
-	return bv;
+    double arr[3] = {1.0, 2.0, 3.0};
+    BoVector bv(3, arr);
+    return bv; 
 }
 
-
+// 3) Simple template function (by value)
 template <typename T>
-void relay(T arg){ //T has similar effect to writing 'auto' keyword - type deduction
-	printBv(arg);
+void relay(T arg){
+    printBv(arg);
 }
 
-//Perfect forwarding syntax, rvalue -> rvalue, lvalue -> lvalue
+// 4) Perfect forwarding using standard library forward
 template <typename T>
 void relay1(T&& arg){
-	printBv(std::forward<T>(arg));
+    printBv(std::forward<T>(arg));
 }
 
-//implementation of std::forward<T>
+// ----------------------------------------------------------------
+// 5) Manually implement remove_reference and a custom forward
+//    This mimics the idea of std::remove_reference and std::forward
+// ----------------------------------------------------------------
+
+// remove_reference<U> yields U
+template<typename U> 
+struct MyRemoveReference {
+    using type = U;
+};
+
+// remove_reference<U&> yields U
+template<typename U>
+struct MyRemoveReference<U&> {
+    using type = U;
+};
+
+// remove_reference<U&&> yields U
+template<typename U>
+struct MyRemoveReference<U&&> {
+    using type = U;
+};
+
+// myForward - a toy version of std::forward
+// Note the function parameter is:
+//   (typename MyRemoveReference<U>::type & arg)
+// Uhat is the "stripped" type as lvalue reference.
+template<typename U>
+constexpr U&& myForward(typename MyRemoveReference<U>::type& arg){
+    return static_cast<U&&>(arg);
+}
+
+// 6) Now use our custom forward in relay2
 template<typename T>
 void relay2(T&& arg){
-	T&& forward(typename remove_reference<T>::type& arg){
-		return static_cast<T&&> arg;
-	}
-	
-	try{ //try block just to stop code running
-		throw 20;
-		template<typename >
-		struct remove_reference; //removes reference on type Tp 
-		
-		//T is int&
-		remove_reference<int&>::type i; // int i 
-
-		//T is int
-		remove_reference<int>::type i; //int i
-	}
-	catch (int x){
-		cout << " ";
-	}
+    // Instead of std::forward<T>(arg), we do:
+    printBv(myForward<T>(arg));
 }
 
-/*Reference collapsing rules
-1. T& & ==> & T& variable is initialized with lvalue ==> lvalue reference
-relay1(x); -- relay1(T&), input & ==> &
-
-2. T& && ==> &, T& variable is initialized with rvalue ==> lvalue reference
-relay1(9); -- relay1(T&), input & ==> &
-
-3. T&& & ==> &, T&& variable is initialized with lvalue ==> lvalue reference
-relay1(x); -- relay1(T&&), input & ==> &
-
-4. T&& && ==> &&, T&& variable is initialized with rvalue ==> rvalue reference
-relay1(9); -- relay1(T&&), input && ==> &&
-
-T&& is universal reference: rlvalue, lvalue, const, non-const, etc..
-conditions
-1.T is a template type
-2. Type deduction happens to T (T is a function template type, not class template)
-(will assume the type which is fed into it)
-*/
+// --------------------------------------------------
 
 int main(){
-	int a = 5;
-	//int &b - lvalue reference
-	//int &&c - rvalue reference
-	printInt(a); //call printInt(int& x) - lvalue reference
-	printInt(5); //call printInt(int&& x) - rvalue reference
+    int a = 5;
+    printInt(a);  // calls printInt(int& x) - lvalue
+    printInt(5);  // calls printInt(int&& x) - rvalue
 
-	BoVector reusable = createBoVector(); //if no move constructor uses copy constructor
-	
-	printBv(reusable); //uses copy constructor as BoVector passed by reference
-	//expensive but ok as do not want to change BoVector
+    // test creating an empty BoVector
+    BoVector emptyVec = createEmptyBoVector(); 
+    printBv(emptyVec); // prints nothing (size=0)
 
-	printBv(createBoVector()); //if no move constructor uses copy constructor
-	//resource intensive, not practical
+    // Test BoVector
+    BoVector reusable = createBoVector(); 
+    printBv(reusable);           // copy constructor
+    printBv(createBoVector());   // move constructor if available
+    printBv(std::move(reusable));// move constructor
 
-	printBv(std::move(reusable)); //reusable.arr_ == nullptr
-	//if reusable is to be destroyed here will use move constructor
+    // Testing relay (by-value) - copy or move
+    relay(emptyVec);             // copy
+    relay(createBoVector());     // move
 
-	relay(reusable);
-	relay(createBoVector());
+    // Testing relay1 (std::forward)
+    relay1(emptyVec);            // lvalue => copy
+    relay1(createBoVector());    // rvalue => move
 
-	relay1(reusable);
-	relay1(createBoVector());
+    // Testing relay2 (our custom myForward)
+    relay2(emptyVec);            // lvalue => copy
+    relay2(createBoVector());    // rvalue => move
 
-	return 0;
+    return 0;
 }
 ==> ./Projects/modified word count programme/modified word count programme/Source.cpp <==
 #include <iostream>
@@ -10571,6 +10714,7 @@ int main(){
 	cout << Wrdno << " words, and\n" << Sntno << " sentences\n";
 	return 0;
 }
+
 ==> ./Projects/modifying a variable/modifying a variable/Source.cpp <==
 //operators which can be used to modify a variable
 
@@ -11217,6 +11361,7 @@ int main(){
 	cout << "Test 4 \n" << hex << left << setw(10) << a << setw(10) << b << setw(10) << c << setw(10) << d << right << setw(10) << e << setw(10) << f << setw(10) << g << endl;
 	cout << " \n";
 }
+
 ==> ./Projects/pass array to function (c code)/pass array to function (c code)/Source.cpp <==
 #include <stdio.h>
 
@@ -11755,7 +11900,7 @@ void permute(char *str, int l, int r);
 
 main()
 {
-	char str[] = "ABCD";
+	char str[] = "AB";
 	int y = sizeof(str)/sizeof(char); //there is a null character at the end
 	permute(str, 0, (y - 2));
 	return;
@@ -12955,7 +13100,6 @@ float power(float x, unsigned int n)
 //last mechanism of passing an argument to a function is use of references
 //when function called, reference made to appropriate argument and passed to function
 //references provides full access to original argument including value and address
-
 #include <iostream>
 
 using namespace std;
@@ -12973,11 +13117,12 @@ int main(){
 
 double ADD(double &any, double &y){
 	double z = any + y;
-	cout << "Address of x is " << any << ". The value of x is " << any << endl;
+	cout << "Address of x is " << &any << ". The value of x is " << any << endl;
 	any = 0;
-	cout << "Address of x is " << any << ". The value of x is " << any << endl;
+	cout << "Address of x is " << &any << ". The value of x is " << any << endl;
 	return z;
 }
+ 
 ==> ./Projects/repeating block - loop/repeating block - loop/Source.cpp <==
 //Many programming tasks require repeating a sequence (block)
 //of statements with just a few changes
@@ -17213,8 +17358,8 @@ int main(){
 }==> ./Projects/a13++ Resource Managing Class/a13++ Resource Managing Class/main.cpp <==
 #include <iostream>
 #include <string>
-#include <memory>
 #include <vector>
+#include <memory>
 
 using namespace std;
 
@@ -17223,12 +17368,12 @@ class Person {
 	static int noOfUnnamed;
 public:
 	Person(string name) {
-		*pName_ = name;
+		pName_ = new string(name);
 	}
 	Person() {
 		noOfUnnamed++;
 		string temp1 = to_string(noOfUnnamed);
-		*pName_ = "Nameless_" + temp1;
+		pName_ = new string("Nameless_" + temp1);
 	}
 	~Person(){
 		cout << "Person has been deleted\n";
@@ -17240,47 +17385,48 @@ public:
 
 int Person::noOfUnnamed = 0;
 
-/*SOLUTION 1 - define copy constructor and copy assignment operator*/
 class APerson {
-	string * pName_;
-	static int noOfUnnamed;
+    string * pName_;
+    static int noOfUnnamed;
 public:
-	APerson(string name) {
-		*pName_ = name;
-	}
-	APerson() {
-		noOfUnnamed++;
-		string temp1 = to_string(noOfUnnamed);
-		*pName_ = "Nameless_" + temp1;
-	}
-	~APerson() {
-		cout << "Person has been deleted\n";
-	}
-	void printName() {
-		cout << *pName_;
-	}
-	//copy constructor
-	APerson(const APerson &rhs) {
-		if (1 + 1 == 3) {
-			*pName_ = *rhs.pName(); 
-			// example of shallow copying pointer points to same address
-		}
-		else {
-			*pName_ = new string(*(rhs.pName()));
-		}
-	}
-
-	//copy assignment operator
-	APerson& operator=(const APerson& rhs) {
-		*this = new Person(*rhs);
-		return *this;
-	}
-	string *pName() const {
-		return pName_;
-	}
-	APerson operator=(APerson &rhs) {
-
-	}
+    APerson(string name) {
+        pName_ = new string(name);
+    }
+    
+    APerson() {
+        noOfUnnamed++;
+        pName_ = new string("Nameless_" + to_string(noOfUnnamed));
+    }
+    
+    // Destructor
+    ~APerson() {
+        delete pName_;
+        cout << "APerson has been deleted\n";
+    }
+    
+    // Print function
+    void printName() {
+        cout << *pName_;
+    }
+    
+    // Accessor for pName_
+    string* pName() const {
+        return pName_;
+    }
+    
+    // Copy constructor (deep copy)
+    APerson(const APerson &rhs) {
+        pName_ = new string(*(rhs.pName()));
+    }
+    
+    // Copy assignment operator (deep copy)
+    APerson& operator=(const APerson& rhs) {
+        if (this != &rhs) {
+            delete pName_;
+            pName_ = new string(*(rhs.pName()));
+        }
+        return *this;
+    }
 };
 
 int APerson::noOfUnnamed = 0;
@@ -17308,20 +17454,34 @@ int main() {
 
 	/*solutions in APerson, Human, and AHuman*/
 
-	try {
-		throw 20;
-		persons.back().printName();
-	}
-	catch (int x) {
-		cout << ".printName() function causes program to crash\n";
-	}
-
-	vector<APerson> people;
-	people.push_back(APerson("George"));
-	people.back().printName();
-
-	cout << "Goodbye" << endl;
+//	try {
+//		throw 20;
+//		persons.back().printName();
+//	}
+//	catch (int x) {
+//		cout << ".printName() function causes program to crash\n";
+//	}
+//
+//    vector<APerson> people;
+//    people.push_back(APerson("George"));
+//    people.back().printName();
+//    cout << endl;
+    
+    // Test copy constructor:
+    APerson a("Alice");
+    APerson b = a; // Uses copy constructor
+    b.printName();
+    cout << endl;
+    
+    // Test copy assignment operator:
+    APerson c("Charlie");
+    c = a; // Uses copy assignment
+    c.printName();
+    cout << endl;
+    
+    return 0;
 }
+
 ==> ./Projects/binary search/binary search/main (binary search).cpp <==
 #include <iostream>
 #include <iomanip>
@@ -17366,7 +17526,6 @@ int main() {
 		cout << "Item found at index position [" << temp << "]\n";
 	}
 
-	system("PAUSE");
 	return 0;
 }
 
@@ -17401,6 +17560,7 @@ int binarySearch(const eType list[], int length, eType &item) {
 		return -1;
 	}
 }
+
 ==> ./Projects/c++ in 28 - getline, string data/c++ in 28 - getline, string data/main.cpp <==
 #include <iostream>
 #include <iomanip>
@@ -17524,6 +17684,8 @@ int main() {
 	cout << factorial(4) << endl;
 	int fib = 0, fib2 = 1;
 
+    cout << fibonacci(fib, fib2, 5) << endl;
+    cout << f1bonacci(fib, fib2, 5) << endl;
 	return 0;
 }
 
@@ -17555,7 +17717,8 @@ int f1bonacci(int a, int b, int n) {
 		a = temp;
 	}
 	return a;
-}bgn
+}
+
 ==> ./Projects/c++ int 04 - file streaming/c++ int 04 - file streaming/main.cpp <==
 #include <iostream>
 #include <iomanip>
@@ -18045,6 +18208,7 @@ int main() {
 		}
 	}
 }
+
 ==> ./Projects/c++ int 111 - seq search/c++ int 111 - seq search/main.cpp <==
 //seq search most useful for smaller arrays, as the average number of elements to search is equal to 50 array places
 #include <iostream>
