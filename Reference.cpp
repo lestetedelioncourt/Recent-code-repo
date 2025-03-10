@@ -21113,26 +21113,26 @@ using namespace std;
 //back_inserter, front_inserter, inserter
 
 int main() {
-	int temp[8] = { 1,2,3,4,5,6,7,8 };
-	vector<int> list1, list2;
-	ostream_iterator<int> print(cout, " ");
-	copy(temp, temp + 8, back_inserter(list1));
-	cout << "list1 = ";
-	copy(list1.begin(), list1.end(), print);
-	cout << endl;
+        int temp[8] = { 1,2,3,4,5,6,7,8 };
+        vector<int> list1, list2;
+        ostream_iterator<int> print(cout, " ");
+        copy(temp, temp + 8, back_inserter(list1)); //uses push_back() for each element
+        cout << "list1 = ";
+        copy(list1.begin(), list1.end(), print);
+        cout << endl;
 
-	copy(list1.begin(), list1.end(), inserter(list2, list2.begin()));
-	cout << "list2 = ";
-	copy(list2.begin(), list2.end(), print);
-	cout << endl;
+        copy(list1.begin(), list1.end(), inserter(list2, list2.begin()));
+        cout << "list2 = ";
+        copy(list2.begin(), list2.end(), print);
+        cout << endl;
 
-	list<int> list3;
-	copy(list2.begin(), list2.end(), front_inserter(list3)); //front_inserter can only be used with containers that have .push_front() such as deques and lists
-	cout << "list3 = ";
-	copy(list3.begin(), list3.end(), print);
-	cout << endl;
-	system("PAUSE");
-	return 0;
+        list<int> list3;
+        copy(list2.begin(), list2.end(), front_inserter(list3)); // uses pus_front() for each element
+        //front_inserter can only be used with containers that have .push_front() such as deques and lists
+        cout << "list3 = ";
+        copy(list3.begin(), list3.end(), print);
+        cout << endl;
+        return 0;
 }
 ==> ./Projects/c++ int 130 fill-generate functions/c++ int 130 fill-generate functions/main.cpp <==
 #include <iostream>
@@ -21145,37 +21145,37 @@ using namespace std;
 int nextNum();
 
 int main() {
-	vector<int> vList(8);
-	ostream_iterator<int> print(cout, " ");
+        vector<int> vList(8);
+        ostream_iterator<int> print(cout, " ");
 
-	fill(vList.begin(), vList.end(), 2); //fills list with variable '2'
-	cout << "vList = ";
-	copy(vList.begin(), vList.end(), print);
-	cout << endl;
+        fill(vList.begin(), vList.end(), 2); //fills list with variable '2'
+        cout << "vList = ";
+        copy(vList.begin(), vList.end(), print);
+        cout << endl;
 
-	fill_n(vList.begin(), 3, 5); //   fill_n(start pos    number of spaces   number to fill)
-	cout << "vList = ";
-	copy(vList.begin(), vList.end(), print);
-	cout << endl;
+        fill_n(vList.begin(), 3, 5); //   fill_n(start pos    number of spaces   number to fill)
+        cout << "vList = ";
+        copy(vList.begin(), vList.end(), print);
+        cout << endl;
 
-	vector<int> newList(8);
-	generate(newList.begin(), newList.end(), nextNum);
-	cout << "newList = ";
-	copy(newList.begin(), newList.end(), print);
-	cout << endl;
+        vector<int> newList(8);
+        generate(newList.begin(), newList.end(), nextNum);
+        cout << "newList = ";
+        copy(newList.begin(), newList.end(), print);
+        cout << endl;
 
-	generate_n(newList.begin(), 3, nextNum);
-	cout << "newList = ";
-	copy(newList.begin(), newList.end(), print);
-	cout << endl;
+        generate_n(newList.begin(), 3, nextNum);
+        cout << "newList = ";
+        copy(newList.begin(), newList.end(), print);
+        cout << endl;
 
-	system("PAUSE");
-	return 0;
+        system("PAUSE");
+        return 0;
 }
 
 int nextNum() {
-	static int n = 1;
-	return n++;
+        static int n = 1;
+        return n++;
 }
 ==> ./Projects/c++ int 131 stl find functions/c++ int 131 stl find functions/main.cpp <==
 #include <iostream>
@@ -21206,7 +21206,13 @@ int main() {
 		cout << "element not found in list\n";
 	}
 
-	position = find_if(charList.begin(), charList.end(), isupper);
+	//position = find_if(charList.begin(), charList.end(), isupper);
+	//throws an error with g++ because isupper is overloaded in some compilers (for both int and locale). 
+	//This causes confusion about which isupper to use. To fix it, you can cast isupper to the right function type. 
+	//An example fix would be find_if(charList.begin(), charList.end(), static_cast<int(*)(int)>(isupper)); 
+	//or use a lambda like find_if(charList.begin(), charList.end(), [](char c){ return isupper(c); });.
+
+	position = find_if(charList.begin(), charList.end(), [](char c) { return isupper(c); });
 	if (position != charList.end()) {
 		cout << "first upper case letter found at " << (position - charList.begin()) << endl;
 	}
@@ -21226,13 +21232,12 @@ int main() {
 	
 	cout << "find_end: " << (find_end(list1, list1 + 11, list3, list3 + 3)) << endl; //searches list1[10] for subrange of list2[2] {56, 21, 35}, does not find, returns memory address exceeding value of list
 
-	cout << "find_first_of : " << (find_first_of(list1, list1 + 11, list2, list2 + 2)) << endl; //searches list1[10] for subrange of list2[2], returns first instance at list1[1]
+	cout << "find_first_of : " << (find_first_of(list1, list1 + 11, list2, list2 + 2)) << endl; //searches list1 for first occurence of any of the numbers contained in list2
 	
-	cout << "find_first_of: " << (find_first_of(list1, list1 + 11, list3, list3 + 3)) << " number is " << *(find_first_of(list1, list1 + 11, list4, list4 + 3)) << endl; //searches list1 for first occurence of any of the numbers contained in list3
+	cout << "find_first_of: " << (find_first_of(list1, list1 + 11, list3, list3 + 3)) << " number is " << *(find_first_of(list1, list1 + 11, list3, list3 + 3)) << endl; //searches list1 for first occurence of any of the numbers contained in list3
 
 	cout << "find_first_of: " << (find_first_of(list1, list1 + 11, list4, list4 + 3)) << " number is "  << *(find_first_of(list1, list1 + 11, list4, list4 + 3)) << endl; //searches list1 for first occurence of any of the numbers contained in list4
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++ int 132 stl remove functions/c++ int 132 stl remove functions/main.cpp <==
@@ -21260,7 +21265,7 @@ int main() {
 	copy(charList.begin(), charList.end(), print);
 	cout << endl;
 
-	charList.erase(remove_if(charList.begin(), charList.end(), isupper), charList.end()); //removes all instances of uppercase character
+	charList.erase(remove_if(charList.begin(), charList.end(), [](char c) { return isupper(c); }), charList.end()); //removes all instances of uppercase character
 	cout << "charList = ";
 	copy(charList.begin(), charList.end(), print);
 	cout << endl;
@@ -21285,8 +21290,6 @@ int main() {
 	cout << "temp2 = ";
 	copy(temp2.begin(), temp2.end(), print1);
 	cout << endl;
-
-	system("PAUSE");
 	return 0;
 }
 
@@ -21348,7 +21351,6 @@ int main() {
 	}
 	cout << endl;
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++ int 137 stl reverse and rotate/c++ int 137 stl reverse and rotate/main.cpp <==
@@ -21397,9 +21399,9 @@ int main() {
 	copy(intList.begin(), intList.end(), print);
 	cout << endl;
 	
-	system("PAUSE");
 	return 0;
 }
+
 ==> ./Projects/c++ int 138 stl functions count, min, max/c++ int 138 stl functions count, min, max/main.cpp <==
 #include <iostream>
 #include <cctype>
@@ -21419,7 +21421,7 @@ int main() {
 	cout << endl;
 
 	cout << "Number of Z's: " << count(charList.begin(), charList.end(), 'Z') << endl;
-	cout << "Number of upper case characters: " << count_if(cList, cList+10, isupper) << endl;
+	cout << "Number of upper case characters: " << count_if(cList, cList+10, [](char c) { return isupper(c); }) << endl;
 
 	int list[10] = { 12, 34, 56, 21, 34, 78, 34, 55, 12, 25 };
 	ostream_iterator<int> out(cout, " ");
@@ -21437,7 +21439,6 @@ int main() {
 	}
 	cout << endl;
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++ int 139 STL - for each, transform/c++ int 139 STL - for each, transform/main.cpp <==
@@ -21461,7 +21462,7 @@ int main() {
 	cout << endl;
 
 	//        input iter        input iter      output iter       unaryoperation
-	transform(charList.begin(), charList.end(), charList.begin(), toupper);
+	transform(charList.begin(), charList.end(), charList.begin(), [](char c){ return toupper(c); });
 	cout << "charList = ";
 	copy(charList.begin(), charList.end(), print);
 	cout << endl;
@@ -21484,7 +21485,6 @@ int main() {
 	}
 	cout << endl;
 
-	system("PAUSE");
 	return 0;
 }
 
@@ -21638,7 +21638,6 @@ int main() {
 	copy(BsymdiffC, lastElem, print);
 	cout << endl;
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++ int 141 STL arithmetic functions/c++ int 141 STL arithmetic functions/main.cpp <==
@@ -21714,7 +21713,6 @@ int main() {
 	cout << "newList with partial multiplication = ";
 	print(newList);
 
-	system("PAUSE");
 	return 0;
 }
 
@@ -21743,7 +21741,8 @@ int main() {
 		queue.pop();
 	}
 
-	system("PAUSE");
+	cout << endl;
+
 	return 0;
 }
 ==> ./Projects/c++ int 145 - array container class/c++ int 145 - array container class/main.cpp <==
@@ -21766,7 +21765,8 @@ int main() {
 		cout << *iter << " ";
 	}
 
-	system("PAUSE");
+	cout << endl;
+
 	return 0;
 }
 ==> ./Projects/c++ int 145 type casting/c++ int 145 type casting/main.cpp <==
@@ -21797,19 +21797,19 @@ int main() {
 	int intVariable1 = (int)floatVariable; //c- style cast 
 	int intVariable2 = static_cast<int>(floatVariable); //static cast does same kind of cast as the old c-style cast, but in a more type-safe way - does not error check before converting like dynamic cast
 
-	int cstylecast = NULL;
-	int staticcast = NULL;
-	int dynamiccast = NULL;
-	int reinterpretcast = NULL;
-	int constcast = NULL;
+	int cstylecast = 1;
+	int staticcast = 1;
+	int dynamiccast = 1;
+	int reinterpretcast = 1;
+	int constcast = 1;
 
 	Child c1, *c2;
 	Parent *p;
 	Stranger *s;
 
-	//system("tree");
-	//system("dir");
-	system("ping");
+	system("tree");
+	system("dir");
+	//system("ping 8.8.8.8");
 
 	if (dynamiccast) {
 		//dynamic cast converts child to parent but not other way round, unless parent class is polymorphic
@@ -21838,12 +21838,9 @@ int main() {
 ==> ./Projects/c++ int 146 extern, inline/c++ int 146 extern, inline/Class.cpp <==
 #include "Class.h"
 
-
-
 Class::Class()
 {
 }
-
 
 Class::~Class()
 {
@@ -21862,7 +21859,7 @@ int Class::Count() {
 	return ++count1;
 }
 ==> ./Projects/c++ int 146 extern, inline/c++ int 146 extern, inline/Class.h <==
-#include <iostream>
+#nclude <iostream>
 
 using namespace std;
 
@@ -21879,7 +21876,6 @@ public:
 
 	static int Count(); // non-static type class member variables cannot be used inside of a static type function
 };
-
 
 ==> ./Projects/c++ int 146 extern, inline/c++ int 146 extern, inline/main.cpp <==
 #include <iostream>
@@ -21919,7 +21915,6 @@ int main() {
 
 	cout << testClass.Count() << endl;
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++ int 18 - print triangle/c++ int 18 - print triangle/main.cpp <==
@@ -21971,14 +21966,15 @@ using namespace std;
 
 void func0();
 void func1(int);
-void func2(static int);
+// void func2(static int); - The static keyword is not allowed in the declaration of function parameters.
+
 static int z = 0;
 
 int main() {
 	for (int i = 0; i < 5; i++) {
 		func0();
 		func1(z);
-		func2(z);
+		//func2(z);
 	}
 	cout << "Inside main(), z : " << z << "\n\n";
 	return 0;
@@ -21987,7 +21983,7 @@ int main() {
 void func0(){
 	static int x = 0;
 	x = x + 2;
-	cout << "x : " << x << endl;
+	cout << "func0 - x : " << x << endl;
 }
 
 void func1(int z) {
@@ -21995,10 +21991,10 @@ void func1(int z) {
 	cout << "Inside func1, z : " << z << endl;
 }
 
-void func2(static int z) {
+/*void func2(static int z) {
 	z = z + 2;
 	cout << "Inside func2, z : " << z << endl;
-}
+}*/
 ==> ./Projects/C++ int 26 - rock, paper scissors/C++ int 26 - rock, paper scissors/main.cpp <==
 #include <iostream>
 #include <cstdlib>
@@ -22150,8 +22146,8 @@ using namespace std;
 //std::cout and std::cin
 
 int main() {
-	one::x = 6;
-	y = 'n';
+        one::x = 6;
+        char y = 'n';
 
 	using namespace one;
 	y = 'a';
@@ -22270,6 +22266,22 @@ string plString(string str) {
 
 using namespace std;
 
+#if defined(_MSC_VER)
+    // If compiling with Visual Studio, use strcpy_s
+    #define SSTRCPY(dest, src) \
+        do { \
+            strcpy_s((dest), sizeof(dest), (src)); \
+        } while (0)
+#else
+    // Otherwise, use strncpy + manual null termination
+    #define SSTRCPY(dest, src) \
+        do { \
+            strncpy((dest), (src), sizeof(dest) - 1); \
+            (dest)[sizeof(dest) - 1] = '\0'; \
+        } while (0)
+#endif
+
+
 int main() {
 	char ch = '\0'; // null character - ASCII code 0
 	//"Jack M White"
@@ -22294,7 +22306,8 @@ int main() {
 	char myName[16];
 	char newName[16];
 	int len;
-	strcpy(myName, "Joseph Tomlin");
+
+	SSTRCPY(myName, "Joseph Tomlin");
 	len = strlen(myName);
 	cout << myName << " is length " << len << endl;
 
@@ -22388,7 +22401,7 @@ void copyText(ifstream& in, ofstream& out, char& ch, int list[]) {
 void count(char& ch, int list[]) {
 	ch = toupper(ch);
 	int index = static_cast<int>(ch) - static_cast<int>('A');
-	if ((0 <= index) && (index > 26)) {
+	if ((0 <= index) && (index < 26)) {
 		list[index]++;
 	}
 }
@@ -22396,8 +22409,11 @@ void count(char& ch, int list[]) {
 void print(ofstream &out, int loc, int list[]) {
 	out << endl << endl;
 	out << "The number of lines = " << loc << endl;
+	cout << "The number of lines = " << loc << endl;
 	for (int i = 0; i < 26; i++) {
 		out << static_cast<char>(i + static_cast<int>('A'))
+			<< " count = " << list[i] << endl;
+		cout << static_cast<char>(i + static_cast<int>('A'))
 			<< " count = " << list[i] << endl;
 	}
 }
@@ -22569,8 +22585,8 @@ int main() {
 	//allocated to the pointer by an amount equal to the integer value
 	//multiplied by the size of the variable i.e.
 
-	p++; // size increase of 4 bytes
-	q = q + 2; //size increase of 16 bytes (8 * 2 bytes)
+	p++; // pointer moves forward by size of int (4 bytes)
+	q = q + 2; // pointer moves forward by 16 bytes (2 * 8 bytes)
 
 	return 0;
 }
@@ -22582,7 +22598,28 @@ void test1(int *&x, int *y) {
 int* test2() {
 	int x = 6;
 	return &x;
+	// unless returning an rvalue, i'm pretty sure this'll go out of scope here, would result in
+	// in undefined behavior—it might still hold the old value, crash the program, or return garbage data.
 }
+
+/*
+int* test2() {
+    static int x = 6;  // Static variables persist after function exits
+    return &x;
+}
+
+    x will not be destroyed after the function exits.
+    The pointer remains valid across multiple calls.
+    However, the value will persist across calls, so modifying x in one call affects future calls.
+
+int* test2() {
+    int* x = new int(6);  // Allocate memory on the heap
+    return x;
+}
+
+    The integer is allocated on the heap, so it persists after the function returns.
+    Responsibility: The caller must free the allocated memory with delete to avoid a memory leak.
+ */
 ==> ./Projects/c++ int 61 - two-dimensional arrays/c++ int 61 - two-dimensional arrays/main.cpp <==
 #include <iostream>
 #include <iomanip>
@@ -22649,13 +22686,13 @@ int main() {
 		x[i] = i;
 	}
 	
-	y = x;
+	y = x; //x is lvalue, memory adress of x
 	//shallow copy, y points to same memory location as x. if x is deleted
 	//y will also be deleted, and if y is deleted x will also be deleted
 
 	z = new int[10];
 	for (int i = 0; i < 10; i++) {
-		z[i] = x[i];
+		z[i] = x[i]; //x[i] is rvalue, just the value at x + i
 	}
 	//deep copy, if either z or x is deleted the other array will remain 
 
@@ -22664,13 +22701,17 @@ int main() {
 	cout << "\ny array : ";
 	for (int i = 0; i < 10; i++) {
 		cout << y[i] << " ";
-	} //y is deleted
+	} 
+    cout << endl;
+	//y is deleted - undefined behaviour
 	cout << "\nz array : ";
 	for (int i = 0; i < 10; i++) {
 		 cout << z[i]<< " ";
 	} //z is intact
+    cout << endl;
 	return 0;
 }
+
 ==> ./Projects/c++ int 62, shallow vs. deep copy/c++ int 71 - address operator and classes/c++ int 71 - address operator and classes/main.cpp <==
 #include <iostream>
 #include "Test.h"
@@ -22681,6 +22722,7 @@ int main() {
 	int x = 6;
 	int &y = x; //memory address of x stored in y;
 
+	y = 8;
 	cout << "After changing y, x is " << x << endl;
 
 	x = 7;
@@ -22695,9 +22737,6 @@ int main() {
 
 	return 0;
 }
-
-
-==> ./Projects/c++ int 62, shallow vs. deep copy/c++ int 71 - address operator and classes/c++ int 71 - address operator and classes/Test.cpp <==
 
 ==> ./Projects/c++ int 62, shallow vs. deep copy/c++ int 71 - address operator and classes/c++ int 71 - address operator and classes/Test.h <==
 #ifndef TEST_H
@@ -22754,6 +22793,14 @@ public:
 			}
 		}
 
+		for (int i = 0; i < 10; i++) {
+			p[i] = i;
+			cout << setw(3) <<  p[i]; 
+		}
+
+		cout << endl;
+		cout << endl;
+	
 		for (int i = 0; i < 5; i++) {
 			for (int j = 0; j < 4; j++) {
 				for (int k = 0; k < 3; k++) {
@@ -22773,7 +22820,6 @@ public:
 
 int main() {
 	pointerDemo xer;
-	
 
 	return 0;
 }
@@ -22811,7 +22857,7 @@ int main() {
 	cout << endl << "obj2 : ";
 	obj2.print();
 
-	obj3 = new pointerDataClass(*obj1);
+	obj3 = new pointerDataClass(obj1);
 	delete obj1;
 	cout << endl << "obj3 : ";
 	obj3->print();
@@ -22920,10 +22966,10 @@ public:
 		cout << "Base class .print() function\n";
 		cout << "x = " << x << endl;
 	}
-
+/* No idea how this got here, its not called.
 	int setX() {
 		cout x
-	}
+	}*/
 };
 
 class DerivedClass : public BaseClass {
@@ -22950,6 +22996,7 @@ int main() {
 	DerivedClass obj2(3, 15);
 	obj2.print();
 	cout << endl;
+
 	callPrint(obj1);
 	cout << endl;
 	callPrint(obj2);
@@ -22996,7 +23043,6 @@ void callPrint1(BaseClass bcl) {
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 67 - pure virtual functions/EmployeeType.cpp <==
 #include "EmployeeType.h"
 
-
 EmployeeType::EmployeeType(string fname, string lname, int _ID) 
 	: PersonType(fname, lname){
 	ID = _ID;
@@ -23009,8 +23055,6 @@ int EmployeeType::getID() const {
 void EmployeeType::setID(int _ID) {
 	ID = _ID;
 }
-
-
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 67 - pure virtual functions/EmployeeType.h <==
 #ifndef EMPLOYEETYPE_H
 #define EMPLOYEETYPE_H
@@ -23078,6 +23122,7 @@ void FullTimeEmployee::set(string fname, string lname, int iId,
 	salary = isalary;
 	bonus = ibonus;
 }
+
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 67 - pure virtual functions/FullTimeEmployee.h <==
 #ifndef FULLTIME_H
 #define FULLTIME_H
@@ -23105,6 +23150,7 @@ public:
 };
 
 #endif
+
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 67 - pure virtual functions/Header.h <==
 #pragma once
 
@@ -23125,8 +23171,6 @@ int main() {
 
 	ft1.print();
 	pt1.print();
-
-	
 
 	return 0;
 }
@@ -23164,6 +23208,7 @@ void PartTimeEmployee::print() const {
 	cout << setw(10) << "Name: " << getFName() << " " << getLName() << endl;
 	cout << setw(10) << "Wages: " << (char)156 << calculatePay() << endl;
 }
+
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 67 - pure virtual functions/PartTimeEmployee.h <==
 #ifndef PARTTIME_H
 #define PARTTIME_H
@@ -23237,7 +23282,6 @@ public:
 	virtual void print() const;
 };
 
-
 #endif 
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 74 friend functions/c++ int 74 friend functions/Friendtest.h <==
 #ifndef FRIENDTEST_H
@@ -23260,9 +23304,8 @@ public:
 //friend keyword is used here, function body can be used outside of class
 };
 
-
-
 #endif
+
 ==> ./Projects/c++ int 67 - pure virtual functions/c++ int 74 friend functions/c++ int 74 friend functions/main.cpp <==
 #include <iostream>
 #include "Friendtest.h"
@@ -23363,11 +23406,13 @@ int main() {
 	cin >> *r4;
 	cout << "\nr4: " << *r4 << endl;
 	delete r4;
+	cout << "r3 : " << r3 << endl;
+	cout << "r2 : " << r2 << endl;
 	cout << "r3 + r2 : " << r3 + r2 << endl;
-	cout << "r3 + r2 : " << r3 * r2 << endl;
-	cout << r3--; //cout.operator<<(r3.operator--())
-	cout << r3;
-	cout << --r2; //cout.operator<<(r2.operator--(r2))
+	cout << "r3 * r2 : " << r3 * r2 << endl;
+	cout << "r3-- : " << r3-- << endl; //cout.operator<<(r3.operator--())
+	cout << "r3 : " << r3 << endl;
+	cout << "--r2 : " << --r2 << endl; //cout.operator<<(r2.operator--(r2))
 	return 0;
 }
 ==> ./Projects/c++ int 75 operator overloading/c++ int 75 operator overloading/RectangleType.cpp <==
@@ -23570,7 +23615,6 @@ public:
 #include "ArrayList.h"
 
 ArrayList::ArrayList() {
-
 }
 
 ArrayList::ArrayList(int ilength) {
@@ -23680,8 +23724,8 @@ const ArrayList& ArrayList::operator=(const ArrayList& rhs)  {
 		for (int i = 0; i < maxSize; i++) {
 			list[i] = rhs.list[i];
 		}
-		return *this;
 	}
+	return *this;
 }
 
 istream& operator>>(istream &in, ArrayList &arl) {
@@ -23707,7 +23751,6 @@ ostream& operator<<(ostream& out, ArrayList &arl) {
 	}
 	return out;
 }
-
 
 ==> ./Projects/c++ int 77 - assignment operator overload/c++ int 77 - assignment operator overload/ArrayList.h <==
 #ifndef ARRAYLIST_H
@@ -23984,21 +24027,21 @@ int main() {
 	cout << num3 * num3 << endl;
 	cout << num4 * num4 << endl;
 
-	/*ComplexNumber numser[100];
+	ComplexNumber numser[100];
 	numser[0] = num1;
 	for (int i = 0; i < 50; i++) {
 		numser[i + 1] = numser[i] * num2;
 		cout << setw(8) << numser[i] << endl;
 	}
 	cout << endl;
-	/*for (int i = 1; i <= 16; i++) {
+	for (int i = 1; i <= 16; i++) {
 		cout << "(1+i)^" << i << " = " << power(num1, i) << endl;
 		cout << "(1-i)^" << i << " = " << power(num2, i) << endl;
 
 		cout << "(-1-i)^" << i << " = " << power(num3, i) << endl;
 		cout << "(-1+i)^" << i << " = " << power(num4, i) << endl;
 		cout << endl;
-	}*/
+	}
 	
 
 	//cout << num1 * num3 << endl;
@@ -24204,6 +24247,7 @@ template <typename Type> Type larger(Type x, Type y) {
 		return y;
 	}
 }
+
 ==> ./Projects/c++ int 82 new string program/c++ int 82 new string program/NewString.cpp <==
 #include "NewString.h"
 
@@ -24442,7 +24486,7 @@ public:
 
 #endif
 ==> ./Projects/C++ int 84 class templates/C++ int 84 class templates/ArrayListType.cpp <==
-/*#include "ArrayListType.h"
+#include "ArrayListType.h"
 
 template <class elemType> 
 ArrayListType<elemType>::ArrayListType(int size) {
@@ -24551,14 +24595,13 @@ void ArrayListType<elemType>::retrieveAt(int location, elemType &item) const {
 	else {
 		cout << list[location] << endl;
 	}
-}*/
+}
 ==> ./Projects/C++ int 84 class templates/C++ int 84 class templates/ArrayListType.h <==
 #ifndef ARRAYLISTTYPE_H
 #define ARRAYLISTTYPE_H
 #include <iostream>
 
 using namespace std;
-
 //abstract data type ArrayListType - contains pure virtual functions
 
 template <class elemType>
@@ -24698,7 +24741,6 @@ void ArrayListType<elemType>::retrieveAt(int location, elemType &item) const {
 	}
 }
 
-
 #endif
 
 ==> ./Projects/C++ int 84 class templates/C++ int 84 class templates/main.cpp <==
@@ -24833,6 +24875,11 @@ void UnorderedArrayList<elemType>::remove(const elemType &item) {
 template <class elemType>
 class UnorderedArrayList : public ArrayListType<elemType> {
 public:
+    using ArrayListType<elemType>::length;
+    using ArrayListType<elemType>::maxSize;
+    using ArrayListType<elemType>::list;
+    using ArrayListType<elemType>::removeAt;
+
 	UnorderedArrayList(int size = 100){
 		if (size <= 0) {
 			cout << "Size must be a positive integer\n";
@@ -25101,6 +25148,7 @@ void enterNumber() throw (exception){
 		throw;
 	}
 }
+
 ==> ./Projects/c++ int 91 - stack unwinding/c++ int 91 - stack unwinding/main.cpp <==
 /*When an exception occurs in a function, the function call stack will be unwound. All local variables will be 
 destroyed, and the stack will unwind until it encounters a try-catch block which can catch the exception.*/
@@ -25202,7 +25250,6 @@ int main() {
 	} while (num == 0);
 	cout << endl;
 	move(num, 1, 3, 2);
-	system("PAUSE");
 	return 0;
 }
 
@@ -25213,7 +25260,6 @@ void move(int count, int n1, int n3, int n2) {
 		move(count - 1, n2, n3, n1);
 	}
 }
-
 
 ==> ./Projects/c++ int133 stl replace functions/c++ int133 stl replace functions/main.cpp <==
 #include <iostream>
@@ -25243,7 +25289,7 @@ int main() {
 	copy(charList.begin(), charList.end(), print);
 	cout << endl;
 
-	replace_if(charList.begin(), charList.end(), isupper, '*');
+	replace_if(charList.begin(), charList.end(), [](char x) {return isupper(x);}, '*');
 	cout << "charList = ";
 	copy(charList.begin(), charList.end(), print);
 	cout << endl;
@@ -25268,7 +25314,6 @@ int main() {
 	copy(temp2.begin(), temp2.end(), print1);
 	cout << endl;
 
-	system("PAUSE");
 	return 0;
 }
 
@@ -25295,7 +25340,6 @@ int main() {
 		cout << *iter << endl;
 	}
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++ int97 linked lists/c++ int97 linked lists/main.cpp <==
@@ -25347,9 +25391,9 @@ int main() {
 		current = current->link;
 	}
 
-	system("PAUSE");
 	return 0;
 }
+
 ==> ./Projects/c++ int99 building a linked list/c++ int99 building a linked list/main.cpp <==
 #include <iostream>
 
@@ -25382,7 +25426,6 @@ int main() {
 		current = current->link;
 	}
 	cout << endl;
-	system("PAUSE");
 	return 0;
 }
 
@@ -25662,6 +25705,7 @@ template <typename Type> linkedListIterator<Type> linkedListType<Type>::end() {
 ==> ./Projects/c++int 100 linked list as an adt/c++int 100 linked list as an adt/Linkedlistiterator.h <==
 #ifndef LINKEDLISTITERATOR_H
 #define LINKEDLISTITERATOR_H
+#include <iostream>
 
 template <typename Type>
 struct node {
@@ -25779,11 +25823,10 @@ int main() {
 	olist1.print();
 	cout << endl;
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++int 100 linked list as an adt/c++int 100 linked list as an adt/OrderedLinkedList.h <==
-#ifndef ORDEREDLINKEDLIST_H
+ifndef ORDEREDLINKEDLIST_H
 #define ORDEREDLINKEDLIST_H
 #include <iostream>
 #include "LinkedListClass.h"
@@ -25792,7 +25835,10 @@ using namespace std;
 
 template <typename Type>
 class orderedLinkedList : public linkedListType<Type> {
-public: 
+public:
+	using linkedListType<Type>::first;
+	using linkedListType<Type>::last;
+	using linkedListType<int>::count;
 	bool search(const Type&) const;
 	void insert(const Type&);
 	void insertFirst(const Type&);
@@ -25924,6 +25970,9 @@ using namespace std;
 
 template <typename Type> class unorderedLinkedList : public linkedListType<Type> {
 public:
+	using linkedListType<Type>::first;
+	using linkedListType<Type>::last;
+	using linkedListType<int>::count;
 	bool search(const Type&) const;
 	void insertFirst(const Type&);
 	void insertLast(const Type&);
@@ -26061,6 +26110,7 @@ template <typename Type> void unorderedLinkedList<Type>::deleteNode(const Type&i
 }
 
 #endif
+
 ==> ./Projects/c++int 109 postfix expression calculator/c++int 109 postfix expression calculator/LinkedStackType.h <==
 #ifndef LINKEDSTACKTYPE_H
 #define LINKEDSTACKTYPE_H
@@ -26220,7 +26270,6 @@ int main() {
 	infile.close();
 	outfile.close();
 
-	system("PAUSE");
 	return 0;
 }
 
@@ -26314,6 +26363,7 @@ void test(linkedStackType<int> copystack) {
 		copystack.pop();
 	}
 }
+
 ==> ./Projects/c++int 109 postfix expression calculator/c++int 109 postfix expression calculator/stackADT.h <==
 #ifndef STACKADT_H
 #define STACKADT_H
@@ -26330,6 +26380,7 @@ class stackADT {
 };
 
 #endif
+
 ==> ./Projects/c++int 110 Queue ADT/c++int 110 Queue ADT/main.cpp <==
 #include <iostream>
 #include "queueType.h"
@@ -26548,7 +26599,6 @@ int main() {
 	copy(list2, list2 + 2, print);
 	cout << endl;
 
-	vector<int>::iterator iter;
 	iter = search(vecList.begin(), vecList.end(), list2, list2 + 2);
 	if (iter != vecList.end()){
 		cout << "list2 found in vecList at position " << (iter - vecList.begin()) << endl;
@@ -26579,7 +26629,6 @@ int main() {
 		cout << "45 not found in vecList\n";
 	}
 
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/c++int 135 stl swap functions/c++int 135 stl swap functions/main.cpp <==
@@ -26630,7 +26679,7 @@ int main() {
 	copy(intList.begin(), intList.end(), print1);
 	cout << endl;
 
-	swap_ranges(list, list + 10, intList.begin());
+	swap_ranges(list, list + 10, intList.begin()); //swaps the entire contents of list and intList
 	cout << "list = ";
 	copy(list, list+ 10, print1); //ostream_iterator<int> can be used on standard arrays
 	cout << endl;
@@ -26638,10 +26687,9 @@ int main() {
 	copy(intList.begin(), intList.end(), print1);
 	cout << endl;
 
-
-	system("PAUSE");
 	return 0;
 }
+
 ==> ./Projects/c++int 142 map container class/c++int 142 map container class/main.cpp <==
 #include <iostream>
 #include <map>
@@ -26695,47 +26743,6 @@ int main() {
 
 	return 0;
 }
-==> ./Projects/c++int 96 dec-to-binary/c++int 96 dec-to-binary/main.cpp <==
-#include <iostream>
-#include <vector>
-
-using namespace std;
-
-//void toDecimal();
-//void toBinary();
-
-int main() {
-	cin.exceptions(ios_base::failbit);
-	int number = 0;
-
-	do {
-		cout << "Please input a number to be converted to binary\n";
-		try {
-			cin >> number;
-		}
-		catch (exception e) {
-			cout << "You did not enter a valid integer\n";
-			cin.clear();
-			cin.ignore(100, '\n');
-			number = 0;
-		}
-	} while (number == 0);
-
-	vector<int> remainder;
-
-	
-	
-
-	cout << "Binary: ";
-	for (auto i : remainder) {
-		cout << i;
-	}
-	cout << endl;
-
-	system("PAUSE");
-	return 0;
-}
-
 
 ==> ./Projects/c++int104 - stl data satack structure/c++int104 - stl data satack structure/main.cpp <==
 #include <iostream>
@@ -27567,7 +27574,7 @@ int main() {
 	fstream myfile;
 	int count = 0;
 	
-	myfile.open("C:/Users/Leslie/Documents/numbers.txt");
+	myfile.open("numbers.txt");
 	if (!myfile.is_open()) {
 		cout << "Error opening input file\n";
 	}
@@ -27580,11 +27587,12 @@ int main() {
 
 	for (auto i : viewslist) {
 		count ++;
-		cout << "count = " << count << " " << i << endl;
+		cout << "count = " << count << ", number : " << i << endl;
 	}
 
 	return 0;
 }
+
 ==> ./Projects/card-deck-shuffle/card-deck-shuffle/main.cpp <==
 #include <iostream>
 #include <random>
@@ -28114,6 +28122,7 @@ void clearLast(vector<vector<Card>> &hands, vector<Card> &faceup, const int &nop
 		faceup.pop_back();
 	}
 }
+
 ==> ./Projects/class templates/class templates/ArrayListType.h <==
 #ifndef ARRAYLISTTYPE_H
 #define ARRAYLISTTYPE_H
@@ -28649,7 +28658,7 @@ public:
 		}
 	}
 
-	void operator()(string& msg) {
+	void operator()(string msg) {
 		cout << "thread says: " << msg << endl;
 		msg = "Trust is the mother of deceit\n";
 	}
@@ -28657,7 +28666,7 @@ public:
 
 int main() {
 	Fctor fct;
-	string s = "Where there is trust there is not necessarily love. The two are not equatable.\n";
+	string s = "Where there is trust there is not necessarily love. The two are not equitable.\n";
 	thread t1(fct);
 	//thread t3((Fctor()));
 	thread t2((Fctor()), s); //parameter to a thread is always passed by value
@@ -28702,14 +28711,14 @@ int main() {
 	//since these threads have rejoined the main thread their id's are now 0
 
 	//Oversubscription is when there are more threads running than CPU cores, this will mean more 'contact switching', leading to degraded performance
-	cout << "\n\n\Thread concurrency is : " << thread::hardware_concurrency() << "\n"; //shows how many threads can be running "truly concurrently"
+	cout << "\n\nThread concurrency is : " << thread::hardware_concurrency() << "\n"; //shows how many threads can be running "truly concurrently"
 
 	return 0;
 }
 
 void DummyCode() {
 	//if run inside main this will not compile, this does not crea a thread t1, reads as declaring fucntion t1 with parameter of pointer to another function, and this function takes no parameter and returns type Fctor
-	thread t2(Fctor()); //c++ standard says that whenever syntax can be read as a function declaration it will be treated as a function declaration
+	thread t2{Fctor()}; //c++ standard says that whenever syntax can be read as a function declaration it will be treated as a function declaration
 
 	//Using another pair of brackets allows to ecplicitly declare as a functor being passed to t1
 	thread t3((Fctor()));
@@ -28753,58 +28762,172 @@ int main() {
 #include <future>
 #include <thread>
 #include <mutex>
+#include <chrono>
+#include <condition_variable>
 
 using namespace std;
 
 int factorial(int N)
 {
-	int res = 1;
-	for (int i = N; i > 1; --i)
-	{
-		res *= i;
-	}
-	cout << "Result is: " << res << endl;
-	return res;
+    int res = 1;
+    for (int i = N; i > 1; --i)
+    {
+        res *= i;
+    }
+    cout << "Result is: " << res << endl;
+    return res;
 }
 
-//time functions endig in _for take duration as parameter, those ending in _until take time_point as a parameter
 int main()
 {
-	/* thread */
-	std::thread t1(factorial, 6);
-	std::this_thread::sleep_for(chrono::milliseconds(3)); //will define how long a thread will sleep for - see Concurrent C++ 6
-	chrono::steady_clock::time_point tp = chrono::steady_clock::now() + chrono::seconds(2); //defines a time point for the thread to sleep until
-	std::this_thread::sleep_until(tp); 
+    /* Thread usage 
+	 *    Thread Creation:
+     *     A thread t1 is started to execute the factorial function with the argument 6. This means 6!6! will be computed concurrently.
+     * 
+     *     Sleeping:
+     *         sleep_for(chrono::milliseconds(3)) pauses the main thread for 3 milliseconds.
+     *         A time point tp is set to the current steady clock time plus 2 seconds.
+     *         sleep_until(tp) makes the main thread sleep until the time tp is reached.
+     * 
+     * This section demonstrates how to manage timing in concurrent programs.
+	 * */
+    thread t1(factorial, 6);
+    this_thread::sleep_for(chrono::milliseconds(3)); // sleep for 3 ms
+    chrono::steady_clock::time_point tp = chrono::steady_clock::now() + chrono::seconds(2);
+    this_thread::sleep_until(tp); 
 
-	/* Mutex */
-	std::mutex mu; //mu.lock(), mu.unlock() - not recommended for best practice;
-	std::lock_guard<mutex> locker(mu);
-	std::unique_lock<mutex> ulocker(mu);
-	ulocker.try_lock(); //will attempt to lock, rreturn if unsuccesful
-	ulocker.try_lock_for(chrono::nanoseconds(500)); 
-	ulocker.try_lock_until(tp);
+    /* Mutex
+	 * Instead of a regular mutex, a timed_mutex is used because it supports timed locking functions like try_lock_for() and try_lock_until().
+	 * */
+    timed_mutex mu;
 
-	/* Condition variable */
-	std::condition_variable cond;
-	cond.wait_for(ulocker, chrono::microseconds(2));
-	cond.wait_until(ulocker, tp);
+    /* Unique Lock with Defer:
+     * A unique_lock named ulocker is created for mu with defer_lock, meaning it is constructed without immediately locking the mutex. This allows later attempts to lock it with various timed methods.
+	 */
+    unique_lock<timed_mutex> ulocker(mu, defer_lock);
 
-	/* Future and Promise */
-	std::promise<int> p;
-	std::future<int> f = p.get_future();
-	f.get();
-	f.wait();
-	f.wait_for(chrono::milliseconds(2));
-	f.wait_until(tp);
+    // try_lock() attempts to lock the mutex immediately without waiting. If successful, it prints a message and then unlocks.
+    if(ulocker.try_lock())
+    {
+        cout << "Acquired lock with try_lock()." << endl;
+        ulocker.unlock();
+    }
+    
+    // try_lock_for() tries to acquire the lock and will wait for up to 500 nanoseconds. If it acquires the lock within this period, it prints a message and unlocks.
+    if(ulocker.try_lock_for(chrono::nanoseconds(500)))
+    {
+        cout << "Acquired lock with try_lock_for()." << endl;
+        ulocker.unlock();
+    }
+    
+    // try_lock_until() waits until the specified time point tp to acquire the lock. If the lock is acquired before the time is reached, it prints a message and then unlocks.
+    if(ulocker.try_lock_until(tp))
+    {
+        cout << "Acquired lock with try_lock_until()." << endl;
+        ulocker.unlock();
+    }
 
-	/* async */
-	std::future<int> fu = async(factorial, 6);
+    /* Using condition_variable_any:
+     * Since std::condition_variable works only with std::mutex, we use condition_variable_any, which can work with any lockable object including our timed_mutex.
+     * 
+     * Locking for Waiting:
+     * The unique lock ulocker is explicitly locked with ulocker.lock() before calling the wait functions.
+     * 
+     * Waiting with a Timeout:
+     * 
+     *     wait_for(ulocker, chrono::microseconds(2)) causes the thread to wait for up to 2 microseconds or until the condition is notified. In this example, no notification is sent, so it will timeout.
+     *     wait_until(ulocker, tp) waits until the time point tp is reached.
+     * 
+     * Unlocking:
+     * After the wait calls, the lock is manually released with ulocker.unlock(). 
+	 * */
+    condition_variable_any cond;
+    ulocker.lock();
+    cond.wait_for(ulocker, chrono::microseconds(2));
+    cond.wait_until(ulocker, tp);
+    ulocker.unlock();
 
-	/* Packaged Task */
-	std::packaged_task<int(int)> t(factorial);
-	std::future<int> fu2 = t.get_future();
-	t(6);
+    /* Promise Creation:
+     * A promise<int> object p is created. A promise is used to set a value that will be passed to a future.
+     * 
+     * Obtaining a Future:
+     * The future f is obtained from the promise using p.get_future(). The future will eventually hold the value provided to the promise.
+     * 
+     * Setting the Value:
+     * The promise’s value is set to 42 using p.set_value(42). This makes the future ready with that value.
+     * 
+     * Waiting on the Future:
+     * 
+     *     f.wait() blocks until the future is ready.
+     *     f.wait_for(chrono::milliseconds(2)) and f.wait_until(tp) are demonstrations of timed waiting, although the future is already ready.
+     * 
+     * Retrieving the Value:
+     * Finally, f.get() retrieves the value (which is 42) and prints it. Note that after calling get(), the future loses its state. 
+	 * */
+    promise<int> p;
+    future<int> f = p.get_future();
+    p.set_value(42);  // Set a value so that f.get() doesn't block indefinitely
+    f.wait();
+    f.wait_for(chrono::milliseconds(2));
+    f.wait_until(tp);
+    cout << "Promise/Future result: " << f.get() << endl;
+
+    /* Async Launch:
+     * This line launches an asynchronous task that calls factorial(6). The task is executed concurrently, and a future<int> named fu holds the eventual result of the computation.*/
+    future<int> fu = async(factorial, 6);
+
+    /* Packaged Task 
+	 * Packaged Task Creation:
+     * A packaged_task is created with the signature int(int) and is initialized with the factorial function. A packaged task wraps a function so that its result can be retrieved via a future.
+     * 
+     * Getting the Future:
+     * The future fu2 is obtained from the packaged task using task.get_future().
+     * 
+     * Invoking the Task:
+     * The task is then executed with the argument 6, which will call factorial(6) and store its result in the future fu2.
+     * */
+    packaged_task<int(int)> task(factorial);
+    future<int> fu2 = task.get_future();
+    task(6);
+
+    t1.join(); // Ensure t1 is joined before exiting
+    return 0;
 }
+
+/*
+ * 1. Future and Promise
+ *
+ * Scenario: Background Data Processing in a GUI Application
+ * Imagine you’re developing a desktop application that loads a large dataset from disk. To keep the user interface responsive, you launch a background thread to process the data. You can use a promise in that background 
+ * thread to set the processed result once it’s ready, and a future in the main thread to eventually retrieve the result. The main thread can continue showing a progress indicator or allow the user to interact with other 
+ * parts of the application. Once the background work is complete, the future becomes ready and the UI can update with the new data.
+ * 
+ * Other Example: Remote API Calls
+ * In networked applications, a background thread might make a call to a remote server (e.g., fetching weather data). A promise can be used to deliver the server's response back to the main thread via a future. This pattern 
+ * ensures that the main thread isn’t blocked while waiting for the network response.
+ * 
+ * 2. Async
+ * 
+ * Scenario: Concurrent Computations in a Web Server
+ * Consider a web server handling multiple client requests. Some of these requests might require heavy computations (like image processing or data aggregation). Using std::async, you can launch these computations concurrently 
+ * without manually managing threads. The server can immediately continue processing other requests while waiting for the asynchronous tasks to complete. When the result is ready, it can be retrieved from the future returned 
+ * by async.
+ * 
+ * Other Example: File I/O Operations
+ * An application that reads large files or performs database queries might offload these tasks using async. For instance, when loading configuration data or processing a log file, async helps you run these operations in parallel 
+ * to improve performance, ensuring the main application remains responsive.
+ * 
+ * 3. Packaged Task
+ * 
+ * Scenario: Task Scheduling in a Thread Pool
+ * In more complex applications—such as a game engine or a high-performance computing system—you might want to encapsulate functions as tasks that can be scheduled and executed by a thread pool. Packaged tasks allow you to wrap a 
+ * function (like a physics calculation or AI decision process) and obtain a future to later check the result. This makes it easier to queue up work and handle the results asynchronously when the threads in the pool finish executing 
+ * the tasks.
+ * 
+ * Other Example: Deferred Execution with Control Flow
+ * Imagine you’re developing a system that processes sensor data. You might not want to start processing immediately due to dependencies on other initialization steps. A packaged task can be created early on, stored in a task queue, 
+ * and then executed once all the necessary setup is complete. The associated future lets you wait for or retrieve the processed data later, integrating smoothly with the rest of your application logic.
+ * */
 ==> ./Projects/concurrent c++ 3 - Data Race and Mutex/concurrent c++ 3 - Data Race and Mutex/main.cpp <==
 #include <iostream>
 #include <thread>
@@ -28860,8 +28983,15 @@ class stack {
 	int* _datat;
 	std::mutex _mu;
 public:
-	void pop(); //pops off the item on top of the stack
-	int& top(); //returns the item on top of the stack
+	//pops off the item on top of the stack
+	void pop(){
+        std::cout << "stack::pop() called" << std::endl;
+    }
+
+	//returns the item on top of the stack
+	int& top(){
+        std::cout << "stack::top() called" << std::endl;
+    }
 };
 
 void function_1()
@@ -28903,11 +29033,11 @@ int main()
 
 	t1.join();
 
-	system("PAUSE");
 	return 0;
 }
 
 /*Output is scattered if no mutex is used, this results in data race, where two threads are competing for a common resource (in original case cout)*/
+
 ==> ./Projects/Concurrent C++ 4 - Deadlock/Concurrent C++ 4 - Deadlock/main.cpp <==
 /*dealoc can be avoided y
 1. Prefering to lock a single mutex
@@ -28936,6 +29066,7 @@ public:
 		_f.open("log.txt");
 	} 
 
+	// Issue: When shared_print and shared_print2 used concurrently, as the functions lock the mutexes in a different order, this inconsistent ordering can lead to a classic deadlock.
 	void shared_print(string id, int value)
 	{
 		std::lock_guard<std::mutex> locker(_mu);
@@ -28951,6 +29082,7 @@ public:
 		cout << "From " << id << ": " << value << endl;
 	}
 
+	// The methods shared_print3 and shared_print4 demonstrate how using std::lock along with std::adopt_lock avoids deadlock when locking multiple mutexes.
 	void shared_print3(string id, int value)
 	{
 		std::lock(_mu, _mu2); //can take arbritrary number of parameters, uses deadlock avoidance algorithm 
@@ -28982,6 +29114,7 @@ void function_1(LogFile &log)
 
 int main()
 {
+	/* The code intentionally shows that locking the same mutexes in different orders (as seen between shared_print and shared_print2) can cause deadlock.*/
 	LogFile log;
 	std::thread t1(function_1, std::ref(log));
 	for (int i = 0; i < 100; ++i)
@@ -29078,7 +29211,6 @@ public:
 
 int main()
 {
-	system("PAUSE");
 	return 0;
 }
 ==> ./Projects/Concurrent C++ 6 - Condition variable/Concurrent C++ 6 - Condition variable/main.cpp <==
@@ -29087,6 +29219,7 @@ int main()
 #include <thread>
 #include <mutex>
 #include <deque>
+#include <condition_variable>
 
 using namespace std;
 
@@ -29127,7 +29260,7 @@ void function_2()
 	}
 }
 
-//the above code is valid, q is a shared object and both threads/functions access via use of a mutex preventing data race, however thread t2 will continue to loop checking if q is empty, grossly inefficient
+//the above code is valid, q is a shared object and both threadfunctions access via use of a mutex prevents data race, however thread t2 will continue to loop checking if q is empty, grossly inefficient
 //use of std::condition_variable cond; can improve matters considerably
 
 void function_1_improved()
@@ -29153,7 +29286,7 @@ void function_2_improved()
 		std::unique_lock<mutex> locker(mu);
 		cond.wait(locker, [](){ return !q.empty(); }); //puts thread t2 to sleep until notified by thread t1, cond.wait() takes parameter of std::unique_lock to unlock the mutex before it goes to sleep. 
 			//Upon waking up it relocks the mutex. As it has to be lock and unlocked multiple times has to be std::unique_lock and not std::lock_guard 
-			//thread t2 could also wake by itself known as a spurious wake, second parameter of lambda function which will check if q is empty and put back to sleep unless q is not empty
+			//thread t2 could also wake by itself known as a spurious wake, second parameter, the lambda function which will check if q is empty and put back to sleep unless q is not empty
 		data = q.back();
 		q.pop_back();
 		locker.unlock();
@@ -29179,6 +29312,7 @@ int main()
 #include <string>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 using namespace std;
 //if we want to return the result from the child thread to the parent thread
@@ -29221,10 +29355,12 @@ int main()
 #include <iostream>
 #include <future>
 #include <mutex>
-
-std::mutex mu;
+#include <thread>
+#include <chrono>
 
 using namespace std;
+
+std::mutex mu;
 
 int factorial(int N)
 {
@@ -29257,7 +29393,7 @@ int factorial2(std::future<int>& f)
 int main()
 {
 	int x;
-	std::future<int> fu3 = std::async(factorial, 2); //async funcion returns a future object, identiacl to syntax below
+	std::future<int> fu3 = std::async(factorial, 2); //async funcion returns a future object, identical to syntax below
 	std::future<int> fu2 = std::async(std::launch::deferred | std::launch::async, factorial, 3); //standard implementation, deferred waits until get() is called in main class
 	std::future<int> fu = std::async(std::launch::async, factorial, 4); //automatically launches new thread
 
@@ -29298,59 +29434,90 @@ int main()
 	x = f2.get();
 	cout << x << endl;
 
-	//futures and promises cannot be coppied can onle be moved
+	//futures and promises cannot be copied, can only be moved
 
 	//std::future<int> fu2 = fu;     - will not compile
 	//std::future fu2 = std::move(fu)     - will compile
 
 	return 0;
 }
+
 ==> ./Projects/Concurrent C++ 7c shared future/Concurrent C++ 7c shared future/main.cpp <==
 #include <iostream>
 #include <future>
 #include <mutex>
+#include <thread>
 
 using namespace std;
 
-std::mutex mu;
+// Mutex to protect cout from concurrent access
+std::mutex coutMutex;
 
-int factorial(std::shared_future<int> f)
-{
-	std::unique_lock<mutex> locker(mu);
-	int res = 1;
-
-	int N = f.get();
-	for (int i = N; i > 1; --i)
-	{
-		res *= i;
-	}
-
-	cout << "Result is: " << res << endl;
-	return res;
+// A function to calculate the factorial of the value obtained from a shared_future.
+int factorial(shared_future<int> sf) {
+    // sf.get() can be called as many times as needed
+    int n = sf.get();
+    int result = 1;
+    {
+        lock_guard<mutex> guard(coutMutex);
+        cout << "Thread " << this_thread::get_id() 
+             << " calculating factorial for: " << n << endl;
+    }
+    for (int i = 1; i <= n; ++i) {
+        result *= i;
+    }
+    return result;
 }
 
-int main()
-{
-	int x;
+// A function that simply prints the value from the shared_future.
+void printValue(shared_future<int> sf) {
+    int value = sf.get();
+    lock_guard<mutex> guard(coutMutex);
+    cout << "Thread " << this_thread::get_id() 
+         << " reads shared value: " << value << endl;
+}
 
-	std::promise<int> p;
-	std::future<int> f = p.get_future();
-	std::shared_future<int> sf = f.share();
-	//rather than having to create multiple promises and multiple futures if you want to call the .get() function more than once can create an std::shared_future<template> object, can use .get() multiple times 
-	//and pass by value instead of ref
+int main() {
+    // Create a promise and obtain its future.
+    promise<int> p;
+    future<int> f = p.get_future();
 
-	std::future<int> fu = std::async(std::launch::async, factorial, sf);
-	std::future<int> fu2 = std::async(std::launch::async, factorial, sf);
-	//...
+    // Convert the future into a shared_future so that multiple threads can call .get()
+    shared_future<int> sf = f.share();
 
-	p.set_value(4);
+    // Launch multiple asynchronous tasks that use the shared_future.
+    future<int> asyncFactorial1 = async(launch::async, factorial, sf);
+    future<int> asyncFactorial2 = async(launch::async, factorial, sf);
+    future<void> asyncPrint = async(launch::async, printValue, sf);
 
-	return 0;
+    // Set the promised value. This value is now available to every shared_future that was created.
+    p.set_value(6);
+
+    // The main thread can also safely call .get() on the shared_future.
+    {
+        lock_guard<mutex> guard(coutMutex);
+        cout << "Main thread reads shared value: " << sf.get() << endl;
+        // Calling sf.get() again is fine.
+        cout << "Main thread reads shared value again: " << sf.get() << endl;
+    }
+   
+	std::this_thread::sleep_for(chrono::seconds(3));
+
+    // Retrieve the results from the asynchronous factorial computations.
+    cout << "Factorial result from asyncFactorial1: " << asyncFactorial1.get() << endl;
+    cout << "Factorial result from asyncFactorial2: " << asyncFactorial2.get() << endl;
+
+    // Wait for the printValue task to complete.
+    asyncPrint.get();
+
+    return 0;
 }
 ==> ./Projects/Concurrent C++ 8 - Callable Objects/Concurrent C++ 8 - Callable Objects/main.cpp <==
 #include <iostream>
 #include <thread>
 #include <future>
+#include <functional>
+#include <mutex>
 
 using namespace std;
 
@@ -29358,7 +29525,7 @@ class A {
 public:
 	void f(int x, char c) { }	
 	long g(double x) { return 0; }
-	int operator()(int N) { return 0; } //makes a a functor
+	int operator()(int N) { return N + 63; } //makes a a functor
 };
 
 void foo(int x) {}
@@ -29368,8 +29535,11 @@ int main() {
 
 	std::async(std::launch::async, a, 6);
 	std::bind(a, 6);
-	std::call_once(once_flag, a, 6);
-	//also takes callable object followed by argument(s), std library functions can all take the following thread forms as arguments
+
+	// Declare a once_flag variable
+    // std::once_flag flag;
+    // std::call_once(flag, a, 6);
+    // std::call_once ensures that the callable is executed only once
 
 	std::thread t1(a, 6); //copy_of_a(6) in a different thread
 	std::thread t2(std::ref(a), 6); // a(6) in a different thread
@@ -29381,6 +29551,15 @@ int main() {
 	std::thread t7(&A::f, &a, 8, 'w'); // a.f(8, 'w') in a different thread
 	std::thread t8(std::move(a), 6); //a no longer usable in main thread
 
+	t1.join();
+	t2.join();
+	t3.join();
+	t4.join();
+	t5.join();
+	t6.join();
+	t7.join();
+	t8.join();
+
 	return 0;
 }
 ==> ./Projects/Concurrent C++ 9 - Packaged Tasks/Concurrent C++ 9 - Packaged Tasks/main.cpp <==
@@ -29388,6 +29567,7 @@ int main() {
 #include <future>
 #include <thread>
 #include <deque>
+#include <functional>
 
 using namespace std;
 
@@ -29446,10 +29626,12 @@ int main()
 		std::lock_guard<std::mutex> locker(mu);
 		task_q.push_back(std::move(tsk));
 	}
-	cond.notify_one();
+	std::this_thread::sleep_for(chrono::seconds(1));
+
 	cout << "Return value is " << fu.get() << endl;
 
 	thr1.join();
+	cond.notify_one();
 	return 0;
 }
 
@@ -29485,6 +29667,7 @@ int main() {
 		cout << "All good\n";
 	}
 
+	cout << "\nFill array t2: ";
 	cin >> t2;
 
 	if (t1 != t2) {
@@ -29681,8 +29864,6 @@ void TestClass::addItem() {
 	}
 	cout << endl;
 }
-
-
 ==> ./Projects/copy assignment operator overload/copy assignment operator overload/TestClass.h <==
 #ifndef TESTCLASS_H
 #define TESTCLASS_H
@@ -29858,6 +30039,7 @@ ostream& operator<<(ostream& out, ArrayList &arl) {
 	return out;
 }
 
+
 ==> ./Projects/gotw (d. 2) 48 switching streams/assignment operator overload/assignment operator overload/ArrayList.h <==
 #ifndef ARRAYLIST_H
 #define ARRAYLIST_H
@@ -29888,6 +30070,7 @@ public:
 };
 
 #endif
+
 ==> ./Projects/gotw (d. 2) 48 switching streams/assignment operator overload/assignment operator overload/main(assignment operator).cpp <==
 #include <iostream>
 #include "ArrayList.h"
@@ -29931,7 +30114,7 @@ int main(int argc, char* argv[]) {
 	int x = 1;
 	char y[80] = "hello";
 	string z;
-	char *a;
+	const char *a;
 
 	z = (x == 2) ? "variable x = 2\n" : (x == 1) ? "variable x = 1\n" : "variable x is not 1 or 2\n";
 	cout << z;
@@ -29940,11 +30123,12 @@ int main(int argc, char* argv[]) {
 	cout << a;
 	
 	x = 2;
-	cout << (x == 2 ? "variable x = 2\n" : "variable x is not 2\n");
+	cout << ((x == 2) ? "variable x = 2\n" : "variable x is not 2\n");
 	//(argc > 2 ? ofstream(argv[2], ios::out | ios::binary) : cout) << (argc > 1 ? ifstream(argv[1], ios::out | ios::binary) : cin).rdbuf();
 
 	return 0;
 }
+
 ==> ./Projects/gotw (d. 2) 80 order order/gotw (d. 2) 80 order order/main.cpp <==
 #include <string>
 
@@ -29980,23 +30164,37 @@ using namespace std;
 
 struct Employee {
 	string addr;
+	string name;
 };
 
-string FindAddr(list<string> l, string name);
+string FindAddr(list<Employee> l, string name);
 
 int main() 
 {
 	list<Employee> Employees;
 	Employee* current;
 	string Emp_name;
+	string Emp_addr;
 	int num;
 
-	cout << "How many employees would you like to enter?";
+	cout << "How many employees would you like to enter? ";
 	cin >> num;
+	cin.ignore(100, '\n');
 
 	for (int i = 0; i < num; ++i) {
+		current = new Employee;
+		cout << "Please enter the employee's name: ";
+		getline(cin, Emp_name);
+		cout << "Please enter the employee's address (in a single line): ";
+		getline(cin, Emp_addr);
+		current->addr = Emp_addr;
+		current->name = Emp_name;
 
+		Employees.push_back(*current);
+		delete current;
 	}
+
+	cout << FindAddr(Employees, Emp_name) << endl;
 		
 	return 0;
 }
@@ -30005,12 +30203,12 @@ string FindAddr(list<Employee> l, string name)
 {
 	for (list<Employee>::iterator i = l.begin(); i != l.end(); i++)
 	{
-		if (*i == name)
+		if ((*i).name == name)
 		{
 			return (*i).addr;
 		}
 	}
-	return "";
+	return "Address not found\n";
 }
 ==> ./Projects/Linked List Class/Linked List Class/LinkedListClass.h <==
 #ifndef LINKEDLISTCLASS_H
@@ -30389,7 +30587,7 @@ void avoidMemoryLeak() { //how shared ptr 'smart pointer' avoids memory leak
 	shared_ptr<Dog> d1 = make_shared<Dog>("Gunner"); // Count = 1
 	shared_ptr<Dog> d2 = make_shared<Dog>("Rexxy"); // Count = 1
 	try {
-		d1 = d2; //d2 Count = 0, Rexxy is destroyed, no memory leak 
+		d1 = d2; //d2 Count = 0, Gunner is destroyed, no memory leak 
 		throw 20;
 		d1 = nullptr;
 		d1.reset();
@@ -30517,6 +30715,16 @@ int main() {
 	shared_ptr<Dog> d1 = make_shared<Dog>(); //Count = 1
 	shared_ptr<Dog> d2(make_shared<Dog>()); //Count = 1
 
+	/*This sets up a circular reference where each dog's myFriend member holds a shared pointer to the other. Because shared pointers maintain a reference count, this mutual ownership 
+	 * prevents the reference count from ever dropping to zero.
+     * 
+     * Memory Leak:
+     * Since the reference count for each dog never reaches zero, their destructors are never called even when d1 and d2 go out of scope. This results in a memory leak.
+     * 
+     * Weak Pointers as a Solution:
+     * Notice that in the makeaFriend method, a weak pointer is used. Weak pointers do not contribute to the reference count, which is why the objects created with names ("Tank" and "Dozer") are properly destroyed. To fix the 
+	 * issue with the unnamed dogs, you could consider using weak pointers instead of shared pointers for the friendship relationship, thereby breaking the cyclic dependency.*/
+
 	d1->makeFriend(d2); //d1 contains shared_ptr to d2, Count = 2
 	d2->makeFriend(d1); //d2 contains shared_ptr to d1, Count = 2
 //pointers never go out of scope, dog objects never destroyed, memory leak
@@ -30623,10 +30831,10 @@ void test() {
 	if (!d1) cout << "d1 is empty\n";
 	else cout << "d1 is not empty\n";
 
-	func(move(d2));
+	func(move(d2)); // tex is destroyed at end of func scope
 	if (!d2) cout << "d2 is empty\n";
 	else cout << "d2 is not empty\n";
-	cout << "unique pointer moved to func, Tex was destroyed when scope ended\n";
+	cout << "unique pointer moved to func, Tex was destroyed when func scope ended\n";
 }
 
 void specialArray() {
@@ -30650,7 +30858,7 @@ int main() {
 
 using namespace std;
 
-//no runtime cost due to constexpr
+//no runtime cost due to constexpr - calculated at compile time, not run time
 constexpr long double operator"" _m(long double x) { return x * 1000; }
 constexpr long double operator"" _cm(long double x) { return x * 10; }
 constexpr long double operator"" _mm(long double x) { return x; }
@@ -30674,15 +30882,28 @@ int main() {
 	return 0;
 }
 ==> ./Projects/module1/module1/module1.c <==
+/* To Compile make sure you have the Python development package installed (e.g., python3-dev on Debian/Ubuntu). Then compile with a command similar to:
+ * 
+ * gcc -fPIC -shared -I/usr/include/python3.X -o module1.so module1.c
+ * 
+ * Replace python3.X with your specific Python version (like python3.8 or python3.9).
+ *     -fPIC: Generates position-independent code.
+ *     -shared: Links the code as a shared library.
+ *     -I/usr/include/python3.X: Specifies the path to Python headers.
+ *     -o module1.so: Specifies the output file name.
+ */
+
+// This include gives access to the Python C API, which is required to create Python extension modules.
 #include <Python.h>
 
 /*
- * Implements an example function.
+ * Here, a docstring for the function is defined. This macro creates a static C string that Python can later use as the help text for the function.
  */
-PyDoc_STRVAR(module1_example_doc, "example(obj, number)\
-\
-Example function");
+PyDoc_STRVAR(module1_example_doc, "example(obj, number) Example function");
 
+/* Parameters & Parsing:
+ * The function accepts both positional and keyword arguments. It uses PyArg_ParseTupleAndKeywords with the format "Oi", meaning it expects an object (O) and an integer (i).
+ */
 PyObject *module1_example(PyObject *self, PyObject *args, PyObject *kwargs) {
     /* Shared references that do not need Py_DECREF before returning. */
     PyObject *obj = NULL;
@@ -30695,17 +30916,25 @@ PyObject *module1_example(PyObject *self, PyObject *args, PyObject *kwargs) {
     }
 
     /* Function implementation starts here */
-
+    // Error Handling:
+    // If the integer number is negative, it sets a ValueError with obj as the error object and returns NULL to signal an error.
     if (number < 0) {
         PyErr_SetObject(PyExc_ValueError, obj);
         return NULL;    /* return NULL indicates error */
     }
 
+    // Return Value:
+    // If everything is fine, it returns None (using the Py_RETURN_NONE macro).
     Py_RETURN_NONE;
 }
 
-/*
- * List of functions to add to module1 in exec_module1().
+/* List of functions to add to module1 in exec_module1().
+ *
+ * This array tells Python what functions the module offers:
+ * "example" is the name exposed to Python.
+ * It points to the module1_example function.
+ * The flag METH_VARARGS | METH_KEYWORDS indicates the function accepts both positional and keyword arguments.
+ * The sentinel entry (all NULL) marks the end of the array.
  */
 static PyMethodDef module1_functions[] = {
     { "example", (PyCFunction)module1_example, METH_VARARGS | METH_KEYWORDS, module1_example_doc },
@@ -30715,43 +30944,57 @@ static PyMethodDef module1_functions[] = {
 /*
  * Initialize module1. May be called multiple times, so avoid
  * using static state.
+ *
+ * This function is executed during module initialization. It:
+ * Registers the functions using PyModule_AddFunctions.
+ * Adds some constants (author, version, and year) to the module
  */
 int exec_module1(PyObject *module) {
-    PyModule_AddFunctions(module, module1_functions);
+ * PyModule_AddFunctions(module, module1_functions);
 
-    PyModule_AddStringConstant(module, "__author__", "Leslie");
-    PyModule_AddStringConstant(module, "__version__", "1.0.0");
-    PyModule_AddIntConstant(module, "year", 2017);
+ * PyModule_AddStringConstant(module, "__author__", "Leslie");
+ * PyModule_AddStringConstant(module, "__version__", "1.0.0");
+ * PyModule_AddIntConstant(module, "year", 2017);
 
-    return 0; /* success */
+ * return 0; /* success */
 }
 
-/*
- * Documentation for module1.
+/* Documentation for module1.
+ *
+ * Module Docstring:
+ * The module’s documentation is set using PyDoc_STRVAR.
  */
 PyDoc_STRVAR(module1_doc, "The module1 module");
 
-
+/* Module Slots:
+ * The module1_slots array tells Python to run exec_module1 during initialization.
+ */
 static PyModuleDef_Slot module1_slots[] = {
-    { Py_mod_exec, exec_module1 },
-    { 0, NULL }
+ * { Py_mod_exec, exec_module1 },
+ * { 0, NULL }
 };
 
+/* Module Definition:
+ * The PyModuleDef structure defines the module's name, documentation, and slots. Note that m_methods is set to NULL because the functions are added in exec_module1
+ */
 static PyModuleDef module1_def = {
-    PyModuleDef_HEAD_INIT,
-    "module1",
-    module1_doc,
-    0,              /* m_size */
-    NULL,           /* m_methods */
-    module1_slots,
-    NULL,           /* m_traverse */
+ * PyModuleDef_HEAD_INIT,
+ * "module1",
+ * module1_doc,
+ * 0,              /* m_size */
+ * NULL,           /* m_methods */
+ * module1_slots,
+ * NULL,           /* m_traverse */
     NULL,           /* m_clear */
     NULL,           /* m_free */
 };
 
+/*
+ *This is the entry point called by the Python interpreter when the module is imported. It initializes the module using the definition provided in module1_def.
+ */
 PyMODINIT_FUNC PyInit_module1() {
     return PyModuleDef_Init(&module1_def);
-}
+} 
 
 ==> ./Projects/parentclassfunction/parentclassfunction/main.cpp <==
 #include <iostream>
@@ -30773,8 +31016,7 @@ public:
 		cout << x << endl;
 		x = 5;
 		cout << x << endl;
-		int j = 10;
-		return j;
+		return x;
 	}
 };
 
@@ -30784,11 +31026,11 @@ public:
 	DerivedClass(int u = 0, int v = 0) : BaseClass(u) {
 		y = v;
 	}
-	/*virtual void print() const {
+	virtual void print() const {
 		cout << "Derived class .print() function\n";
 		cout << "y = " << y << endl;
 		BaseClass::print();
-	}*/
+	}
 };
 
 void callPrint(BaseClass &);
@@ -30797,10 +31039,35 @@ void callPrint1(BaseClass);
 
 int main() {
 	DerivedClass classnew;
-	classnew.setX();/
+	classnew.setX();
+	cout << endl;
 	classnew.print();
 
+	DerivedClass *classnu = new DerivedClass();
+	
+	cout << endl;
+	callPrint(&classnew);
+	cout << endl;
+	callPrint(classnew);
+	cout << endl;
+	callPrint(classnu);
+
 	return 0;
+}
+
+void callPrint(BaseClass &bc)
+{
+	bc.print();
+}
+
+void callPrint(BaseClass *bc)
+{
+    bc->print();
+}
+
+void callPrint1(BaseClass bc)
+{
+	bc.print();
 }
 
 ==> ./Projects/poker game/poker game/main.cpp <==
@@ -31681,7 +31948,6 @@ int main() {
 		}
 	}
 
-	system("PAUSE");
 	return 0;
 }
 
@@ -31723,9 +31989,6 @@ void failedquickSort(int list[]) { //despite the array operator symbol, what is 
 	cout << "length = " << length;
 	recursiveQuick(list, 0, length - 1);
 }
-==> ./Projects/tempcode/tempcode/main.cpp <==
-..;..
-==> ./Projects/tempstuff/tempstuff/main.cpp <==
 
 ==> ./Projects/testc/testc/Source.c <==
 #include <stdio.h>
