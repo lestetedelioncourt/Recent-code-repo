@@ -436,7 +436,7 @@ int main(){
     p1.z = 2;
     p2.x = 20;
 
-    printf("p1 x = %d, y = %d, z = %d \n", p1.x, p1.y), p1.z;
+    printf("p1 x = %d, y = %d, z = %d \n", p1.x, p1.y, p1.z);
     printf("p2 x = %d \n\n", p2.x);
 
     struct point pts[5] = { [2].y = 5, [2].x = 6, [0].z = 7 };
