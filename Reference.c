@@ -168,7 +168,7 @@ int main()
 #include <stdio.h>
 #include <stdlib.h>
 
-//by using malloc() data is being allocated onto the heap (located in RAM) all data is allocated on the heap and free(0 is used to free it
+//by using malloc() data is being allocated onto the heap (located in RAM) all data is allocated on the heap and free() is used to free it
 
 double* multiplyByTwo(double *input){
     double *twice = malloc(sizeof(double));
@@ -182,7 +182,7 @@ int main()
     *age = 30;
     double *salary = malloc(sizeof(double));
     *salary = 123456.78;
-    double *myList[3] = malloc(sizeof(double));
+    double *myList[3] = malloc(sizeof(double) * 3);
     *myList[0] = 1.2;
     *myList[1] = 2.3;
     *myList[2] = 3.4;
