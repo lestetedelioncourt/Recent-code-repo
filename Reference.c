@@ -947,12 +947,12 @@ int main(){
 
     printf("%d\n", result);
 
-    unsigned int w2 = 34; // 0000 0000 0000 0000 0000 0000 0000 0011,  int is represented by 32 bits in binary
+    unsigned int w2 = 34; // 0000 0000 0000 0000 0000 0000 0010 0010,  int is represented by 32 bits in binary
     result = w2 >> 1; // bitwise shitft right +1, divided by 2, rightmost bit disappears
 
     printf("%d\n", result);
 
-    signed int w3 = 142; // 0000 0000 0000 0000 0000 0000 0000 0011,  int is represented by 32 bits in binary
+    signed int w3 = 142; // 0000 0000 0000 0000 0000 0000 1000 1110,  int is represented by 32 bits in binary
     result = w3 >> 2; // bitwise shitft right +1, divided by 2, rightmost bit disappears
 
     printf("%d\n", result); // with signed bits can give an undefined result
