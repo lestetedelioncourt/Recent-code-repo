@@ -462,7 +462,7 @@ int main(){
     struct myArray *ptr;
 
     printf("Please enter the size of your array:");
-    scanf("%zd", &arrayLength);
+    scanf("%d", &arrayLength);
 
     //ptr = (struct myArray*)malloc(sizeof(struct myArray) + arrayLength * sizeof(int));
     ptr = malloc(sizeof(struct myArray) + arrayLength * sizeof(int));
@@ -472,7 +472,7 @@ int main(){
 
     for (int i = 0; i < arrayLength; i++){
         printf("Please enter the array element %d: ", i);
-        scanf("%zd", ptr->array + i);
+        scanf("%d", ptr->array + i);
     }
 
     printf("\nArray is size %d and contains: ", arrayLength);
@@ -510,7 +510,7 @@ int main() {
     for (int i = 0; i < ptr->arraySize; i++)
     {
         printf("Please enter array element %d:", i);
-        scanf("%zd", ptr->array + i);
+        scanf("%d", ptr->array + i);
 //        ptr->array[i] = i;
     }
 
@@ -560,7 +560,7 @@ int sum(int size){
 
     for (int i = 0; i < size; i++){
         printf("Please enter array element:");
-        scanf("%zd", &arr[i]);
+        scanf("%d", &arr[i]);
      // scanf("%d", &arr[i]);
         tot += arr[i];
     }
@@ -757,14 +757,14 @@ int main(){
     
         if (answer == 'd'){
             printf("Please enter a decimal number:");
-            scanf("%zd", &decimal);
+            scanf("%d", &decimal);
         
             printf("Binary number is %d\n",convertDecimaltoBinary(decimal));
         }
     
         if (answer == 'b'){
             printf("Please enter a binary number:");
-            scanf("%zlld", &bin);
+            scanf("%lld", &bin);
         
             printf("Decimal number is %d\n",convertBinaryToDecimal(bin));
         }
