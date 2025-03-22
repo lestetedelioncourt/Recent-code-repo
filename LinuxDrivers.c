@@ -25546,26 +25546,30 @@ MODULE_LICENSE("GPL");
 module_init(my_init);
 module_exit(my_exit);
 
-==> ./InterruptsAndBottomHalves/31_Raspberrry_Pi_GPIO_softirq/Raspberry_Pi_GPIO_softirq.c <==
+==> 31_Raspberrry_Pi_GPIO_softirq/Raspberry_Pi_GPIO_softirq.c <==
 /* This code will not work for anything except Raspberry Pi GPIO pins */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/workqueue.h>
 
-#define GPIO_BASE               0x3f200000      // GPIO controller 
-#define GPIO_SIZE               0xb4
+#define GPIO_BASE			0x3f200000	// GPIO Controller
+#define GPIO_SIZE			0xb4
 
-#define GPFSEL0_OFFSET          0x00
-#define GPSET0_OFFSET           0x07
-#define GPCLR0_OFFSET           0x0A
+#define GPFSEL0_OFFSET		0x00
+#define GPSET_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
 #define GPPUD_OFFSET		0x25
 #define GPPUDCLK0_OFFSET	0x26
 
 static unsigned int irq_number;
-static unsigned int gpio_button = 15;
+static unsigned int gpio_button = 529;
+//static struct workqueue_struct *my_workqueue;
+//static struct work_struct my_work;
 
 MODULE_LICENSE("GPL");
 uint32_t *mem;
@@ -25576,56 +25580,90 @@ void set_gpio_pulldown(unsigned int gpio)
 	unsigned int value = (1 << (gpio % 32));
 
 	mem = (uint32_t *)ioremap(GPIO_BASE, GPIO_SIZE);
-	iowrite32(0x01, mem + GPPUD_OFFSET); //enable pull down
+	iowrite32(0x01, mem + GPPUD_OFFSET); // enable pull down
 	// Wait 150 cycles
 	udelay(2000);
-	//Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
-	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);	
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);
 	// Wait 150 cycles
 	udelay(2000);
-	//Write to GPPUD to remove the control signal
+	// Write to GPPUD to remove the control signal
 	iowrite32(0x00, mem + GPPUD_OFFSET);
-	//Write to GPPUDCLK0/1 to remove the clock
-	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);	
-	
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
 	iounmap(mem);
 }
 
+//static void my_work_handler(struct work_struct *work)
+//{
+//	pr_info("Deferred work executed\n");
+//}
+
 void my_action(struct softirq_action *h)
 {
-    pr_info("my_action\n");
+	pr_info("my_action\n");
 }
 
-static irqreturn_t  button_handler(int irq, void *dev_id)
+static irqreturn_t button_handler(int irq, void *dev_id)
 {
-    pr_info("irq:%d\n", irq);
-	raise_softirq(MY_SOFTIRQ);
-    return IRQ_HANDLED;
+	pr_info("irq:%d\n", irq);
+//	queue_work(my_workqueue, &my_work);
+//	raise_softirq(HI_SOFTIRQ);
+	return IRQ_HANDLED;
 }
 
 static int test_hello_init(void)
 {
+//	int ret;
 	pr_info("%s: In init\n", __func__);
 
-	if (!gpio_is_valid(gpio_button)){
+	if (!gpio_is_valid(gpio_button)) {
 		pr_info("Invalid GPIO:%d\n", gpio_button);
 		return -ENODEV;
 	}
+	
+	pr_info("GPIO button:%d is valid\n", gpio_button);
 
-	pr_info("gpio button:%d is valid\n", gpio_button);
-	if (gpio_request(gpio_button, "my_button")) {
-		pr_info("GPIO Request Failed on gpio:%d\n", gpio_button);
-		return -EINVAL;
-	}
-	pr_info("GPIO Request successful on gpio:%d\n", gpio_button);
+	int ret = gpio_request(gpio_button, "new_button");
+    if (ret) {
+        pr_err("Failed to request GPIO %d, error %d\n", gpio_button, ret);
+        return ret;
+    }
+	pr_info("GPIO Request succesful on gpio:%d\n", gpio_button);
+
 
 	gpio_direction_input(gpio_button);
-	gpio_set_debounce(gpio_button, 1000);      // Debounce the button with a delay of 1000ms
+
+	struct gpio_desc *desc = gpio_to_desc(gpio_button);
+
+	if (desc) {
+		ret = gpiod_set_debounce(desc, 1000);	// Debounce the buttn with a delay of 1000ms
+		if (ret < 0) {
+			pr_warn("Failed to set debounce, ret=%d\n", ret);
+		}
+	} else {
+		pr_warn("Failed to get GPIO descriptor\n");
+	}
 	set_gpio_pulldown(gpio_button);
 	irq_number = gpio_to_irq(gpio_button);
     pr_info("irq number:%d\n", irq_number);
-	open_softirq(MY_SOFTIRQ, my_action);
-	return request_irq(irq_number, button_handler,IRQF_TRIGGER_FALLING,"button_interrupt",NULL);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
+
+//	if (gpio_to_desc(gpio_button)) {
+//		ret = gpiod_set_debounce(gpio_button, 1000);	// Debounce the buttn with a delay of 1000ms
+//		if (ret < 0) {
+//			pr_warn("Failed to set debounce, ret=%d\n", ret);
+//		}
+//	} else {
+//		pr_warn("Failed to get GPIO descriptor\n");
+//	}
+//	set_gpio_pulldown(gpio_button);
+//	irq_number = gpio_to_irq(gpio_button);
+//    pr_info("irq number:%d\n", irq_number);
+//	open_softirq(HI_SOFTIRQ, my_action);
+//	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
 }
 
 static void test_hello_exit(void)
@@ -25778,7 +25816,7 @@ static void test_func_exit(void)
 module_init(test_func_init);
 module_exit(test_func_exit);
 
-==> 33_value_of_current_in_softirq_handler/value_of_current.c <==
+==> 33_Value_of_current/value_of_current.c <==
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/gpio.h>
@@ -26024,3 +26062,1484 @@ static void test_func_exit(void)
 module_init(test_func_init);
 module_exit(test_func_exit);
 
+==> 35_Check_Processor_id/check_processor_id.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+
+#define GPIO_BASE			0x32f00000		// GPIO controller
+#define GPIO_SIZE			0xb
+
+#define GPFSEL0_OFFSET		0x00
+#define GPSET0_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 530;
+
+static struct workqueue_struct *my_workqueue;
+static struct work_struct my_work;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+	int register_index = gpio/32;
+	unsigned int value = (1 << (gpio % 32));
+
+	mem = (uint32_t *)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET); // enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
+	iounmap(mem);
+}
+
+static void my_work_handler(struct work_struct *work)
+{
+	pr_info("Deferred work executed\n");
+}
+
+static irqreturn_t button_handler(int irq, void *dev_id)
+{
+	pr_info("irq:%d, processor id:%d\n", irq, smp_processor_id());
+
+	queue_work(my_workqueue, &my_work);
+
+	return IRQ_HANDLED;
+}
+
+
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button))
+	{
+		pr_info("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button: %d is valid\n", gpio_button);
+
+	if (gpio_request(gpio_button, "my_button"))
+	{
+		pr_info("GPIO request failed on gpio: %d\n", gpio_button);
+		return -EINVAL;
+	}
+
+	pr_info("GPIO Request successful on gpio: %d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+
+	// not all GPIO controllers support hardware debounce, and the Raspberry Pi is one such example where this fature is not available
+	// gpiod_set_debounce(desc, 1000); // Debounce the button with a delay of 1000ms
+
+	set_gpio_pulldown(gpio_button);
+
+	irq_number = gpio_to_irq(gpio_button);
+	pr_info("irq number:%d\n", irq_number);
+
+	my_workqueue = create_singlethread_workqueue("my_gpio_workqueue");
+
+	if (!my_workqueue)
+	{
+		pr_err("Failed to create workqueue\n");
+		gpio_free(gpio_button);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&my_work, my_work_handler);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+
+	if (my_workqueue)
+	{
+		flush_workqueue(my_workqueue);
+		destroy_workqueue(my_workqueue);
+	}
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 36_Adding_a_delay/adding_a_delay.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+
+#define GPIO_BASE			0x32f00000	//GPIO controller
+#define GPIO_SIZE			0xb
+
+#define GPFSEL0_OFFSET		0x00
+#define GPSET0_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 530;
+
+static struct workqueue_struct *my_workqueue;
+static struct work_struct my_work;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+	int register_index = gpio/32;
+	unsigned int value = (1 << (gpio % 32));
+
+	mem = (uint32_t*)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET);	// enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
+	iounmap(mem);
+}
+
+static void my_work_handler(struct work_struct *work)
+{
+	pr_info("hardirq started on processor id:%d\n", smp_processor_id());
+	mdelay(4000);
+	pr_info("hardirq ended on processor id:%d\n", smp_processor_id());
+}
+
+static irqreturn_t button_handler(int irq, void *dev_id)
+{
+	pr_info("irq:%d, processor id: %d\n", irq, smp_processor_id());
+	queue_work(my_workqueue, &my_work);
+	return IRQ_HANDLED;
+}
+
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button))
+	{
+		pr_info("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button: %d is valid\n", gpio_button);
+
+	if (gpio_request(gpio_button, "my_button"))
+	{
+		pr_info("GPIO request failed on gpio: %d\n", gpio_button);
+		return -EINVAL;
+	}
+
+	pr_info("GPIO Request successful on gpio: %d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+
+	// not all GPIO controllers support hardware debounce, and the Raspberry Pi is one such example where this fature is not available
+	// gpiod_set_debounce(desc, 1000); // Debounce the button with a delay of 1000ms
+
+	set_gpio_pulldown(gpio_button);
+
+	irq_number = gpio_to_irq(gpio_button);
+	pr_info("irq number:%d\n", irq_number);
+
+	my_workqueue = create_singlethread_workqueue("my_gpio_workqueue");
+
+	if (!my_workqueue)
+	{
+		pr_err("Failed to create workqueue\n");
+		gpio_free(gpio_button);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&my_work, my_work_handler);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+
+	if (my_workqueue)
+	{
+		flush_workqueue(my_workqueue);
+		destroy_workqueue(my_workqueue);
+	}
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 37_Softirq_Hardirq_context/soft_hard_irq_context.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+
+#define GPIO_BASE			0x32f00000	//GPIO controller
+#define GPIO_SIZE			0xb
+
+#define GPFSEL0_OFFSET		0x00
+#define GPSET0_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 530;
+
+static struct workqueue_struct *my_workqueue;
+static struct work_struct my_work;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+	int register_index = gpio/32;
+	unsigned int value = (1 << (gpio % 32));
+
+	mem = (uint32_t*)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET); 	// enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
+	iounmap(mem);
+}
+
+void print_context(void)
+{
+	if (in_irq()) 
+	{
+		pr_info("Code is running in hard irq context\n");
+	}
+	else
+	{
+		pr_info("Code is not running in hard irq context\n");
+	}
+}
+
+static void my_work_handler(struct work_struct *work)
+{
+	pr_info("hardirq started on processor id:%d\n", smp_processor_id());
+	print_context();
+}
+
+static irqreturn_t button_handler(int irq, void *dev_id)
+{
+	pr_info("irq:%d, processor id: %d\n", irq, smp_processor_id());
+	print_context();
+	queue_work(my_workqueue, &my_work);
+//	__raise_softirq_irqoff(MY_SOFTIRQ);
+	return IRQ_HANDLED;
+}
+
+void my_action(struct softirq_action *h)
+{
+	pr_info("softirq started on processor id:%d\n", smp_processor_id());
+	print_context();
+	pr_info("softirq ended on processor id:%d\n", smp_processor_id());
+}
+
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button))
+	{
+		pr_info("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button: %d is valid\n", gpio_button);
+
+	if (gpio_request(gpio_button, "my_button"))
+	{
+		pr_info("GPIO request failed on gpio: %d\n", gpio_button);
+		return -EINVAL;
+	}
+
+	pr_info("GPIO Request successful on gpio: %d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+
+	// not all GPIO controllers support hardware debounce, and the Raspberry Pi is one such example where this fature is not available
+	// gpiod_set_debounce(desc, 1000); // Debounce the button with a delay of 1000ms
+
+	set_gpio_pulldown(gpio_button);
+
+	irq_number = gpio_to_irq(gpio_button);
+	pr_info("irq number:%d\n", irq_number);
+
+	my_workqueue = create_singlethread_workqueue("my_gpio_workqueue");
+//	open_softirq(MY_SOFTIRQ, my_action);
+
+	if (!my_workqueue)
+	{
+		pr_err("Failed to create workqueue\n");
+		gpio_free(gpio_button);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&my_work, my_work_handler);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+
+	if (my_workqueue)
+	{
+		flush_workqueue(my_workqueue);
+		destroy_workqueue(my_workqueue);
+	}
+}
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 38_example_of_ksoftirqd/example_of_ksoftirqd.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+
+#define GPIO_BASE			0x32f00000	//GPIO controller
+#define GPIO_SIZE			0xb
+
+#define GPFSEL0_OFFSET		0x00
+#define GPSET0_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 530;
+
+static struct workqueue_struct *my_workqueue;
+static struct work_struct my_work;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+    int register_index = gpio/32;
+    unsigned int value = (1 << (gpio % 32));
+
+    mem = (uint32_t*)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET); // enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET +register_index);
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
+	iounmap(mem);
+}
+
+static void my_work_handler(struct work_struct *work)
+{
+	pr_info("hardirq started on processor id:%d\n", smp_processor_id());
+	pr_info("current pid : %d , current process : %s\n", current->pid, current->comm);
+}
+
+static irqreturn_t button_handler(int irq, void *dev_id)
+{
+	pr_info("irq:%d, processor id: %d\n", irq, smp_processor_id());
+    queue_work(my_workqueue, &my_work);
+//	__raise_softirq_irqoff(MY_SOFTIRQ);
+	return IRQ_HANDLED;
+}
+
+void my_action(struct softirq_action *h)
+{
+	static int i = 0;
+	pr_info("%s\n", __func__);
+	pr_info("current pid : %d , current process : %s\n", current->pid, current->comm);
+//	if (i++ <= 10)
+//		raise_softirq(MY_SOFTIRQ);
+}
+
+static int test_func_init(void)
+{
+    pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button))
+	{
+        pr_info("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button:%d is valid\n", gpio_button);
+
+	if (gpio_request(gpio_button, "my_button"))
+	{
+        pr_info("GPIO request failed on gpio: %d\n", gpio_button);
+		return -EINVAL;
+	}
+
+	pr_info("GPIO Request successful on gpio: %d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+
+	// not all GPIO controllers support hardware debounce, and the Raspberry Pi is one such example where this feature is not available
+	// gpiod_set_debounce(desc, 1000);	// Debounce the button with a delay of 1000 ms
+
+	set_gpio_pulldown(gpio_button);
+
+	irq_number = gpio_to_irq(gpio_button);
+	pr_info("irq number:%d\n", irq_number);
+
+	my_workqueue = create_singlethread_workqueue("my_gpio_workqueue");
+//  open_softirq(MY_SOFTIRQ, my_action);
+
+    if (!my_workqueue)
+	{
+		pr_err("Failed to create workqueue\n");
+		gpio_free(gpio_button);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&my_work, my_work_handler);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrut", NULL);
+}
+
+static void test_func_exit(void)
+{
+    pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+
+	if (my_workqueue)
+	{
+		flush_workqueue(my_workqueue);
+		destroy_workqueue(my_workqueue);
+	}
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 39_Find_pending_softirqs/find_pending_softirqs.c <==
+
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/sched.h>
+
+#define GPIO_BASE			0x32f00000	//GPIO controller
+#define GPIO_SIZE			0xb4
+
+#define GPFSEL0_OFFSET		0x00
+#define GPSET0_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 530;
+
+static struct workqueue_struct *my_workqueue;
+static struct work_struct my_work;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+	int register_index = gpio/32;
+	unsigned int value = (1 << (gpio % 32));
+
+	mem = (uint32_t*)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET); // enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
+    iounmap(mem);
+}
+
+static void my_work_handler(struct work_struct *work)
+{
+	pr_info("hardirq started on processor id:%d\n", smp_processor_id());
+	pr_info("current pid : %d , current process : %s\n", current->pid, current->comm);
+}
+
+static irqreturn_t button_handler(int irq, void *dev_id)
+{
+	pr_info("irq:%d, processor id: %d\n", irq, smp_processor_id());
+	queue_work(my_workqueue, &my_work);
+	pr_info("local_softirq_pending:%02x\n", local_softirq_pending());
+//	__raise_softirq_irqoff(MY_SOFTIRQ);
+	pr_info("local_softirq_pending:%02x\n", local_softirq_pending());
+    return IRQ_HANDLED;
+}
+
+void my_action(struct softirq_action *h)
+{
+	pr_info("softirq started on processor id:%d\n", smp_processor_id());
+	pr_info("local_softirq_pending:%02x\n", local_softirq_pending());
+	pr_info("softirq  ended on processor id:%d\n", smp_processor_id());
+}
+
+static int test_func_init(void)
+{
+    pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button))
+	{
+        pr_err("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button:%d is valid\n", gpio_button);
+
+	if (gpio_request(gpio_button, "my_button"))
+	{
+        pr_err("GPIO request failed on gpio: %d\n", gpio_button);
+		return -EINVAL;
+	}
+
+	pr_info("GPIO Request successful on gpio: %d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+
+	// not all GPIO controllers support hardware debounce, and the Raspberry Pi is one such example where this feature is not available
+	// gpiod_set_debounce(desc, 1000);	// Debounce the button with a delay of 1000 ms
+
+	set_gpio_pulldown(gpio_button);
+
+	irq_number = gpio_to_irq(gpio_button);
+	pr_info("irq number:%d\n", irq_number);
+
+	my_workqueue = create_singlethread_workqueue("my_gpio_workqueue");
+//  open_softirq(MY_SOFTIRQ, my_action);
+
+    if (!my_workqueue)
+	{
+		pr_err("Failed to create workqueue\n");
+		gpio_free(gpio_button);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&my_work, my_work_handler);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
+}
+
+static void test_func_exit(void)
+{
+    pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+
+	if (my_workqueue)
+	{
+		flush_workqueue(my_workqueue);
+		destroy_workqueue(my_workqueue);
+	}
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+
+==> 40_macro_determine_running_in_softirq/macro_determine_running_in_softirq.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/workqueue.h>
+
+#define GPIO_BASE			0x32f00000	// GPIO Controller
+#define GPIO_SIZE			0xb4
+
+#define GPFSEL0_OFFSET		0x00
+#define GPSET0_OFFSET		0x07
+#define GPCLR0_OFFSET		0x0A
+#define GPPUD_OFFSET		0x25
+#define GPPUDCLK0_OFFSET	0x26
+
+static unsigned int irq_number;
+static unsigned int gpio_button = 530;
+
+static struct workqueue_struct *my_workqueue;
+static struct work_struct my_work;
+
+MODULE_LICENSE("GPL");
+uint32_t *mem;
+
+void set_gpio_pulldown(unsigned int gpio)
+{
+	int register_index = gpio/32;
+    unsigned int value = (1 << (gpio % 32));
+
+	mem = (uint32_t*)ioremap(GPIO_BASE, GPIO_SIZE);
+	iowrite32(0x01, mem + GPPUD_OFFSET); // enable pull down
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
+	iowrite32(value, mem + GPPUDCLK0_OFFSET + register_index);
+	// Wait 150 cycles
+	udelay(2000);
+	// Write to GPPUD to remove the control signal
+	iowrite32(0x00, mem + GPPUD_OFFSET);
+	// Write to GPPUDCLK0/1 to remove the clock
+	iowrite32(0x00, mem + GPPUDCLK0_OFFSET + register_index);
+
+	iounmap(mem);
+}
+
+void print_context(void)
+{
+	if (in_softirq()) 
+	{
+		pr_info("Code is running in soft irq context\n");
+	}
+	else
+	{
+		pr_info("Code is not running in soft irq context\n");
+	}
+}
+
+static void my_work_handler(struct work_struct *work)
+{
+    pr_info("hardirq started on processor id:%d\n", smp_processor_id());
+	pr_info("current pid : %d , current process : %s\n", current->pid, current->comm);
+	print_context();
+}
+
+static irqreturn_t button_handler(int irq, void *dev_id)
+{
+	pr_info("irq:%d, processor id:%d\n", irq, smp_processor_id());
+	queue_work(my_workqueue, &my_work);
+//	print_context();
+//	__raise_softirq(MY_SOFTIRQ);
+	return IRQ_HANDLED;
+}
+
+void my_action(struct softirq_action *h)
+{
+	pr_info("softirq started on processor id:%d\n", smp_processor_id());
+	print_context();
+	pr_info("softirq ended on processor id:%d\n", smp_processor_id());
+}
+
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+
+	if (!gpio_is_valid(gpio_button))
+	{
+		pr_err("Invalid GPIO:%d\n", gpio_button);
+		return -ENODEV;
+	}
+
+	pr_info("gpio button:%d is valid\n", gpio_button);
+
+	if (gpio_request(gpio_button, "my_button"))
+	{
+		pr_err("GPIO Request failed on gpio: %d\n", gpio_button);
+		return -EINVAL;
+	}
+
+	pr_info("GPIO Request successful on gpio: %d\n", gpio_button);
+
+	gpio_direction_input(gpio_button);
+
+	// not all GPIO controllers support hardware debounce, and the Raspberry Pi is one such example where this feature is not available
+	// gpiod_set_debounce(desc, 1000);	// Debounce the button with a delay of 1000 ms
+	
+	set_gpio_pulldown(gpio_button);
+
+	irq_number = gpio_to_irq(gpio_button);
+	pr_info("irq number:%d\n", irq_number);
+
+	my_workqueue = create_singlethread_workqueue("my_gpio_workqueue");
+	
+	if (!my_workqueue) 
+	{
+		pr_err("Failed to create workqueue\n");
+		gpio_free(gpio_button);
+		return -ENOMEM;
+	}
+
+	INIT_WORK(&my_work, my_work_handler);
+
+//  open_softirq(MY_SOFTIRQ, my_action);
+
+	return request_irq(irq_number, button_handler, IRQF_TRIGGER_FALLING, "button_interrupt", NULL);
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	free_irq(irq_number, NULL);
+	gpio_free(gpio_button);
+
+	if (my_workqueue)
+	{
+		flush_workqueue(my_workqueue);
+		destroy_workqueue(my_workqueue);
+	}
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 41_Disabling_and_enabling_softirqs/disabling_and_enabling_softirqs.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/workqueue.h>
+
+MODULE_LICENSE("GPL");
+
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	pr_info("Disabling bottom_halves\n");
+	local_bh_disable();
+	mdelay(10000);
+	pr_info("Enabling bottom halves\n");
+	local_bh_enable();
+
+	return 0;
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+
+
+==> 42_Effect_of_spinlock_on_interrupts/effect_of_spinlock_on_interrupts.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/slab.h>
+
+MODULE_LICENSE("GPL");
+
+spinlock_t *my_lock;
+
+void is_irq_disabled(void)
+{
+	if (irqs_disabled())
+	{
+		pr_info("IRQ Disabled\n");
+	}
+	else 
+	{
+		pr_info("IRQ Enabled\n");
+	}
+}
+
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
+	spin_lock_init(my_lock);
+	is_irq_disabled();
+	spin_lock(my_lock);
+	pr_info("Init function locked on processor:%d\n", smp_processor_id());
+	is_irq_disabled();
+	spin_unlock(my_lock);
+	pr_info("Init function unlocked on processor:%d\n", smp_processor_id());
+	is_irq_disabled();
+	kfree(my_lock);
+	return 0;
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 43_effect_of_spinlock_functions_on_interrupts/effect_of_spinlock_functions_on_interrupts.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/slab.h>
+
+MODULE_LICENSE("GPL");
+
+spinlock_t *my_lock;
+
+void is_irq_disabled(void)
+{
+	if (irqs_disabled())
+	{
+		pr_info("IRQ Disabled\n");
+	}
+	else
+	{
+        pr_info("IRQ Enabled\n");
+	}
+}
+
+static int test_func_init(void)
+{
+	unsigned long flags;
+
+	pr_info("%s: In init\n", __func__);
+	my_lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
+	spin_lock_init(my_lock);
+	is_irq_disabled();
+	spin_lock_irqsave(my_lock, flags);
+	pr_info("Init function locked on processor:%d\n", smp_processor_id());
+	is_irq_disabled();
+	spin_unlock_irqrestore(my_lock, flags);
+	pr_info("Init function unlocked on processor:%d\n", smp_processor_id());
+	is_irq_disabled();
+	kfree(my_lock);
+	return 0;
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 44_lock_between_user_context_and_softirqs/lock_between_user_context_and_softirqs.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/slab.h>
+
+MODULE_LICENSE("GPL");
+
+spinlock_t *my_lock;
+
+void is_irq_disabled(void)
+{
+	if (irqs_disabled())
+	{
+		pr_info("IRQ Disabled\n");
+	}
+	else
+	{
+		pr_info("IRQ Enabled\n");
+	}
+}
+
+/* as spin_lock_bh() only disables softirqs and not hardware interrupts, calling irq_disabled() afterwards will return zero indicating that hardware interrupts are still enabled
+*/
+static int test_func_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_lock = kmalloc(sizeof(spinlock_t), GFP_KERNEL);
+	spin_lock_init(my_lock);
+	is_irq_disabled();
+	spin_lock_bh(my_lock);
+	pr_info("Init function locked on processor:%d\n", smp_processor_id());
+	is_irq_disabled();
+	spin_unlock_bh(my_lock);
+	pr_info("Init function unlocked on processor?:%d\n", smp_processor_id());
+	is_irq_disabled();
+	kfree(my_lock);
+	return 0;
+}
+
+static void test_func_exit(void)
+{
+	pr_info("%s: In exit", __func__);
+}
+
+module_init(test_func_init);
+module_exit(test_func_exit);
+
+==> 45_example_of_using_tasklets/example_of_using_tasklets.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+MODULE_LICENSE("GPL");
+
+void tasklet_function(unsigned long data)
+{
+    pr_info("%s:data:%s\n", __func__, (char*)data);
+	return;
+}
+
+void tasklet_callback(struct tasklet_struct *t)
+{
+    pr_info("%s: \n", __func__);
+	return;
+}
+
+DECLARE_TASKLET(my_tasklet, tasklet_callback);
+DECLARE_TASKLET_DISABLED(my_tasklet_disabled, tasklet_callback);
+
+//DECLARE_TASKLET_OLD(my_tasklet, tasklet_function);
+//DECLARE_TASKLET_DISABLED_OLD(my_tasklet_disabled, tasklet_function);
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	pr_info("State:%ld\n", my_tasklet.state);
+	pr_info("Count:%d\n", atomic_read(&my_tasklet.count));
+	pr_info("Disabled tasklet state:%ld\n", my_tasklet_disabled.state);
+	pr_info("Disabled tasklet Count:%d\n", atomic_read(&my_tasklet_disabled.count));
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+
+/* Definitions:
+struct tasklet_struct
+{
+	struct tasklet_struct *next;
+	unsigned long state;
+	atomic_t count;
+	bool use_callback;
+	union {
+		void (*func)(unsigned long data);
+		void (*callback)(struct tasklet_struct *t);
+	};
+	unsigned long data;
+};
+
+#define DECLARE_TASKLET(name, _callback)		\
+struct tasklet_struct name = {				\
+	.count = ATOMIC_INIT(0),			\
+	.callback = _callback,				\
+	.use_callback = true,				\
+}
+
+#define DECLARE_TASKLET_DISABLE(name, _callback)		\
+struct tasklet_struct name = {				\
+	.count = ATOMIC_INIT(1),			\
+	.callback = _callback,				\
+	.use_callback = true,				\
+}
+
+#define DECLARE_TASKLET_OLD(name, _func)		\
+struct tasklet_struct name = {				\
+	.count = ATOMIC_INIT(0),			\
+	.func = _func,					\
+}
+
+#define DECLARE_TASKLET_DISABLED_OLD(name, _func)	\
+struct tasklet_struct name = {				\
+	.count = ATOMIC_INIT(1),			\
+	.func = _func,					\
+}
+*/
+
+==> 46_scheduling_tasklets_static_initialization/scheduling_tasklets_static_initialization.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+MODULE_LICENSE("GPL");
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data %s\n", __func__, (char*) data);
+	return;
+}
+
+void tasklet_callback(struct tasklet_struct *t)
+{
+	pr_info("%s: \n", __func__);
+	return;
+}
+
+DECLARE_TASKLET(my_tasklet, tasklet_callback);
+DECLARE_TASKLET_DISABLED(my_tasklet_disabled, tasklet_callback);
+
+DECLARE_TASKLET_OLD(my_tasklet_old, tasklet_function);
+DECLARE_TASKLET_DISABLED_OLD(my_tasklet_disabled_old, tasklet_function);
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	pr_info("State:%ld\n", my_tasklet_old.state);
+	pr_info("Count:%d\n", atomic_read(&my_tasklet_old.count));
+	tasklet_schedule(&my_tasklet_old);
+	pr_info("State:%ld\n", my_tasklet_old.state);
+	pr_info("Count:%d\n", atomic_read(&my_tasklet_old.count));
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+==> 47_scheduling_tasklets_dynamic_initialization/scheduling_tasklets_dynamic_initialization.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/delay.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data[] = "linux kernel is very easy"; 
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data:%s\n", __func__, (char *)data);
+	return;
+}
+
+static struct tasklet_struct *my_tasklet;
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: Ininit\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	pr_info("State:%ld\n", my_tasklet->state);
+	pr_info("Count:%ld\n", atomic_read(&my_tasklet->count));
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	pr_info("State%ld\n", my_tasklet->state);
+	pr_info("Count:%d\n", atomic_read(&my_tasklet->count));
+	tasklet_schedule(my_tasklet);
+	pr_info("state:%ld\n", my_tasklet->state);
+	pr_info("Count:%ld\n", atomic_read(&my_tasklet->count));
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: in exit\n", __func__);
+	kfree(my_tasklet);
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+/*
+void tasklet_init(struct tasklet_struct *t,
+		  void (*func)(unsigned long), unsigned long data)
+{
+	t->next = NULL;
+	t->state = 0;
+	atomic_set(&t->count, 0);
+	t->func = func;
+	t->use_callback = false;
+	t->data = data;
+}
+*/
+
+==> 48_are_interrupts_disabled_when_tasklet_runs/are_interrupts_disabled_when_tasklet_runs.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data[] = "linux kernel is very easy";
+
+void is_irq_disabled(void)
+{
+	if (irqs_disabled())
+	{
+		pr_info("IRQ Disabled\n");
+	}
+	else
+	{
+		pr_info("IRQ Enabled\n");
+	}
+}
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data: %s\n", __func__, (char*) data);
+	is_irq_disabled(); //irqs are enabled so tasklet can be pre-empted by an interrupt handler
+	return;
+}
+
+static struct tasklet_struct *my_tasklet;
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: in exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+
+==> 49_context_of_tasklet_handler/context_of_tasklet_handler.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data[] = "linux kernel is very easy\n";
+
+void print_context(void)
+{
+	if (in_interrupt())
+	{
+		pr_info("Code is running in interrupt context\n");
+	}
+	else
+	{
+		pr_info("Code is running in process context\n");
+	}	
+}
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data: %s", __func__, data);
+	print_context(); //handler task runs in interrupt context
+	return;
+}
+static struct tasklet_struct *my_tasklet;
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: in exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}	
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+==> 50_pid_process_name_tasklet_handler/pid_process_name_tasklet_handler.c <==
+#include <linux/kernel.h> 
+#include <linux/module.h> 
+#include <linux/interrupt.h> 
+#include <linux/slab.h> 
+#include <linux/sched.h> 
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data [] = "linux kernel is very easy\n";
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data: %s", __func__, data);
+	pr_info("current pid: %d , current process: %s\n", current->pid, current->comm); // as running in interupt context, can be any interrupted process
+	return;
+}
+
+static struct tasklet_struct *my_tasklet;
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+==> 51_print_call_trace_tasklet_handler/print_calltrace_tasklet_handler.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/sched.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data[] = "linux kernel is very easy\n";
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data: %s\n", __func__, data);
+	dump_stack();
+	return;
+}
+
+static struct tasklet_struct *my_tasklet;
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct task_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: in exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+==> 52_tasklet_soft_or_hard_irq_context/tasklet_soft_or_hard_irq_context.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/sched.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data [] = "linux kernel is very easy\n";
+
+void print_context(void)
+{
+	if(in_irq())
+	{
+		pr_info("Code is running in hard irq context\n");
+	}
+	else
+	{
+		pr_info("Code is not running in hard irq context\n");
+	}
+}
+
+static struct tasklet_struct *my_tasklet;
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data: %s\n", __func__, data);
+	print_context();
+	return;
+}
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: in init \n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}	
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: In exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+==> 53_tasklet_soft_irq_context/tasklet_soft_irq_context.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/sched.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data[] = "linux kernel is very easy\n";
+
+void print_context(void)
+{
+	if (in_softirq())
+	{
+		pr_info("Code is running in soft irq context\n");
+	}
+	else
+	{
+		pr_info("Code is not running in soft irq context\n");
+	}
+}
+
+static struct tasklet_struct *my_tasklet;
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("%s: data: %s\n", __func__, data);
+	print_context();
+	return;
+}
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: in exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
+
+==> 54_print_pending_softirqs_bitmask/print_pending_softirqs_bitmask.c <==
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#include <linux/slab.h>
+#include <linux/sched.h>
+
+MODULE_LICENSE("GPL");
+
+char tasklet_data[] = "linux kernel is very easy\n";
+
+void tasklet_function(unsigned long data)
+{
+	pr_info("local softirq pending:%02x\n", local_softirq_pending());
+	pr_info("%s: data: %s\n", __func__, (char*)data);
+	return;
+}
+
+static struct tasklet_struct *my_tasklet;
+
+static int test_tasklet_init(void)
+{
+	pr_info("%s: In init\n", __func__);
+	my_tasklet = kmalloc(sizeof(struct tasklet_struct), GFP_KERNEL);
+	tasklet_init(my_tasklet, tasklet_function, tasklet_data);
+	tasklet_schedule(my_tasklet);
+	return 0;
+}
+
+static void test_tasklet_exit(void)
+{
+	pr_info("%s: in exit\n", __func__);
+	kfree(my_tasklet);
+	return;
+}
+
+module_init(test_tasklet_init);
+module_exit(test_tasklet_exit);
