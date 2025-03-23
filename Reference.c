@@ -1729,11 +1729,7 @@ int main(int argc, char **argv){
 
 int find_prime(int num){
     int squareRoot = (int)sqrt(num);
-    for(int i = 3, j = -1, k = 0; i < squareRoot; i +=2, j++, k++){
-        if((k == 3) && (j == 5)) {j = 0, k = 0; continue;}
-        if(k == 3) {k = 0; continue;}     
-        if(j == 5) {j = 0; continue;}
-   
+    for(int i = 3; i < squareRoot; i +=2){
         if((num % i) == 0) { return 1; }
     }
     return 0;
