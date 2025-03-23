@@ -1419,6 +1419,7 @@ int main(int argc, char **argv){
     printf("Converter to upper or lower (u or l)?");
     scanf("%c", &answer);
 
+    getchar();
     if (argc == 2){
         FILE *fptr = openFile(argv[1]);
         FILE *dest = createTemp();
