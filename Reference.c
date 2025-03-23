@@ -1151,21 +1151,50 @@ int main() {
 ==> ../../section_09/setjmp-longjmp/main.c <==
 #include <stdio.h>
 #include <setjmp.h>
-#include <stdlib.h>
 
-jmp_buf buf;
+jmp_buf buf; // jmp_buf is a type used by setjmp()/longjmp() to store the program’s execution context (like CPU registers, stack pointer, etc.).
+// Declaring it globally makes it visible from both main() and error_recovery()
 
-int main(){
-    int i = setjmp(buf);
+/* Calls longjmp(buf, 1), which:
+ * Restores the execution context saved by the most recent setjmp(buf).
+ * Forces setjmp(buf) to return the value passed to longjmp(), i.e. 1.
+ * Hence, longjmp() effectively jumps back to wherever setjmp() was called.
+ */
+void error_recovery() {
+    printf("Detected an unrecoverable error\n");
+    longjmp(buf, 1);
+}
 
-    if (i != 0) 
-        exit(0);
+/*setjmp(buf) is called.
+ * On the very first call, setjmp() returns 0 (the “normal” path).
+ * That means we go to the else block → which calls error_recovery().
+ * Inside error_recovery():
+ * We print "Detected an unrecoverable error".
+ * Then we call longjmp(buf, 1).
+ * Control jumps back to the same line where setjmp(buf) was called.
+ * But now setjmp(buf) returns 1 (because of the longjmp()).
+ * We return to main(), inside the same if (setjmp(buf)) { ... } else { ... } expression:
+ * This time, setjmp(buf) yields 1, so the if path is taken:
+ */
+int main() {
+    while(1){
+        if (setjmp(buf)) {
+            printf("back in main\n");
+            break;
+        }
+        else {
+            error_recovery();
+        }
+    }
 
-    printf("i=%d\n", i);
-    longjmp(buf, 42);
-    printf("Does this line get printed");
     return 0;
 }
+
+/*Key Takeaways
+ * setjmp(jmp_buf) stores the program state at that point and returns 0 the first time.
+ * longjmp(jmp_buf, val) jumps back to the matching setjmp(), causing it to return val.
+ * This pattern is like a manual “try/catch” or “exception” mechanism in straight C.
+ */
 
 ==> ../../section_09/setjmp-longjmp/newmain.c <==
 #include <stdio.h>
@@ -1181,6 +1210,45 @@ void myFunction() {
     printf("You'll never see this because I longjumped\n");
 }
 
+/* example code if referencing a suspicious pointer
+ * setjmp(jbuf) returns 0 → we enter the try block.
+ * We check suspicious, see that it’s NULL, and then call longjmp(jbuf, 1).
+ * That makes setjmp(jbuf) return 1, so we enter the catch block, print "Caught bad pointer exception in newFunc!"
+ */
+void newFunc(){
+    jmp_buf jbuf;
+    int   apple; 
+    int*  suspicious = NULL; // let's force it to be a bad pointer (NULL)
+    
+    int jumpVal = setjmp(jbuf);
+    if (jumpVal == 0) {
+        /*
+         * TRY BLOCK
+         * ----------
+         * This code runs the first time setjmp returns 0.
+         */
+        printf("Entering newFunc 'try' block.\n");
+
+        // Let's do a pointer check. If it's invalid, let's "throw"
+        if (!suspicious) {
+            // Instead of crashing on *suspicious, "throw an exception" via longjmp
+            longjmp(jbuf, 1); 
+        }
+        
+        // If suspicious had been valid, do something:
+        apple = *suspicious;
+        printf("Suspicious pointer value: %d\n", apple);
+    }
+    else {
+        /*
+         * CATCH BLOCK
+         * -----------
+         * We jump here if we called longjmp(jbuf, 1) above.
+         */
+        printf("Caught bad pointer exception in newFunc!\n");
+    }
+}
+
 int main(){
     if(setjmp(buf))
         printf("back in main\n");
@@ -1189,25 +1257,8 @@ int main(){
         myFunction();
     }
 
+	newFunc();
     return 0;
-}
-
-/*example code if referencing a suspicious pointer*/
-
-void newFunc(){
-   int apple, *suspicious; 
-   jmp_buf jbuf;
-
-   switch(setjmp(jbuf)){
-        case 0:
-            apple = *suspicious;
-            break;
-        case 1:
-            printf("suspicious is indeed a bad pointer\n");
-            break;
-        default:
-             ;            //die("Unexpected value returned by longjmp"); 
-    }
 }
 
 ==> ../../section_10/charfunctions/challenge1.c <==
@@ -1271,7 +1322,7 @@ void readchfromstdin(){
     int size = 256;
     char* charray = (char*)malloc((size)*sizeof(char));
     
-    while ((ch = getchar()) != EOF){
+    while ((ch = getchar()) != '\n'){
         charray[i] = ch;
         ch == ' ' ?  countw++, countc++ : countc++; 
     }
@@ -1346,7 +1397,7 @@ FILE* createTemp(){
 void convert2Lower(){
     char ch;
 
-    while((ch = getchar()) != EOF){
+    while((ch = getchar()) != '\n'){
         ch = ch + 32;
         putc(ch, stdout);
     }
@@ -1356,7 +1407,7 @@ void convert2Lower(){
 void convert2Upper(){
     char ch;
 
-    while((ch = getchar()) != EOF){
+    while((ch = getchar()) != '\n'){
         ch = ch - 32;
         putc(ch, stdout);
     }
