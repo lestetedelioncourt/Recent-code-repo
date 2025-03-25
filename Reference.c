@@ -1285,7 +1285,7 @@ int main(int argc, char **argv){
 
 void readchfromfile(char **argv){
     FILE *pFile;
-    char ch;
+    int ch; //char is defined as an int because EOF is denoted as -1, and a char is usually unsigned, which means EOF wraps around to 255 and the condition is never met
 
     int countc = 0;
     int countw = 0;
@@ -1338,7 +1338,7 @@ void readchfromstdin(){
 
 FILE* openFile(char* file){
     FILE *fptr;
-    char ch = '\0';
+    int ch = '\0';
     int size = 256;
 
     fptr = fopen(file, "rw");
@@ -1347,11 +1347,13 @@ FILE* openFile(char* file){
         printf("Could not open file\n"); 
         exit(1);
     }
+
+	printf("File opened\n");
     return fptr;
 }
 
 void convertToLower(FILE *fptr, FILE *dest){
-    char ch;
+    int ch;
     while(1){
         ch = fgetc(fptr);
 
@@ -1361,12 +1363,13 @@ void convertToLower(FILE *fptr, FILE *dest){
         if ((ch >= 65) && (ch <= 90)){
             ch = ch + 32;
         }
+		printf("%c", ch);
         fputc(ch, dest);            
-    }   
+    }
 }
 
 void convertToUpper(FILE *fptr, FILE *dest){
-    char ch;
+    int ch;
     while(1){
         ch = fgetc(fptr);
 
@@ -1376,13 +1379,14 @@ void convertToUpper(FILE *fptr, FILE *dest){
         if ((ch >= 97) && (ch <= 122)){
             ch = ch - 32;
         }
+		printf("%c", ch);
         fputc(ch, dest);            
     }   
 }
 
 FILE* createTemp(){
     FILE *dest = NULL;
-    char ch = '\0';
+    int ch = '\0';
 
     // Temporary file to store result
     dest = fopen("temp.txt", "w");
@@ -1395,20 +1399,24 @@ FILE* createTemp(){
 }
 
 void convert2Lower(){
-    char ch;
+    int ch;
 
     while((ch = getchar()) != '\n'){
-        ch = ch + 32;
+        if ((ch >= 65) && (ch <= 90)){
+            ch = ch + 32;
+        }
         putc(ch, stdout);
     }
     printf("\n");
 }
 
 void convert2Upper(){
-    char ch;
+    int ch;
 
     while((ch = getchar()) != '\n'){
-        ch = ch - 32;
+        if ((ch >= 97) && (ch <= 122)){
+            ch = ch - 32;
+        }
         putc(ch, stdout);
     }
     printf("\n");
@@ -1419,15 +1427,20 @@ int main(int argc, char **argv){
     printf("Converter to upper or lower (u or l)?");
     scanf("%c", &answer);
 
-    getchar();
+	getchar();
     if (argc == 2){
+        printf("Entering read file command\n");
         FILE *fptr = openFile(argv[1]);
         FILE *dest = createTemp();
         answer == 'u' ? convertToUpper(fptr, dest) : convertToLower(fptr, dest);
+		fclose(fptr);
+		fclose(dest);
         remove(argv[1]);
         rename("temp.txt", argv[1]);
+		printf("\n");
     }
     else if (argc <= 1){
+        printf("Entering read from stdin command\n");
         answer == 'u' ? convert2Upper() : convert2Lower();
     }
     else{
@@ -1446,7 +1459,7 @@ int fgetc(FILE *fp);  // stdout, stin and stderr all count as files
 
 int example(){
     FILE *fp;
-    char ch = '\0';
+    int ch = '\0';
 
     fp = fopen("MyFile.c", "r"); // opening an existing file 
 
@@ -1525,11 +1538,13 @@ int main (){
     ch = getc(stdin); //getc can be used for any file input stream, whilst getchar is only stdin
 
     printf("read in character %c\n", ch);
+    example_usage();
+	
     return 0;
 }
 
 void example_usage(){
-    char ch = '\0';
+    int ch = '\0';
     FILE *fp;
 
     if (fp = fopen("somefile.c", "rw")){
@@ -1567,9 +1582,9 @@ void example(){
     int size = 128;
     char * newarray = (char*)malloc((size)*sizeof(char));
 
-    //can use with EOF as stdin counts as a file, Ctrl+D or Ctrl+Z used as EOF signal, if comparing to EOF, ch should always be int
+    //can use with EOF as stdin counts as a file, Ctrl+D used as EOF signal, if comparing to EOF, ch should always be int
     while ((ch = getchar()) != EOF){
-        //printf("%c\n", ch);
+        printf("%c\n", ch);
         newarray[i] = (char)ch;
         i ++;
     }
@@ -1586,18 +1601,18 @@ int putc(FILE *stream);  // stdout, stin and stderr all count as files
 
 int main (){
     int ch = '0';
-    FILE *fp = NULL;
+//    FILE *fp = NULL;
   
 //    if (fp = fopen("writefile.txt", "rw")){
 //        ch = getc(fp);
-        while ((ch = getchar()) != EOF) {
+        while ((ch = getchar()) != '\n') {
             putc(ch, stdout);
             ch = getc(stdout);
         }
-        fclose(fp);
+//        fclose(fp);
 //    }
 
-        
+    printf("\n");
 
     return 0;
 }
@@ -1643,22 +1658,24 @@ int main (){
 #include <stdio.h>
 #include <ctype.h>
 
-/* Function rototype of ungetc
+int main(void) {
+    int ch;
 
-//allows user to put a character they have just read back into the input stream, cannot determine which character is on the stream 
-//until it has been read. can push a succession of characters back into input stream, but only one is guaranteed
-
-int ungetc(int ch, FILE *stream);  // stdout, stin and stderr all count as files
-*/
-
-int main (){
-    char ch = '\0';
-
-    while(isspace(ch = (char)getchar())){ //Read as long as there are spaces 
-        ungetc(ch, stdin);                    //Put back the nonspace character
+    // First, read and discard whitespace.
+    while (isspace(ch = getchar())) {
+        // Do nothing.
+        // No ungetc here because we actually want to discard whitespace.
     }
 
-    printf("put back character %c\n", getchar());
+    // At this point, 'ch' is the first non-whitespace character.
+    // If it's a valid character (not EOF), push it back so the next read sees it.
+    if (ch != EOF) {
+        ungetc(ch, stdin);
+    }
+
+    // Now the very next getchar() will return that non-whitespace character.
+    printf("The next non-whitespace character is: '%c'\n", getchar());
+
     return 0;
 }
 
@@ -1729,7 +1746,7 @@ int main(int argc, char **argv){
 
 int find_prime(int num){
     int squareRoot = (int)sqrt(num);
-    for(int i = 3; i < squareRoot; i +=2){
+    for(int i = 3; i <= squareRoot; i +=2){
         if((num % i) == 0) { return 1; }
     }
     return 0;
@@ -1794,7 +1811,6 @@ int main() {
     FILE *fp = NULL;
     char wordsbuff[MAX_SIZE];
 
-    fp = fopen("file.txt", "r");
     if ((fp = fopen("data.txt", "a+")) == NULL){
         fprintf(stderr, "Can't open file...\n");
         exit(1);
@@ -1816,7 +1832,7 @@ int main() {
     puts("File contents");
     rewind(fp); //sets cursor to beginning of the file
 
-    while(fscanf(fp,"%s%", wordsbuff) == 1){
+    while(fscanf(fp,"%s", wordsbuff) == 1){
         puts(wordsbuff);
     }
 
@@ -1839,7 +1855,7 @@ int main() {
     FILE *fp = NULL;
     char wordsbuff[MAX_SIZE];
 
-    fp = fopen("file.txt", "r");
+    fp = fopen("data.txt", "r");
 
     //while not equal to end of file, store words in wordsbuff (fscanf uses spaces as separator, not line breaks)
     while(fscanf(fp, "%s", wordsbuff) != EOF){
@@ -1884,10 +1900,9 @@ int main(){
 #include <stdlib.h>
 
 int main(){
-   while (putchar(getchar())) ;
-
+   while (putchar(getchar()));
    return 0;
-}
+} 
 
 ==> ../../section_10/stringfunctions/challenge1.c <==
 #include <stdio.h>
@@ -1896,7 +1911,7 @@ int main(){
 
 #define LINE_MAX 256
 
-int has_ch(char ch, const char* line);
+//int has_ch(char ch, const char* line);
 
 int main(int argc, char **argv){
     char linebuf[LINE_MAX];
@@ -1925,14 +1940,13 @@ int main(int argc, char **argv){
     return 0;
 }
 
-int has_ch(char ch, const char* line){
-    while(*line)
-        if(ch == *line++)
-            return 1;
-
-    return 0;
-}
-
+//int has_ch(char ch, const char* line){
+//    while(*line)
+//        if(ch == *line++)
+//            return 1;
+//
+//    return 0;
+//}
 
 ==> ../../section_10/stringfunctions/fgets.c <==
 #include <stdio.h>
@@ -1984,7 +1998,6 @@ int main(){
     return 0;
 }
 
-
 ==> ../../section_10/stringfunctions/getline.c <==
 #include <stdio.h>
 #include <stdlib.h>
@@ -2002,11 +2015,10 @@ int main(){
     }
 
     printf("Type something :");
-    characters = (&b,&bufsize,stdin);
+    characters = getline(&b,&bufsize,stdin);
      
     printf("%zu characters were read.\n",characters);
     printf("You typed: '%s'\n",buffer);
-
 
     return 0;
 }
@@ -2022,9 +2034,7 @@ int main(){
     puts(string);
 
     return 0;
-
 }
-
 
 ==> ../../section_11/recursion/challenge1.c <==
 #include <stdio.h>
