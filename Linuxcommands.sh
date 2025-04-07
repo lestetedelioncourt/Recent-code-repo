@@ -2662,3 +2662,362 @@
 # GPIO debugging
  232. vcdbg log msg  # shows gpioman log details
  233. cat /boot/config-`uname -r` | grep GPIO   # shows gpio config optons
+  # Software interrupts must be registered before the kernel can execute them. open_softirq is used for associating the softirq instance with the corresponding bottom half routine
+	>> void open_softirq(int nr, void (*action)(struct softirq_action *))
+	>> {
+	>>         softirq_vec[nr].action = action;
+	>> }
+    # An example of where it is called is in the network subsystem
+	<net/core/dev.c>
+	>> open_softirq(NET_TX_SOFTIRQ, net_tx_action);
+	>> open_softirq(NET_RX_SOFTIRQ, net_rx_action);
+    # The kernel maintains a per-CPU bitmask indicating which softirqs need processing at any given time
+    >> irq_stat[smp_processor_id].__softirq_pending
+    # Drivers can signal the execution of soft_irq handlers using a function:
+		>> raise_softirq(). 
+	# This function takes the index of the softirq as argument
+  	>> void raise_softirq(unsigned int nr)
+  	>> {
+  	>>         unsigned long flags;
+  	>> 
+  	>>         local_irq_save(flags);
+  	>>         raise_softirq_irqoff(nr);
+  	>>         local_irq_restore(flags);
+  	>> }
+	# local_irq_save 		--> Disables interrupts on the current processor where code is running
+	# raise_softirq_irqoff 	--> sets the corresponding bit in the local CPUs softirq bitmask to mark the specified softirq as pending
+	# local_irq_restore	--> Enables the interrupts
+	# raise_softirq_irqoff if executed in non-interrupt context, will invoke wakeup_softirqd(), to wake up, if necessary the ksoftirqd kernel thread of that local CPU
+  # softirqs are declared statically at compile time via an enum in <linux/interrupt.h>. Creating a new softirq includes adding a new entry to this enum - the index is used by the kerneel as priority.
+  # softirqs with the lowest numerical priority (enum index) execute before those with a higher numerical priority. Insert the new entry dependng on the priority you want to give it
+    # soft irq is registered at runtime via open_softirq(). It takes two parameters:
+		# a) Index
+		# b) Handler Function
+  # To mark it pending, so it is run at the next invocation of do_softirq(), call raise_softirq(). Softirqs are most often raised from within interrupt handlers
+    # Softirq handlers run with interrupys enabled and cannot sleep
+	# While a handler runs, softirqs on the current processor are disabled, another processor however can execute another softirq
+	# If the same softirq is raised again while it is executing, another processor can run it simultaneously, which means any shared data needs proper locking
+ 	# most softirq handlers resort to per-processor data (data unique to each processor and thus not requiring locking), and other tricks to avoid explicit locking and provide excellent scalability
+
+# GPIO debugging
+ 232. vcdbg log msg  # shows gpioman log details
+ 233. cat /boot/config-`uname -r` | grep GPIO   # shows gpio config optons
+ 
+ #  Important Points related to softirqs
+ # -------------------------------------
+ # 1. Compile Time:
+ # 	Declared at compile time in an enumerator
+ # 	Not suitable for linux kernel modules
+ # 2. Execution:
+ # 	Executed as early as possible
+ # 		After return of a top handler and before return to a system call
+ # 	This is achieved by giving a high priority to the executed softirq handlers
+ # 3. Parallel:
+ # 	Softirqs can run in parallel
+ # 	Each processor has its own softirq bitmap
+ # 	One softirq cannot be scheduled twice on the same processor
+ # 	One softirq may run in parallel on other
+ # 4. Priority:
+ # 	Kernel iterates over the softirq bitmap, least significant bit (LSB) first, and execute the associated
+ # 	softirq handlers
+ # 	
+ # ksoftirqd
+ # ============
+ # Softirqs are executed as long as the processor-local softirq bitmap is set.
+ # Since softirqs are bottom halves and thus remain interruptible during execution, 
+ # the system can find itself in a state where it does nothing else than 
+ # 	serving interrupts and 
+ # 	softirqs
+ # incoming interrupts may schedule softirqs what leads to another iteration over the bitmap.
+ # Such processor-time monopolization by softirqs is acceptable under high workloads (e.g., high IO or network traffic), but it is generally undesirable for a longer period of time since (user) processes cannot be executed.
+ # 
+ # Solution to above problem by kernel
+ # ======================================
+ # After the tenth iteration(MAX_SOFTIRQ_RESTART) over the softirq bitmap, the kernel schedules the so-called ksoftirqd kernel thread, which takes control over the execution of softirqs.
+ # Each processor has its own kernel thread called ksoftirqd/n, where n is the number of the processor
+ # This processor-local kernel thread then executes softirqs as long as any bit in the softirq bitmap is set.
+ # The aforementioned processor-monopolization is thus avoided by deferring softirq execution into process context (i.e., kernel thread), so that the ksoftirqd can be preempted by any other (user) process.
+ 235. ps -ef | grep ksoftirqd
+ # The spawn_ksoftirqd function starts these threads.
+ # It is called early in the boot process.
+ # 
+ # > static __init int spawn_ksoftirqd(void)
+ # > {
+ # >         cpuhp_setup_state_nocalls(CPUHP_SOFTIRQ_DEAD, "softirq:dead", NULL,
+ # >                                   takeover_tasklets);
+ # >         BUG_ON(smpboot_register_percpu_thread(&softirq_threads));
+ # > 
+ # >         return 0;
+ # > }
+ # > early_initcall(spawn_ksoftirqd);
+ #  
+ # File: kernel/softirq.c
+ # Each ksoftirqd/n kernel thread runs the run_ksoftirqd()
+ #  
+ # > static void run_ksoftirqd(unsigned int cpu)
+ # > {
+ # >         local_irq_disable();
+ # >         if (local_softirq_pending()) {
+ # >                 /*
+ # >                  * We can safely run softirq on inline stack, as we are not deep
+ # >                  * in the task stack here.
+ # >                  */
+ # >                 __do_softirq();
+ # >                 local_irq_enable();
+ # >                 cond_resched();
+ # >                 return;
+ # >         }
+ # >         local_irq_enable();
+ # > }
+
+ # If a softirq shares data with user context, you have two problems.
+	# the current user context can be interrupted by a softirq
+	# the critical region could be entered from another CPU
+ # The solution to the first problem is a function void local_bh_disable() which disables softirq and tasklet processing on the local processor. void local_bh_enable() reverses this action, but these 
+ # calls can be nested and only the final call to local_bh_enable() will enable bottom halves, thus the two functions have to be called an equal number of times.
+ # In terms of locking between the user context and softirqs, spin_lock_bh() disables softirqs on the cpu then grabs the lock, spin_unlock_bh() release lockk and enable softirqs
+
+ # Tasklets are a boottom half mechanism built on top of softirqs. Handlers of tasklets are executed by softirqs. They are implemented on top of softirqs and are represented by two softirqs, "HI_SOFTIRQ"
+ # and TASKLET_SOFTIRQ. The only difference between these types is that HI_SOFTIRQ tasklets, run prior to the TASKLET_SOFTIRQ based tasklets. The state field of the tasklet_struct can be either zero
+ # TASKLET_STATE_SCHED or TASKLET_STATE_RUN. TASKLET_STATE_SCHED indicates a tasklet that is scheduled to run, and TASKLET_STATE_RUN indicates a tasklet that is running. TASKLET_STATE_RUN is only
+ # used on multiprocessor machines to protect tasks from being run concurrently on different processors. the "count" field of tasklet_struct is used as a reference count for the tasklet. if it
+ # is non-zero the tasklet is disabled and cannot run. If it is zero the tasklet is enable and can run if pending. Tasklets can be ddeclared by either static initialization via the macros
+   # DECLARE_TASKLET(name, func, data)
+   # DECLARE_TASKLET_DISABLED(name, func, data)
+   ^^^ The above macros have been changed to 
+   # DECLARE_TASKLET(name, callback)
+   # DECALRE_TASKLET_DISABLED(name, callback)
+   and
+   # DECLARE_TASKLET_OLD(name, func)
+   # DECLARE_TASKLET_DISABLED_OLD(name, func)
+   This change has been made to improve type safety as there was no proper type-checking for casting within the callback function, an to mitigate potential buffer overflow attacks, which could
+   overwrite the callback pointer or the data field.
+   
+ # Both of the above macros create a struct tasklet_struct with the given name. When the tasklet is scheduled, the given function func is executed and passed data as a reference count. The main difference
+ # between the initialised structs is the initial reference count (^^^see above). A tasklet can also be initialized dynamicall with the function tasklet_init:
+   # void tasklet_init(struct tasklet_struct *t, void (*func)(unsigned long), unsigned long data);
+ # The kernel mains two per-CPU linked lists for scheduling tasklets, both can be found in ernel/softirq.c and are linked lists of tasklet_struct structures, they are initialised with
+ # either tasklet_vec or tasklet_hi_vec as the 2nd parameter and tasklet_head as the first parameter. tasklet_hi_vec repreesents high priority tasklets run by HI_SOFTIRQ and regular tasklets run 
+ # by TASKLET_SOFTIRQ. Tasklets are scheduled via tasklet_schedule() and tasklet_hi_schedule(), which operate in the same way, the difference being using either tasklet_vec or tasklet_hi_vec and using
+ # TASKLET_SOFTIRQ and HI_SOFTIRQ. Thes steps performed are:
+   # Check whether tasklet's state is TASKLET_STATE_SCHED. If it is, taskle is already scheduled to run and the function can immediately return
+   # Call __tasklet_schedule()
+   # Save the state of the interrupt system, then disable local interrupts (including softirqs) by calling local_irq_save.
+   # Add tasklet to tasklet_vec or tasklet_hi_vec linked list, which is unique for ech processor in the system
+   # Raise TASKLET_SOFTIRQ or HI_SOFTIRQ so do_sofgtirq() executes the tasklet in the near future
+   # Restore interrupts to their previous state and return
+ # softirq_init function calls open_softirq with tasklet_action/tasklet_hi_action args. Steps performed by tasklet softirq handlers tasklet_action() & tasklet_hi_action() are (in tasklet_action_common):
+   # Diswable local interrupt delivery and stores the tasklet_vec or tasklet_hi_vec for the processor in a local variable
+   # Clears the list for the processor by setting it to NULL
+   # Enable loal interrup delivery
+   # loops over every pendingt tasklet in the stored list
+   # Checks for a zero count value to ensure the tasklet is not disabled, if disabled skip to next tasklet
+   # Run the tasklet handler function/callback
+   # Repeat for nex pending tasklet until no more tasklets left to run
+ # the kernel avoids running the same tasklet on multiple processor sby using the functions tasklet_trylock and tasklet_unlock. trylock will check whether TASKLET_STATE_RUN is set or not, and set it
+ # if not, and tasklet_unlock will clear the TASKLET_STATE_RUN bit if it is set. You cannot sleep in the tasklet handler function
+ # softirqs are allocated at compile time, whereas tasklets can be dynamically registered. Softirqs can be run on different processors, whereas the same tasklet will not be scheduled on different procesors.
+ # workwqueues allow kernel functions to be activated and later executed by special kernel threads called worker threads. These run in process context. It's the only choice when you need to sleep in
+ # your bottom half, i.e. I?O data, mutexes/semaphores and all other functions that internally sleep. implementation is found in kernel/workqueue.c, documentation is found in Documentation/core-api/workqueue.rst
+ # A work queue conssists of:
+   # work item: struct which holds the pointer to the fucntion to be executed asynchronously
+   # work queue: a queue of work items
+ # Drivers add work items onto the work queue. And worker threads are special purpose threads that execute functions from the queeue, one after the other. If no work is queued, the worker threads 
+ # become idle. Can be found via:
+ 236. ps -ef | grep kworker
+ # Worker Pools: A thread pool that is used to manage the worker threads. There are two work pools, one for normal work items, the other for high-priority ones, extra worker-pools to serve
+ # work items queued on unbound workqueues
+ # create_worker is the function where kthreads are created. Legacy workqueues had dedicated threads associated with them. In new workqueues there are no threads dedicated to any specific workqueue
+ # Instead there is a global pool of threads (worker pool) attached to each CPU in the system. When a work item is queued, it will be passed to one of the global threads at the right time.
+ # Important data structures are: 
+   # workqueue -- struct workqueue_struct 
+   # work items -- struct work_struct
+   # > struct work_struct{
+     >   atomic_long_t data;   
+     >   struct list_head entry;
+	 >   work_func_t func;
+	 > };
+   # 'func' here is a pointer that takes the address of the deferred routine -
+   # typedef void (*work_func_t)(struct work_struct *work);
+ # Initialization of Work Items. The header file is: <linux/workqueue.h>, 
+ # Static initialization: declare and initialize a work item
+   # DECLARE_WORK(name, void (*function)(void *), void *data);
+ # Dynamic initialization: initialize an already declared work item  
+   # INIT_WORK(struct work_struct *work, void(*function)(struct work_struct*)); 
+ # API's to queue work : This function enqeues the given work item on the local CPU workqueue, but does not guarantee its exectution on it,
+   # > bool queue_work(struct workqueue_struct *wq, struct work_struct *work);
+ # Once queued, the function associated with the work item is executed on any of the available CPUs by the relevant kworker thread. To queue on a specific CPU:
+   # > bool queue_work_on(int cpu, struct workqueue_struct *wq, struct work_struct *work)  # where cpu: CPU number to execute work on. This returns false if work is already on a queue, true otherwise
+ # Workqueue API provides two types of function interfaces to
+   # a) Create own workqueue
+   # b) Use System Workqueue 
+          > extern struct workqueue_struct *system_wq;  # located in header file <linux/workqueue.h>, the system workqueue is shared by all kernel subsystems and services 
+ # There are inline functions associated witjh workqueues:
+   # schedule_work - puts work task in a global workqueue
+   # > static inline bool schedule_work(struct work_struct *work)
+   # > {
+   # >    return queue_work(system_wq, work);
+   # > }
+   # schedule_work_on - puts work task on a specific cpu
+   # > static inline bool schedule_work_on(int cpu, struct work_struct *work)
+   # > {
+   # >     return queue_work_on(cpu, system_wq, work);
+   # > }
+ # Usually work is enclosed in a large structure (for driver private data)
+ # If you want your bottom half to run in the process context, there is only one option which is workqueues
+ # Work items cannot be enabled/disabled, but they can be canceled by calling cancel_work-sync()
+   # bool cancel_work_sync(struct work-sturuct *work0;
+ # The call only stops the subsequent execution of the work item. If the work item is already running at the time of the call, it will continue to run. returns true - if the work was pending, and false otherwise
+ # In order to flush_work:
+   # > bool flush_work(struct work_struct *work)  - waits for work to finish executing the last queueing instance. returns true if waited for the work to finish execution, false if already idle
+ # The workqueue API allows you to queue work tasks whose execution is guaranteed to be delayed at least until a specified timeout. This is achieved by binding a work task with a timer, which
+ # can be initialized with an expiruy timeout, until which the work task is not scheduled into thequeue
+ # > struct delayed_work {
+ # >     struct work_struct work;
+ # >     struct timer_list timer;
+ # >
+ # >     /* target workqueue and CPU ->timer uses to queue ->work */
+ # >     struct workqueue_struct *wq;
+ # >     int cpu;
+ # > };
+   # timer is an instance of a dynamic work descriptor, which is initialized with the expiry interval and armed when scheduling a work task
+ # Initialization methods are either static or dynamic
+   # Ststaic - DECLARE_DELAYED_WORK(name, void(*function)(struct work_struct*));
+   # Dynamic - INIT_DELAYED_WORK(struct delayed_work *work, void(*function)(struct work_struct*));
+ # Scheduling is done via either:
+   # bool schedule_delayed_work(struct delayed_work *dwork, unsigned long delay);
+   # bool schedule_delayed_work_on(int cpu, struct delayed_work *dwork, unsigned long delay);
+     # the delay in each case needs to be provided in jiffies
+ # To cancel the delayed timer and queue any pending work for immediate execution:
+   # bool flus_delayed_work(struct dealyed_work *dwork);
+ # To cancel delayed work the function prototype is:
+   # bool cance;l_delayed_work(struct delayed_work *dwork);
+ # Differences between Tasklets, softirqs and Workqueues
+ # ========================================================
+ #                 ------------------------------------------------------------------------------
+ #                 Softirqs                        Tasklets                        Workqueues
+ #                 -----------------------------------------------------------------------------
+ # Execution       Interrupt context               Interrupt Context               Process Context
+ # Context
+ # ----------------------------------------------------------------------------------------------------------------
+ # Reentrancy      Yes(can run simultaneously      Cannot run same tasklets        Yes (can run simultaneously
+ #                 on different CPUs)              on different CPUs. Different    on different CPUs)
+ #                                                 CPUs can run different tasklets
+ # --------------------------------------------------------------------------------------------------------------
+ # Sleep           Cannot sleep                    Cannot Sleep                    Can Sleep
+ # --------------------------------------------------------------------------------------------------------------
+ # Preemption      Cannot be preempted/scheduled   Cannot be preempted/scheduled   May be preempted/scheduled
+ # -----------------------------------------------------------------------------------------------------------
+ # Ease of use     Not easy to use                 Easy to use                     Easy to use
+ # -------------------------------------------------------------------------------------------------------------
+ # When to use     If deferred work will not       If deferred work will not go    If deferred work needs to sleep
+ #                 go to sleep and have crucial    to sleep
+ #                 scalability or speed
+ #                 requirements
+ # ----------------------------------------------------------------------------------------------------------------
+ # kworker processes are kernel worker processses, found in 'Documentation/admin-guide/kernel-per-CPU-kthreads.txt', Naming convention: kworker/%u:%d%s (cpu, id, priority). Theyb can be of two types:
+   # CPU Bound  : It is named as kworker/<corenumber>:<id.
+   # CPU Unbound: It is named as kworker/u,Poolnumber>:<id>
+ 237. ps -ef | grep kworker
+		> root           8       2  0 15:54 ?        00:00:00 [kworker/0:0H-kblockd]  -> running on CPU0 and threadID 0 andd is high priority bounded
+		> root          24       2  0 15:54 ?        00:00:00 [kworker/1:0H-events_highpri]
+		> root          30       2  0 15:54 ?        00:00:00 [kworker/2:0H-events_highpri]
+		> root          36       2  0 15:54 ?        00:00:00 [kworker/3:0H-kblockd]
+		> root          54       2  0 15:54 ?        00:00:00 [kworker/2:1-events]
+		> root         104       2  0 15:54 ?        00:00:00 [kworker/2:1H-kblockd]
+		> root         111       2  0 15:54 ?        00:00:00 [kworker/u8:2-events_power_efficient] 
+		> root         116       2  0 15:54 ?        00:00:00 [kworker/u8:3-events_unbound] -> u designates a spedcial CPU, the unbound cu, meaning that the kthread is currently unbound, runs on any cpu
+		> root         119       2  0 15:54 ?        00:00:00 [kworker/1:1H-kblockd]
+		> root         124       2  0 15:54 ?        00:00:00 [kworker/3:1H-kblockd]
+		> root         125       2  0 15:54 ?        00:00:01 [kworker/2:2-events]
+		> root         137       2  0 15:54 ?        00:00:00 [kworker/u9:0]
+		> root         197       2  0 15:54 ?        00:00:00 [kworker/0:2-events]
+		> root         198       2  0 15:54 ?        00:00:00 [kworker/0:1H-kblockd]
+		> root         801       2  0 15:54 ?        00:00:00 [kworker/0:3-cgroup_destroy]
+		> root        3191       2  0 16:00 ?        00:00:00 [kworker/3:0-events]
+		> root        3203       2  0 16:00 ?        00:00:00 [kworker/1:0]
+		> root        4411       2  0 16:12 ?        00:00:00 [kworker/3:1-events]
+		> root        4412       2  0 16:12 ?        00:00:00 [kworker/1:1-events]
+		> root        4413       2  0 16:13 ?        00:00:00 [kworker/u8:0-ext4-rsv-conversion]
+		> root        5866       2  0 16:31 ?        00:00:00 [kworker/0:0]
+ # taskset is used to set or retrieve the CPU affinity of a running process given its PID or to launch a new COMMAND with a given CPU affinity
+ 238. taskset -p 104 # is in hex, 
+       #cpu0=bitmask 0x1/0b00000001, cpu1=bitmask 0x2/0b00000010,cpu2=bitmask 0x4/0b00000100, cpu3 = biitmask 0x8//0b00001000, cpu4 = bitmask 0x10/0b00010000, cpu5 = bitmask 0x20/0b00100000, etc...
+        > pid 104's current affinity mask: 4
+ # For a 4 core system, unbounded kthread affinity mask is f. For a 6 core cpu, unbvounded ktrhread affinity mask is 3f
+ 239. cat /proc/$(pid_of_kworker)/stack   # will return what any kworker is doing
+ # Timig of the execution of work items scheduled onto the global workqueue is not predictable.. one log-running work item can always cause indefinite delays for the rest. 
+ # Alternatively the workqueue framework allows the allocatiion of dedicated workqueues
+   # struct workqueue_struct *alloc_workqueue(const char *fmt, unsigned int flags, int max_active, ...);  -> this function allocates a workqueu
+     # The Paramteers are: 
+	   # fmt: printf format for the name of the workqueue
+	   # flags: control how work items are assigned execeution resources, scheduled and executed
+	   # max_active: This parameter klimits the number of work items which can be executed simultaneously from this workwueue on any given CPU
+	   # ... == (remaining args): args for @fmt
+ # destroy a workqueue	
+ # Dedicated workqueues - Timing of the execution of work items scheduled onto the global workqueue is not predictable, on long-running work-item can cause delays for the rest.
+ # lternatively the workqueue framework allows for the allocation of dedicated workqueues
+   # > struct workqueue_struct* alloc_workwqueue(const char *fmt, unsigned int flags, int max_active, ...);  # This function allocates a workqueue, returns workqueue_struct*
+   # The paraameters in the above function are:
+     # fmt: printf format for the name of the workqueue/
+     # flags: control how work items are asigned execution resources, scheduled and sorted
+     # max_active: This parameter limits the number of work items which can be executed simultaneously from this workqueue on any given CPU
+     # remaining args: args for @fmt
+ # destroying a workqueue	 
+   # > void destroy_workqueue(struct workqueue_struct *wg);  # function to safely terminate a workkqueue; all work currently pending will be done first
+ # WQ_UNBOUND is a flag that can be passed in to alloc_workqueue. Workqueues created with this flag are managed by kworker-pools that are not bound to any specific CPU.
+   # Scheduled work items to this queue can be run on any processor, and work-items in this pool are executed as soon as possible by kworker pools
+ # WQ_HIGHPRI is a flag used to mark a workqueue as high priority. It is queued to the high-pri worker-pool of the target cpu. Highpri worker-pools are served by worker threads with wlevated nice level
+ # Nice value ranges from -20 (highest priority level) to 19 (lowest priority level). The default value is 0. T check the nice value
+ 240. ps ax -o pid,ni,cmd  # prints output of pid, nice value and process name.
+ # The definition on the inline to_delayed_work function can be found in the header file <linux/workqueue.h>, and is as follows:
+ # > static inline struct delayed_work *to_delayed_work(struct work_struct *work)
+ # > {
+ # >     return container_of(work, struct delayed_work, work);
+ # > }
+ # To perform tasks periodically, can requeue the work from the work function itself (recursive call, at the end of the function, discarding previous stack frame)
+ # A given workqueue can be made visible in the sysfs filesystem by passing the WQ_SYSFS to that wokqueue's alloc_workqueue()
+ 241. ls /sys/devices/virtual/workqueue
+   > drwxr-xr-x 3 root root    0 Apr  2 11:05 blkcg_punt_bio
+   > -rw-r--r-- 1 root root 4096 Apr  2 16:47 cpumask
+   > drwxr-xr-x 2 root root    0 Apr  2 16:47 power
+   > drwxr-xr-x 3 root root    0 Apr  2 11:05 scsi_tmf_0
+   > drwxr-xr-x 3 root root    0 Apr  2 11:05 scsi_tmf_1
+   > drwxr-xr-x 3 root root    0 Apr  2 11:05 scsi_tmf_2
+   > -rw-r--r-- 1 root root 4096 Apr  2 11:05 uevent
+   > drwxr-xr-x 3 root root    0 Apr  2 11:05 writeback
+ 242. cat /sys/devices/virtual/workqueue/cpumask
+   > f  # this means workqueues can execute on any cpu as this mask covers all cpus (on the current system)
+ 243. echo 1 > /sys/devices/virtual/workqueue/cpumask   # will only execute on cpu0
+ # WQ_SYSFS flag causes "my_queue" to show at "ls /sys/devices/virtual/workqueue/" if used in "my_queue = alloc_workqueue("my_queue", WQ_UNBOUND | WQ_SYSFS, 1);"
+ 244. ls /sys/devices/virtual/workqueue/my_queue
+   > cpumask  max_active  nice  numa  per_cpu  pool_ids  power  subsystem  uevent
+ 245. cat /sys/devices/virtual/workqueue/my_queue/cpumask # WQ_UNBOUND flag or a mask covering all processors
+   > f  
+ # queue inherits mask from /sys/devices/virtual/workqueue/cpumask so if cpumask there set to 1, despite WQ_UNBOUND is bound to cpu0
+ 246. cat /sys/devices/virtual/workqueue/my_queue/nice   # using WQ_UNBOUND flag, set nice level to 0
+   > 0
+ 247. cat /sys/devices/virtual/workqueue/my_queue/pool_ids    # current->comm == kworker/u10:0
+   > 0:10
+ # Other flags that can be passed to alloc_workqueue() are: 
+   # WQ_FREEZABLE: A freezable wq participates in the freeze phase of the system suspend operations. This flag can be used in the context of power management and file systems, and is especially important
+     # for creating the system image in the suspend phase. Workqueues which can run tasks as part of the suspend/resume process should not have this flag set. 
+	 # You can find more information abour this topic in Documentation/power/freezing-of-tasks.txt
+   # WQ_MEM_RECLAIM: All workqueues which might be used in the memory reclaim paths must have this flag set. The workqueue is guaranteed to have at least one worker, a so-called rescuer thread, regardless
+     # of memory pressure. If we have the following scenario where 
+	   # Workqueue W has 3 items A, B and C:
+       # A does some work and then waits until C has finished some work.
+       # Afterwards, B does some GFP_KERNEL allocations and blocks as there is not enough memory available.
+       # As a result, C cannot run since B still occupies W's worker
+	   # Another worker cannot be created because there is not enough memory
+	   # A pre-allocated rescuer thread can resolve this problem, by executing C, which then wakes up A
+	   # B will continue as soon as there is enough available memory to allocate
+   # WQ_CPU_INTENSIVE: Tasks on this workqueue can be expected to use a fair amount of CPU time. In other words, runnable CPU intensive work items will not prevent other work items in the same worker pool
+     # from starting execution
+  # void flush_workqueue(struct workqueue_struct *wq);  -  this functions sleeps until all work items were queued on entry have been finished, is typically used in driver shutdown handlers.
+  # WQ_MAX_UNBOUND_PER_CPU - number of unbound workqueues that can be associated with a cpu
+  # WQ_UNBOUND_MAX_ACTIVE - total number of unbound workqueues
+  # "#define alloc_ordered_workqueue(fmt, flags, args...) - allocates an ordered workqueue, which executes at most one work item at any given time queued order. They are implemented as unbound workqueues
+  # with max_active of one
+	   
+	
