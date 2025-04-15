@@ -1,0 +1,27 @@
+gnuplot commands
+
+Plotting different types of graph visualiztion:
+
+gnuplot> p 'OutputSignals/output_imx.dat'
+gnuplot> p 'OutputSignals/output_imx.dat' with lines
+gnuplot> p 'OutputSignals/output_imx.dat' with lines lc rgb 'red'
+gnuplot> p 'OutputSignals/output_imx.dat' with impulse lc rgb 'red'
+gnuplot> p 'OutputSignals/output_imx.dat' with dot lc rgb 'red'
+
+Multiplot graph:
+
+gnuplot> reset
+gnuplot> set size 1,1
+gnuplot> set multiplot
+multiplot> set size 0.5,0.5
+multiplot> set origin 0,0.5
+multiplot> plot 'InputSignal/input_signal.dat' with lines lc rgb 'black'
+multiplot> set origin 0,0
+multiplot> plot 'OutputSignals/output_rex.dat' with lines lc rgb 'red'
+multiplot> set origin 0.5,0
+multiplot> plot 'OutputSignals/output_imx.dat' with lines lc rgb 'red'
+
+
+
+Frequency spectrum of discrete signal is periodic, so same as frequencies between -N/2 and 0. In term of complex DFT a complex frequency with an amplitude of 1/2 combines with a negatve frequency with a value of 1/2 to generate a cosine wave with an amplitude of 1, wheras real DFT has a scaling factor of 2, which will mean a cosine wave with an ampliude of 1, generates an amplitude of 1 in the frequency bin
+
